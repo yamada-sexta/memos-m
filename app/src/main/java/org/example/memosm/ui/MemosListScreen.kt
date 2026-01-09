@@ -692,64 +692,63 @@ fun MemoItem(
                                 contentScale = ContentScale.Crop
                             )
                         } else {
-                                Card(
+                            Card(
+                                modifier = Modifier
+                                    .size(width = 200.dp, height = 100.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(
                                     modifier = Modifier
-                                        .size(width = 200.dp, height = 100.dp)
-                                        .clip(RoundedCornerShape(8.dp)),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                        .fillMaxSize()
+                                        .padding(8.dp),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(8.dp),
-                                        verticalArrangement = Arrangement.Center,
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(
-                                            text = attachment.filename,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 2,
-                                            modifier = Modifier.padding(bottom = 4.dp)
-                                        )
-                                        Text(
-                                            text = attachment.displayType,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    Text(
+                                        text = attachment.filename,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 2,
+                                        modifier = Modifier.padding(bottom = 4.dp)
+                                    )
+                                    Text(
+                                        text = attachment.displayType,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = memo.displayTime ?: "UNKNOW",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp)
                 ) {
-                    Text(
-                        text = memo.displayTime ?: "UNKNOW",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.padding(start = 8.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = getVisibilityIcon(memo.visibility),
-                                contentDescription = memo.visibility,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Icon(
+                            imageVector = getVisibilityIcon(memo.visibility),
+                            contentDescription = memo.visibility,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
