@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -26,7 +25,7 @@ import kotlinx.coroutines.launch
 import org.example.memosm.model.Memo
 import org.example.memosm.viewmodel.MemosViewModel
 
-@OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun ExploreScreen(viewModel: MemosViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,86 +54,85 @@ fun ExploreScreen(viewModel: MemosViewModel) {
         }
     }
 
-    SharedTransitionLayout {
-        NavigableListDetailPaneScaffold(
-            navigator = navigator,
-            listPane = {
-                val isVisible = navigator.scaffoldValue[ListDetailPaneScaffoldRole.List] == PaneAdaptedValue.Expanded
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(300)),
-                    exit = fadeOut(tween(300))
-                ) {
-                    ExploreMemosListPane(
-                        viewModel = viewModel,
-                        sharedTransitionScope = this@SharedTransitionLayout,
-                        animatedVisibilityScope = this,
-                        onMemoClick = { memo ->
-                            focusManager.clearFocus()
-                            scope.launch {
-                                memo.name?.let { name ->
-                                    navigator.navigateTo(
-                                        ListDetailPaneScaffoldRole.Detail, MemoKey(name)
-                                    )
-                                }
-                            }
-                        })
-                }
-            },
-            detailPane = {
-                val selectedMemo = uiState.selectedMemo
-                val isListAndDetailVisible = navigator.scaffoldValue.primary != navigator.scaffoldValue.secondary
-                val isVisible = navigator.scaffoldValue[ListDetailPaneScaffoldRole.Detail] == PaneAdaptedValue.Expanded
-
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = fadeIn(tween(300)),
-                    exit = fadeOut(tween(300))
-                ) {
-                    AnimatedContent(
-                        targetState = selectedMemo,
-                        transitionSpec = {
-                            if (isListAndDetailVisible) {
-                                (slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn())
-                                    .togetherWith(slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut())
-                            } else {
-                                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
-                            }
-                        },
-                        label = "ExploreDetailAnimation"
-                    ) { memo ->
-                        if (memo != null) {
-                            MemoDetailPane(
-                                memo = memo,
-                                comments = uiState.selectedMemoComments,
-                                isLoadingComments = uiState.isLoadingComments,
-                                token = uiState.token,
-                                showBackButton = navigator.canNavigateBack(),
-                                sharedTransitionScope = this@SharedTransitionLayout,
-                                animatedVisibilityScope = this@AnimatedContent,
-                                onBack = {
-                                    focusManager.clearFocus()
-                                    scope.launch {
-                                        navigator.navigateBack()
-                                    }
-                                })
-                        } else {
-                            MemoDetailPlaceholder()
+    NavigableListDetailPaneScaffold(
+        navigator = navigator,
+        listPane = {
+            ExploreMemosListPane(
+                viewModel = viewModel,
+                onMemoClick = { memo ->
+                    focusManager.clearFocus()
+                    scope.launch {
+                        memo.name?.let { name ->
+                            navigator.navigateTo(
+                                ListDetailPaneScaffoldRole.Detail, MemoKey(name)
+                            )
                         }
+                    }
+                })
+        },
+        detailPane = {
+            val selectedMemo = uiState.selectedMemo
+            // Tablet mode: both list and detail are visible side-by-side
+            val isTabletMode = navigator.scaffoldValue.primary != navigator.scaffoldValue.secondary
+            val isVisible = navigator.scaffoldValue[ListDetailPaneScaffoldRole.Detail] == PaneAdaptedValue.Expanded
+
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = if (isTabletMode) {
+                    // Tablet: slide from right
+                    slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) + fadeIn(tween(300))
+                } else {
+                    // Mobile: slide from bottom
+                    slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(tween(300))
+                },
+                exit = if (isTabletMode) {
+                    // Tablet: slide to right
+                    slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) + fadeOut(tween(300))
+                } else {
+                    // Mobile: slide to bottom
+                    slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(tween(300))
+                }
+            ) {
+                AnimatedContent(
+                    targetState = selectedMemo,
+                    transitionSpec = {
+                        if (isTabletMode) {
+                            // Tablet: slide from right when changing selection
+                            (slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) + fadeIn())
+                                .togetherWith(slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(300)) + fadeOut())
+                        } else {
+                            // Mobile: simple fade for memo changes (main animation is on visibility)
+                            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                        }
+                    },
+                    label = "ExploreDetailAnimation"
+                ) { memo ->
+                    if (memo != null) {
+                        MemoDetailPane(
+                            memo = memo,
+                            comments = uiState.selectedMemoComments,
+                            isLoadingComments = uiState.isLoadingComments,
+                            token = uiState.token,
+                            showBackButton = navigator.canNavigateBack(),
+                            onBack = {
+                                focusManager.clearFocus()
+                                scope.launch {
+                                    navigator.navigateBack()
+                                }
+                            })
+                    } else {
+                        MemoDetailPlaceholder()
                     }
                 }
             }
-        )
-    }
+        }
+    )
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun ExploreMemosListPane(
     viewModel: MemosViewModel,
     onMemoClick: (Memo) -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -180,27 +178,17 @@ private fun ExploreMemosListPane(
                     Box(
                         modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center
                     ) {
-                        with(sharedTransitionScope) {
-                            MemoItem(
-                                memo = memo,
-                                user = uiState.users[memo.creator],
-                                token = uiState.token,
-                                isSelected = memo == uiState.selectedMemo,
-                                sharedTransitionScope = sharedTransitionScope,
-                                animatedVisibilityScope = animatedVisibilityScope,
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    onMemoClick(memo)
-                                },
-                                modifier = Modifier
-                                    .widthIn(max = 800.dp)
-                                    .sharedBounds(
-                                        sharedContentState = rememberSharedContentState(key = "memo_${memo.name}"),
-                                        animatedVisibilityScope = animatedVisibilityScope,
-                                        clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(12.dp))
-                                    )
-                            )
-                        }
+                        MemoItem(
+                            memo = memo,
+                            user = uiState.users[memo.creator],
+                            token = uiState.token,
+                            isSelected = memo == uiState.selectedMemo,
+                            onClick = {
+                                focusManager.clearFocus()
+                                onMemoClick(memo)
+                            },
+                            modifier = Modifier.widthIn(max = 800.dp)
+                        )
                     }
                 }
 

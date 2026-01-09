@@ -27,7 +27,7 @@ import coil.request.ImageRequest
 import org.example.memosm.model.Attachment
 import org.example.memosm.model.Memo
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoDetailPane(
     memo: Memo,
@@ -36,8 +36,6 @@ fun MemoDetailPane(
     token: String,
     showBackButton: Boolean,
     onBack: () -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -80,24 +78,12 @@ fun MemoDetailPane(
             ) {
                 // Original memo
                 item(key = "original_${memo.name}") {
-                    with(sharedTransitionScope) {
-                        MemoDetailCard(
-                            memo = memo,
-                            token = token,
-                            isOriginal = true,
-                            modifier = Modifier
-                                .animateItem()
-                                .sharedBounds(
-                                    sharedContentState = rememberSharedContentState(key = "memo_${memo.name}"),
-                                    animatedVisibilityScope = animatedVisibilityScope,
-                                    clipInOverlayDuringTransition = OverlayClip(
-                                        RoundedCornerShape(
-                                            12.dp
-                                        )
-                                    )
-                                )
-                        )
-                    }
+                    MemoDetailCard(
+                        memo = memo,
+                        token = token,
+                        isOriginal = true,
+                        modifier = Modifier.animateItem()
+                    )
                 }
 
                 // Comments section header
