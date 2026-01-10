@@ -207,8 +207,8 @@ private fun MemosListPane(
         }
     }
 
-    LaunchedEffect(shouldLoadMore.value, uiState.isLoading, uiState.nextPageToken) {
-        if (shouldLoadMore.value && !uiState.isLoading && uiState.nextPageToken != null) {
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value) {
             viewModel.loadMore()
         }
     }
