@@ -81,15 +81,18 @@ import org.example.memosm.ui.component.setting.AboutAppCard
 import org.example.memosm.ui.component.setting.AccountEditDialog
 import org.example.memosm.ui.component.setting.AppSettingsCard
 import org.example.memosm.ui.component.setting.SettingsCard
+import org.example.memosm.data.DataStoreManager
+import org.example.memosm.state.AppSettingsControls
+import org.example.memosm.state.SessionControls
 import org.example.memosm.ui.component.setting.ShortcutsCard
 import org.example.memosm.ui.component.setting.WebhooksCard
-import org.example.memosm.viewmodel.MemosViewModel
-import org.example.memosm.viewmodel.RefreshSource
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ProfileScreen(
-    viewModel: MemosViewModel,
+    sessionControls: SessionControls,
+    appSettingsControls: AppSettingsControls,
+    dataStoreManager: DataStoreManager,
     onLogout: () -> Unit,
     onAddAccount: () -> Unit,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
@@ -139,21 +142,15 @@ fun ProfileScreen(
                 }
             }) { showArchived ->
             if (showArchived) {
-                ArchivedMemosScreen(
-                    viewModel = viewModel,
-                    onBack = { isArchivedVisible = false },
-                    onToggleNavBar = onToggleNavBar,
-                    animatedVisibilityScope = this@AnimatedContent,
-                    modifier = Modifier.sharedBounds(
-                        rememberSharedContentState(key = "archived_container"),
-                        animatedVisibilityScope = this@AnimatedContent,
-                        boundsTransform = { _, _ ->
-                            spring(dampingRatio = 0.8f, stiffness = 380f)
-                        })
-                )
+                // ArchivedMemosScreen needs updating to use flows
+                Box(modifier = Modifier.fillMaxSize()) {
+                     Text("Archived Memos Screen Refactoring Pending", modifier = Modifier.align(Alignment.Center))
+                }
             } else {
                 ProfileListPane(
-                    viewModel = viewModel,
+                    sessionControls = sessionControls,
+                    appSettingsControls = appSettingsControls,
+                    dataStoreManager = dataStoreManager,
                     onLogout = onLogout,
                     onAddAccount = onAddAccount,
                     onShowArchived = { isArchivedVisible = true },
@@ -171,7 +168,9 @@ fun ProfileScreen(
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileListPane(
-    viewModel: MemosViewModel,
+    sessionControls: SessionControls,
+    appSettingsControls: AppSettingsControls,
+    dataStoreManager: DataStoreManager,
     onLogout: () -> Unit,
     onAddAccount: () -> Unit,
     onShowArchived: () -> Unit,
@@ -181,14 +180,11 @@ private fun ProfileListPane(
     isNavBarVisible: Boolean = true,
     listState: LazyListState
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val user = uiState.session.currUser
-    val stats = uiState.session.userStats
-    val shortcuts = uiState.userMemoList.shortcuts
-    val webhooks = uiState.session.webhooks
-    val instance = uiState.session.instanceProfile
-    val userSettings = uiState.session.userSettings
-    val accounts = uiState.accounts
+    val user = sessionControls.state.currUser
+    val stats = sessionControls.state.userStats
+    val instance = sessionControls.state.instanceProfile
+    val userSettings = sessionControls.state.userSettings
+    val accounts = sessionControls.accounts
 
     // Scroll direction tracking for nav bar visibility
     rememberScrollContext(
@@ -201,16 +197,6 @@ private fun ProfileListPane(
         label = "BottomPadding"
     )
 
-    // Double tap refresh logic: scroll to top
-    var lastProcessedTrigger by rememberSaveable { mutableLongStateOf(uiState.refreshTrigger) }
-    LaunchedEffect(uiState.refreshTrigger) {
-        if (uiState.refreshTrigger > lastProcessedTrigger) {
-            if (uiState.refreshSource == RefreshSource.USerMemos || uiState.refreshSource == RefreshSource.Manual) {
-                listState.animateScrollToItem(0)
-            }
-        }
-        lastProcessedTrigger = uiState.refreshTrigger
-    }
 
     var showAccountSwitcher by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
@@ -227,19 +213,7 @@ private fun ProfileListPane(
             onDismiss = { showEditDialog = false },
             onSave = { update ->
                 isSavingProfile = true
-                viewModel.userDelegate.updateUserProfile(
-                    username = update.username,
-                    email = update.email,
-                    displayName = update.displayName,
-                    avatarUrl = update.avatarUrl,
-                    description = update.description,
-                    password = update.password
-                ) { success ->
-                    isSavingProfile = false
-                    if (success) {
-                        showEditDialog = false
-                    }
-                }
+                showEditDialog = false // TODO implementation via flow
             },
             isSaving = isSavingProfile
         )
@@ -250,7 +224,7 @@ private fun ProfileListPane(
         LoginDialog(
             onLoginSuccess = { baseUrl, token ->
                 // Update the account with new credentials
-                viewModel.userDelegate.updateAccountCredentials(account, baseUrl, token)
+                // TODO update
                 accountToEditCredentials = null
                 showAccountSwitcher = false
             }, onDismiss = { accountToEditCredentials = null }, editAccount = account
@@ -265,10 +239,10 @@ private fun ProfileListPane(
             AccountsList(
                 accounts = accounts,
                 onSwitchAccount = {
-                    viewModel.userDelegate.switchAccount(it)
+                    // TODO update
                     showAccountSwitcher = false
                 },
-                onLogoutAccount = { viewModel.userDelegate.removeAccount(it) },
+                onLogoutAccount = { /*TODO*/ },
                 onEditAccount = { account ->
                     accountToEditCredentials = account
                 },
@@ -282,10 +256,8 @@ private fun ProfileListPane(
     }
 
     PullToRefreshBox(
-        isRefreshing = uiState.isRefreshing, onRefresh = {
-            viewModel.fetchUserMemos(refresh = true)
-            viewModel.userDelegate.refreshInstanceSettings()
-            viewModel.userDelegate.refreshUserStats()
+        isRefreshing = false, onRefresh = {
+             sessionControls.fetchCurrentUser()
         }, modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
@@ -307,7 +279,7 @@ private fun ProfileListPane(
 
             item {
                 Box(itemModifier) {
-                    val hostUrl = uiState.session.hostUrl
+                    val hostUrl = sessionControls.state.hostUrl
                     if (user != null) {
                         val rawAvatarUrl = user.avatarUrl
                         val avatarUrl = org.example.memosm.ui.component.resolveResourceUrl(
@@ -315,7 +287,7 @@ private fun ProfileListPane(
                         )
 
                         ProfileHeader(
-                            user = user.copy(avatarUrl = avatarUrl, token = uiState.session.token),
+                            user = user.copy(avatarUrl = avatarUrl, token = sessionControls.state.token),
                             onClick = { showAccountSwitcher = true },
                             onEditClick = { showEditDialog = true })
                     } else {
@@ -331,19 +303,10 @@ private fun ProfileListPane(
                                     username = activeAccount.name ?: "",
                                     displayName = activeAccount.displayName,
                                     avatarUrl = avatarUrl,
-                                    token = uiState.session.token
+                                    token = sessionControls.state.token
                                 ),
                                 onClick = { showAccountSwitcher = true },
                                 onEditClick = { showEditDialog = true })
-                        } else if (uiState.userMemoList.list.isLoading) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 32.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                            }
                         }
                     }
                 }
@@ -354,7 +317,7 @@ private fun ProfileListPane(
                     Box(itemModifier) {
                         StatsActivityCard(
                             userStats = stats,
-                            weekStartDayOffset = uiState.session.instanceSettings?.generalSetting?.weekStartDayOffset
+                            weekStartDayOffset = sessionControls.state.instanceSettings?.generalSetting?.weekStartDayOffset
                                 ?: 0
                         )
                     }
@@ -407,48 +370,8 @@ private fun ProfileListPane(
                         SettingsCard(
                             settings = userSettings ?: UserGeneralSetting(),
                             onUpdate = { locale, visibility ->
-                                viewModel.userDelegate.updateUserGeneralSetting(locale, visibility)
+                                // TODO Update
                             })
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        ShortcutsCard(
-                            shortcuts = shortcuts,
-                            onCreate = { title, filter, onSuccess, onError ->
-                                viewModel.shortcutDelegate.createShortcut(
-                                    title, filter, onSuccess, onError
-                                )
-                            },
-                            onUpdate = { shortcut, title, filter, onSuccess, onError ->
-                                viewModel.shortcutDelegate.updateShortcut(
-                                    shortcut, title, filter, onSuccess, onError
-                                )
-                            },
-                            onDelete = { shortcut ->
-                                viewModel.shortcutDelegate.deleteShortcut(
-                                    shortcut
-                                )
-                            })
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        WebhooksCard(
-                            webhooks = webhooks,
-                            onCreate = { displayName, url, onSuccess, onError ->
-                                viewModel.webhookDelegate.createWebhook(
-                                    displayName, url, onSuccess, onError
-                                )
-                            },
-                            onUpdate = { webhook, displayName, url, onSuccess, onError ->
-                                viewModel.webhookDelegate.updateWebhook(
-                                    webhook, displayName, url, onSuccess, onError
-                                )
-                            },
-                            onDelete = { webhook -> viewModel.webhookDelegate.deleteWebhook(webhook) })
                     }
                 }
 
@@ -461,13 +384,11 @@ private fun ProfileListPane(
                 item {
                     Box(itemModifier) {
                         AppSettingsCard(
-                            pageSize = uiState.appSettings.pageSize,
-                            onPageSizeChange = { viewModel.appSettingsDelegate.updatePageSize(it) },
-                            headerScale = uiState.appSettings.headerScale,
+                            pageSize = appSettingsControls.settings.pageSize,
+                            onPageSizeChange = { /* TODO viewModel.appSettingsDelegate.updatePageSize(it) */ },
+                            headerScale = appSettingsControls.settings.headerScale,
                             onHeaderScaleChange = {
-                                viewModel.appSettingsDelegate.updateHeaderScale(
-                                    it
-                                )
+                                // TODO viewModel.appSettingsDelegate.updateHeaderScale(it)
                             })
                     }
                 }
@@ -478,28 +399,8 @@ private fun ProfileListPane(
                     }
                 }
 
-                if (uiState.error != null) {
-                    item {
-                        Box(itemModifier) {
-                            ErrorView(
-                                title = stringResource(R.string.common_error_failed_to_load_profile),
-                                message = uiState.error!!,
-                                onRetry = { viewModel.fetchUserMemos(refresh = true) })
-                        }
-                    }
-                }
-
                 item {
                     Spacer(modifier = Modifier.height(64.dp))
-                }
-            } else if (!uiState.userMemoList.list.isLoading) {
-                item {
-                    ErrorView(
-                        message = uiState.error
-                            ?: stringResource(R.string.profile_user_info_not_available),
-                        onRetry = { viewModel.fetchUserMemos(refresh = true) },
-                        modifier = itemModifier.fillParentMaxHeight(0.7f)
-                    )
                 }
             }
         }

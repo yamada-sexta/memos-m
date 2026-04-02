@@ -19,72 +19,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
-import org.example.memosm.ui.component.GenericMemosListPane
-import org.example.memosm.ui.component.MemoSearchBar
-import org.example.memosm.ui.component.MemosScaffold
-import org.example.memosm.viewmodel.MemosViewModel
+import org.example.memosm.state.MemoActionControls
+import org.example.memosm.state.MemosListControls
+import org.example.memosm.state.SessionControls
+import org.example.memosm.ui.component.MemosCommon
 
 @Composable
 fun ExploreScreen(
-    viewModel: MemosViewModel,
-    onToggleNavBar: ((Boolean) -> Unit)? = null,
-    isNavBarVisible: Boolean = true
+    controls: MemosListControls,
+    actionControls: MemoActionControls,
+    sessionControls: SessionControls,
+    onToggleNavBar: ((Boolean) -> Unit)?,
+    isNavBarVisible: Boolean,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
-
-    val bottomPadding by animateDpAsState(
-        targetValue = if (isNavBarVisible) 80.dp else 16.dp, label = "BottomPadding"
-    )
-
-    // Double tap refresh logic: scroll to top
-    var lastProcessedTrigger by rememberSaveable { mutableLongStateOf(uiState.refreshTrigger) }
-    LaunchedEffect(uiState.refreshTrigger) {
-        if (uiState.refreshTrigger > lastProcessedTrigger) {
-            listState.animateScrollToItem(0)
-        }
-        lastProcessedTrigger = uiState.refreshTrigger
-    }
-
-    MemosScaffold(
-        viewModel = viewModel,
-        memos = uiState.exploreMemoList.list.items,
-        listState = listState,
-        onToggleNavBar = { onToggleNavBar?.invoke(it) },
+    MemosCommon(
+        controls = controls,
+        actionControls = actionControls,
+        sessionControls = sessionControls,
+        appSettingsControls = null,
+        draftControls = null,
+        title = stringResource(R.string.nav_explore),
+        memoListState = controls.state,
+        onLoadMore = { controls.loadMore() },
+        onRefresh = { controls.fetch(true) },
+        showComposer = false,
+        showUserStats = false,
+        onToggleNavBar = onToggleNavBar,
         isNavBarVisible = isNavBarVisible,
-        listPane = { onMemoClick ->
-            GenericMemosListPane(
-                viewModel = viewModel,
-                memos = uiState.exploreMemoList.list.items,
-                isLoading = uiState.exploreMemoList.list.isLoading,
-                isRefreshing = uiState.isRefreshing,
-                nextPageToken = uiState.exploreMemoList.list.nextPageToken,
-                onLoadMore = { viewModel.loadMoreExploreMemos() },
-                onRefresh = { viewModel.fetchExploreMemos(refresh = true) },
-                onMemoClick = onMemoClick,
-                listState = listState,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 16.dp, top = 88.dp, end = 16.dp, bottom = bottomPadding
-                ),
-                userProvider = { memo -> uiState.users[memo.creator] },
-                errorTitle = stringResource(R.string.common_error_failed_to_load_explore),
-                isOffline = uiState.exploreMemoList.list.isOffline,
-                errorMessage = uiState.exploreMemoList.list.errorMessage
-            )
-        },
-        overlay = { onMemoClick, showSearchBar, isSearchExpanded, onSearchExpandedChange, isDualPane, isDetailVisible ->
-            AnimatedVisibility(
-                visible = showSearchBar && (!isSearchExpanded || isDualPane || !isDetailVisible),
-                enter = slideInVertically { -it } + fadeIn(),
-                exit = slideOutVertically { -it } + fadeOut(),
-                modifier = Modifier.align(Alignment.TopCenter)) {
-                MemoSearchBar(
-                    viewModel = viewModel,
-                    isExplore = true,
-                    onMemoClick = onMemoClick,
-                    onExpandedChange = onSearchExpandedChange,
-                    placeholder = stringResource(R.string.memo_search_explore_placeholder)
-                )
-            }
-        })
+        openComposer = false,
+        onComposerOpened = {}
+    )
 }

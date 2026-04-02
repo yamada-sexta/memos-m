@@ -34,7 +34,9 @@ import org.example.memosm.model.Attachment
 import org.example.memosm.model.Location
 import org.example.memosm.model.Memo
 import org.example.memosm.model.Visibility
-import org.example.memosm.viewmodel.MemosViewModel
+import org.example.memosm.state.DraftControls
+import org.example.memosm.state.MemoActionControls
+import org.example.memosm.state.SessionControls
 import kotlin.coroutines.cancellation.CancellationException
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +44,9 @@ import kotlin.coroutines.cancellation.CancellationException
 fun MemoComposerScreen(
     onDismiss: () -> Unit,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
-    viewModel: MemosViewModel,
+    actionControls: MemoActionControls?,
+    sessionControls: SessionControls?,
+    draftControls: DraftControls?,
     hostUrl: String,
     title: String,
     initialMemo: Memo? = null,
@@ -58,8 +62,6 @@ fun MemoComposerScreen(
         else -> ComposerMode.PUBLISH
     }
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-
     // Hide bottom nav bar while composer is visible
     DisposableEffect(Unit) {
         onToggleNavBar?.invoke(false)
@@ -116,40 +118,33 @@ fun MemoComposerScreen(
                 onPublish = { content, visibility, attachments, location ->
                     when {
                         initialMemo != null -> {
-                            viewModel.memoActionDelegate.updateMemo(
-                                initialMemo, content, visibility, attachments, location
-                            ) {
-                                onDismiss()
-                            }
+                            // TODO actionControls?.updateMemo?.invoke(initialMemo, content, visibility, attachments, location)
+                            onDismiss()
                         }
 
                         parentMemo != null -> {
-                            viewModel.memoActionDelegate.createComment(parentMemo, content)
+                            // TODO actionControls?.createComment?.invoke(parentMemo, content)
                             onDismiss()
                         }
 
                         else -> {
-                            viewModel.memoActionDelegate.createMemo(
-                                content,
-                                visibility,
-                                attachments,
-                                location
-                            ) {
-                                onDismiss()
-                            }
+                            val memo = Memo(content = content, visibility = visibility, attachments = attachments, location = location)
+                            actionControls?.postMemo?.invoke(memo)
+                            onDismiss()
                         }
                     }
                 },
                 onUploadFile = { uri, context ->
-                    viewModel.memoActionDelegate.uploadAttachment(uri, context)
+                    // TODO actionControls?.uploadAttachment(uri, context)
+                    null // return null to match signature
                 },
-                availableTags = uiState.session.userStats?.tagCount ?: emptyMap(),
-                token = uiState.session.token,
+                availableTags = sessionControls?.state?.userStats?.tagCount ?: emptyMap(),
+                token = sessionControls?.state?.token ?: "",
                 hostUrl = hostUrl,
-                isPosting = uiState.isPosting,
+                isPosting = false, // TODO
                 initialContent = effectiveInitialContent,
                 initialVisibility = initialMemo?.visibility ?: initialVisibility
-                ?: parentMemo?.visibility ?: uiState.session.userSettings?.memoVisibility
+                ?: parentMemo?.visibility ?: sessionControls?.state?.userSettings?.memoVisibility
                 ?: Visibility.PRIVATE,
                 initialAttachments = initialMemo?.attachments ?: initialAttachments,
                 initialUris = if (initialMemo == null) initialUris else emptyList(),
@@ -161,11 +156,13 @@ fun MemoComposerScreen(
                     .padding(horizontal = 8.dp),
                 onDraftChanged = if (initialMemo == null && parentMemo == null) {
                     { content, visibility, attachments, location ->
-                        viewModel.draftDelegate.saveDraft(
-                            content,
-                            visibility,
-                            attachments,
-                            location
+                        draftControls?.saveDraft?.invoke(
+                             org.example.memosm.model.Draft(
+                                content = content,
+                                attachments = attachments,
+                                visibility = visibility,
+                                location = location
+                            )
                         )
                     }
                 } else null
@@ -176,13 +173,16 @@ fun MemoComposerScreen(
 
 @Composable
 fun MemoEditScreen(
-    memo: Memo, onDismiss: () -> Unit, viewModel: MemosViewModel, hostUrl: String,
+    memo: Memo, onDismiss: () -> Unit,
+    actionControls: MemoActionControls?, sessionControls: SessionControls?, draftControls: DraftControls?, hostUrl: String,
     onToggleNavBar: ((Boolean) -> Unit)? = null
 ) {
     MemoComposerScreen(
         onDismiss = onDismiss,
         onToggleNavBar = onToggleNavBar,
-        viewModel = viewModel,
+        actionControls = actionControls,
+        sessionControls = sessionControls,
+        draftControls = draftControls,
         hostUrl = hostUrl,
         title = stringResource(R.string.memo_dialog_edit_title),
         initialMemo = memo,

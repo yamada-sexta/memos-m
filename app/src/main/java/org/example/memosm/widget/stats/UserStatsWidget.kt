@@ -39,13 +39,11 @@ import org.example.memosm.R
 import org.example.memosm.api.AuthInterceptor
 import org.example.memosm.api.MemosApiFactory
 import org.example.memosm.data.DataStoreManager
+import org.example.memosm.MemosApplication
 import org.example.memosm.model.Account
 import org.example.memosm.model.UserStats
 
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-
-class UserStatsWidget : GlanceAppWidget(), KoinComponent {
+class UserStatsWidget : GlanceAppWidget() {
 
     override val stateDefinition = PreferencesGlanceStateDefinition
 
@@ -64,7 +62,7 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
                 } else {
                     value = try {
                         withContext(Dispatchers.IO) {
-                            val dataStoreManager: DataStoreManager by inject()
+                            val dataStoreManager = MemosApplication.instance.dataStoreManager
                             val accounts = dataStoreManager.getAccounts()
                             val account = accounts.find { it.id == accountId }
 

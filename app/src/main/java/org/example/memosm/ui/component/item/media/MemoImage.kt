@@ -40,7 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.example.memosm.R
 import org.example.memosm.model.Attachment
-import org.example.memosm.viewmodel.manager.AttachmentManager
+import org.example.memosm.ui.component.resolveResourceUrl
 
 @Composable
 fun MemoImage(
@@ -62,7 +62,7 @@ fun MemoImage(
         value = withContext(Dispatchers.IO) {
             when {
                 uri != Uri.EMPTY -> uri
-                attachment != null -> AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+                attachment != null -> resolveResourceUrl(hostUrl, attachment.name?.let { "file/$it/${filename}" })
                     ?: when {
                         !attachment.content.isNullOrBlank() -> {
                             try {

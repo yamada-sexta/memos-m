@@ -73,7 +73,7 @@ import org.example.memosm.ui.component.item.media.FileThumbnailMode
 import org.example.memosm.ui.component.item.media.FullScreenImageViewer
 import org.example.memosm.ui.component.item.media.MemoImage
 import org.example.memosm.ui.component.item.media.VideoPlayer
-import org.example.memosm.viewmodel.manager.AttachmentManager
+import org.example.memosm.ui.component.resolveResourceUrl
 import java.io.File
 
 enum class AttachmentCompactMode {
@@ -174,7 +174,7 @@ fun AttachmentCard(
                 value = withContext(Dispatchers.IO) {
                     when {
                         uri != Uri.EMPTY -> uri.toString()
-                        else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
+                        else -> resolveResourceUrl(hostUrl, attachment?.name?.let { "file/$it/${filename}" }) ?: when {
                             !attachment?.content.isNullOrBlank() -> {
                                 try {
                                     val bytes = Base64.decode(attachment.content, Base64.NO_WRAP)
@@ -312,9 +312,7 @@ fun AttachmentCard(
                         )
                     } else if (isVideo) {
                         val videoUrl =
-                            if (uri != Uri.EMPTY) uri.toString() else AttachmentManager.getAttachmentUrl(
-                                hostUrl, attachment
-                            )
+                            if (uri != Uri.EMPTY) uri.toString() else resolveResourceUrl(hostUrl, attachment?.name?.let { "file/$it/${filename}" })
                         if (!videoUrl.isNullOrBlank()) {
                             VideoPlayer(
                                 url = videoUrl,
@@ -407,7 +405,7 @@ fun AttachmentCard(
                                         modifier = Modifier.size(20.dp)
                                     )
                                     val openWebUrl = remember(attachment, hostUrl) {
-                                        AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+                                        resolveResourceUrl(hostUrl, attachment?.name?.let { "file/$it/${filename}" })
                                     }
 
                                     DropdownMenu(
@@ -469,7 +467,7 @@ fun AttachmentCard(
                                                     try {
                                                         val sendIntent = Intent().apply {
                                                             action = Intent.ACTION_SEND
-                                                            putExtra(Intent.EXTRA_TEXT, openWebUrl)
+                                                            putExtra(Intent.EXTRA_TEXT, openWebUrl ?: "")
                                                             type = "text/plain"
                                                         }
                                                         val shareIntent =
@@ -596,7 +594,7 @@ fun AttachmentCard(
         val model = remember(uri, attachment, hostUrl) {
             when {
                 uri != Uri.EMPTY -> uri
-                else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
+                else -> resolveResourceUrl(hostUrl, attachment?.name?.let { "file/$it/${filename}" }) ?: when {
                     !attachment?.content.isNullOrBlank() -> {
                         try {
                             Base64.decode(attachment.content, Base64.NO_WRAP)
@@ -635,7 +633,7 @@ fun AttachmentInfoRow(label: String, value: String) {
 private fun downloadAttachmentFile(
     context: Context, attachment: Attachment, token: String?, hostUrl: String
 ) {
-    val url = AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: return
+    val url = resolveResourceUrl(hostUrl, attachment.name?.let { "file/$it/${attachment.filename}" }) ?: return
     try {
         var request = DownloadManager.Request(url.toUri()).setTitle(attachment.filename)
             .setDescription(context.getString(R.string.attachments_download_started))

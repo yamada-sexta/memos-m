@@ -44,19 +44,25 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
 import org.example.memosm.model.Draft
+import org.example.memosm.state.DraftControls
+import org.example.memosm.state.MemoActionControls
+import org.example.memosm.state.SessionControls
+import org.example.memosm.state.AppSettingsControls
 import org.example.memosm.ui.component.composer.ComposerMode
 import org.example.memosm.ui.component.composer.MemoComposerScreen
 import org.example.memosm.ui.component.item.MemoItem
-import org.example.memosm.viewmodel.MemosViewModel
 import kotlin.coroutines.cancellation.CancellationException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DraftsScreen(
-    viewModel: MemosViewModel, onDismiss: () -> Unit
+    draftControls: DraftControls,
+    actionControls: MemoActionControls?,
+    sessionControls: SessionControls?,
+    appSettingsControls: AppSettingsControls?,
+    onDismiss: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val drafts = uiState.draft.drafts
+    val drafts = draftControls.state.drafts
 
     var showComposer by remember { mutableStateOf(false) }
     var activeDraft by remember { mutableStateOf<Draft?>(null) }
@@ -123,22 +129,25 @@ fun DraftsScreen(
                     ) {
                         MemoItem(
                             memo = draft.toMemo(),
-                            token = uiState.session.token,
-                            hostUrl = uiState.session.hostUrl,
+                            user = null,
+                            currentUser = sessionControls?.state?.currUser,
+                            token = sessionControls?.state?.token ?: "",
+                            hostUrl = sessionControls?.state?.hostUrl ?: "",
                             onClick = {
                                 activeDraft = draft
                                 showComposer = true
-                                viewModel.draftDelegate.setCurrentEditingDraft(draft.id)
                             },
                             onEdit = {
                                 activeDraft = draft
                                 showComposer = true
-                                viewModel.draftDelegate.setCurrentEditingDraft(draft.id)
                             },
                             onDelete = { draftToDelete = draft },
+                            onUpsertReaction = { },
+                            onDeleteReaction = { },
+                            onContentUpdate = null,
                             maxHeight = 400.dp,
                             modifier = Modifier.widthIn(max = 800.dp),
-                            headerScale = uiState.appSettings.headerScale
+                            headerScale = appSettingsControls?.settings?.headerScale ?: 1.0f
                         )
                     }
                 }
@@ -165,10 +174,11 @@ fun DraftsScreen(
             MemoComposerScreen(
                 onDismiss = {
                     showComposer = false
-                    viewModel.draftDelegate.setCurrentEditingDraft(null)
                 },
-                viewModel = viewModel,
-                hostUrl = uiState.session.hostUrl,
+                actionControls = actionControls,
+                sessionControls = sessionControls,
+                draftControls = draftControls,
+                hostUrl = sessionControls?.state?.hostUrl ?: "",
                 title = stringResource(R.string.drafts_action_edit),
                 initialContent = activeDraft!!.content,
                 initialAttachments = activeDraft!!.attachments,
@@ -189,7 +199,7 @@ fun DraftsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.draftDelegate.deleteDraft(draftToDelete!!.id)
+                        draftToDelete?.id?.let { draftControls.deleteDraft(it) }
                         draftToDelete = null
                     }, colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error

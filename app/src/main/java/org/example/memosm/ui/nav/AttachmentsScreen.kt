@@ -43,17 +43,18 @@ import org.example.memosm.ui.component.ErrorView
 import org.example.memosm.ui.component.item.AttachmentCard
 import org.example.memosm.ui.component.item.AttachmentCompactMode
 import org.example.memosm.ui.component.item.media.FullScreenAttachmentViewer
+import org.example.memosm.state.AttachmentControls
+import org.example.memosm.state.SessionControls
 import org.example.memosm.ui.component.rememberStaggeredGridScrollContext
-import org.example.memosm.viewmodel.MemosViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachmentsScreen(
-    viewModel: MemosViewModel,
+    controls: AttachmentControls,
+    sessionControls: SessionControls,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     isNavBarVisible: Boolean = true
 ) {
-    val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyStaggeredGridState()
 
     var showFullScreenViewer by remember { mutableStateOf(false) }
@@ -65,7 +66,7 @@ fun AttachmentsScreen(
 
     // Animate the cell width changes for a smoother transition
     val animatedCellWidth by animateDpAsState(
-        targetValue = uiState.attachmentList.cellWidth.dp, animationSpec = spring(
+        targetValue = controls.state.cellWidth.dp, animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow
         ), label = "CellWidthAnimation"
     )
@@ -81,41 +82,30 @@ fun AttachmentsScreen(
     )
 
     LaunchedEffect(Unit) {
-        viewModel.fetchAttachments(refresh = false)
-    }
-
-    // Double tap refresh logic: scroll to top
-    // We keep track of the last processed trigger to avoid scrolling to top 
-    // when just navigating back to this screen.
-    var lastProcessedTrigger by rememberSaveable { mutableLongStateOf(uiState.refreshTrigger) }
-    LaunchedEffect(uiState.refreshTrigger) {
-        if (uiState.refreshTrigger > lastProcessedTrigger) {
-            listState.animateScrollToItem(0)
-        }
-        lastProcessedTrigger = uiState.refreshTrigger
+        controls.fetch(false)
     }
 
     val shouldLoadMore = remember {
         derivedStateOf {
             val totalItemsCount = listState.layoutInfo.totalItemsCount
-            if (totalItemsCount == 0 || uiState.attachmentList.list.isLoading) return@derivedStateOf false
+            if (totalItemsCount == 0 || controls.state.list.isLoading) return@derivedStateOf false
 
             val lastVisibleItem =
                 listState.layoutInfo.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
 
-            uiState.attachmentList.list.nextPageToken != null && !uiState.attachmentList.list.nextPageToken.isNullOrBlank() && lastVisibleItem.index >= totalItemsCount - 5
+            controls.state.list.nextPageToken != null && !controls.state.list.nextPageToken.isNullOrBlank() && lastVisibleItem.index >= totalItemsCount - 5
         }
     }
 
     LaunchedEffect(shouldLoadMore.value) {
         if (shouldLoadMore.value) {
-            viewModel.loadMoreAttachments()
+            controls.loadMore()
         }
     }
 
     PullToRefreshBox(
-        isRefreshing = uiState.isRefreshing, onRefresh = {
-            viewModel.fetchAttachments(refresh = true)
+        isRefreshing = false, onRefresh = {
+            controls.fetch(true)
         }, modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
@@ -143,10 +133,10 @@ fun AttachmentsScreen(
                                     val zoomFactor = currentDistance / previousDistance
                                     if (zoomFactor != 1f) {
                                         val newWidth =
-                                            (uiState.attachmentList.cellWidth * zoomFactor).coerceIn(
+                                            (controls.state.cellWidth * zoomFactor).coerceIn(
                                                 minCellWidth.value, maxCellWidth.value
                                             )
-                                        viewModel.updateAttachmentCellWidth(newWidth)
+                                        controls.updateCellWidth(newWidth)
                                         // Consume the event to prevent the list from scrolling while zooming
                                         event.changes.forEach { it.consume() }
                                     }
@@ -155,14 +145,14 @@ fun AttachmentsScreen(
                         }
                     }
                 }) {
-            if (uiState.attachmentList.list.items.isEmpty() && uiState.attachmentList.list.isLoading && !uiState.isRefreshing) {
+            if (controls.state.list.items.isEmpty() && controls.state.list.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (uiState.attachmentList.list.items.isEmpty() && !uiState.attachmentList.list.isLoading) {
-                if (uiState.error != null) {
+            } else if (controls.state.list.items.isEmpty() && !controls.state.list.isLoading) {
+                if (controls.state.list.errorMessage != null) {
                     ErrorView(
                         title = stringResource(R.string.common_error_failed_to_load_attachments),
-                        message = uiState.error!!,
-                        onRetry = { viewModel.fetchAttachments(refresh = false) },
+                        message = controls.state.list.errorMessage!!,
+                        onRetry = { controls.fetch(false) },
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -182,20 +172,15 @@ fun AttachmentsScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     itemsIndexed(
-                        items = uiState.attachmentList.list.items,
+                        items = controls.state.list.items,
                         key = { index, it -> "${it.name ?: it.filename}_$index" }) { index, attachment ->
                         val key = attachment.name ?: attachment.filename
-                        val currentScale = uiState.attachmentList.cellWidth
-                        val cachedRatio =
-                            uiState.attachmentList.aspectRatios[currentScale]?.get(key)
-                        val ratio = cachedRatio ?: 1.0f
-
-
+                        val ratio = 1.0f
 
                         AttachmentCard(
                             attachment = attachment,
-                            token = uiState.session.token,
-                            hostUrl = uiState.session.hostUrl,
+                            token = sessionControls.state.token,
+                            hostUrl = sessionControls.state.hostUrl,
                             compactMode = AttachmentCompactMode.Width,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -205,16 +190,11 @@ fun AttachmentsScreen(
                                 fullScreenInitialIndex = index
                                 showFullScreenViewer = true
                             },
-                            onRatioAvailable = { newRatio, isExact ->
-                                if (isExact) {
-                                    viewModel.updateAttachmentAspectRatio(
-                                        currentScale, key, newRatio
-                                    )
-                                }
-                            })
+                            onRatioAvailable = { _, _ -> }
+                        )
                     }
 
-                    if (uiState.attachmentList.list.isLoading && uiState.attachmentList.list.items.isNotEmpty()) {
+                    if (controls.state.list.isLoading && controls.state.list.items.isNotEmpty()) {
                         item(span = StaggeredGridItemSpan.FullLine) {
                             Box(
                                 modifier = Modifier
@@ -225,7 +205,7 @@ fun AttachmentsScreen(
                                 CircularProgressIndicator()
                             }
                         }
-                    } else if (!uiState.attachmentList.list.isLoading && uiState.attachmentList.list.nextPageToken.isNullOrBlank() && uiState.attachmentList.list.items.isNotEmpty()) {
+                    } else if (!controls.state.list.isLoading && controls.state.list.nextPageToken.isNullOrBlank() && controls.state.list.items.isNotEmpty()) {
                         item(span = StaggeredGridItemSpan.FullLine) {
                             Box(
                                 modifier = Modifier
@@ -248,14 +228,14 @@ fun AttachmentsScreen(
 
     if (showFullScreenViewer) {
         FullScreenAttachmentViewer(
-            attachments = uiState.attachmentList.list.items,
+            attachments = controls.state.list.items,
             initialIndex = fullScreenInitialIndex,
-            token = uiState.session.token,
-            hostUrl = uiState.session.hostUrl,
+            token = sessionControls.state.token,
+            hostUrl = sessionControls.state.hostUrl,
             onDismiss = { showFullScreenViewer = false },
             onPageChanged = { index ->
-                if (index >= uiState.attachmentList.list.items.size - 5 && uiState.attachmentList.list.nextPageToken != null && !uiState.attachmentList.list.isLoading) {
-                    viewModel.loadMoreAttachments()
+                if (index >= controls.state.list.items.size - 5 && controls.state.list.nextPageToken != null && !controls.state.list.isLoading) {
+                    controls.loadMore()
                 }
             }
         )

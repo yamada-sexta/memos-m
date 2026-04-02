@@ -36,14 +36,12 @@ import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
-import org.example.memosm.data.DataStoreManager
+import org.example.memosm.MemosApplication
 import org.example.memosm.model.Account
 import org.example.memosm.ui.component.resolveResourceUrl
-import org.koin.android.ext.android.inject
 
 class UserStatsWidgetConfigActivity : ComponentActivity() {
 
-    private val dataStoreManager: DataStoreManager by inject()
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +69,7 @@ class UserStatsWidgetConfigActivity : ComponentActivity() {
                     topBar = {
                         TopAppBar(title = { Text("Select Account") })
                     }) { padding ->
+                    val dataStoreManager = (applicationContext as MemosApplication).dataStoreManager
                     val accounts = produceState<List<Account>>(initialValue = emptyList()) {
                         value = dataStoreManager.getAccounts()
                     }

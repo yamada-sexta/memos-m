@@ -23,29 +23,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
-import org.example.memosm.viewmodel.MemosViewModel
+import org.example.memosm.state.MemosListControls
+import org.example.memosm.state.MemoActionControls
+import org.example.memosm.state.SessionControls
+import org.example.memosm.state.AppSettingsControls
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun SharedTransitionScope.ArchivedMemosScreen(
     modifier: Modifier = Modifier,
-    viewModel: MemosViewModel,
+    controls: MemosListControls,
+    actionControls: MemoActionControls?,
+    sessionControls: SessionControls?,
+    appSettingsControls: AppSettingsControls?,
     onBack: () -> Unit,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
 
     // Refresh archived memos on start
     LaunchedEffect(Unit) {
-        viewModel.fetchArchivedMemos(refresh = true)
+        controls.fetch(true)
     }
 
     Box(modifier = modifier.fillMaxSize()) {
         MemosScaffold(
-            viewModel = viewModel,
-            memos = uiState.archivedMemoList.list.items,
+            controls = controls,
+            actionControls = actionControls!!,
+            sessionControls = sessionControls!!,
+            draftControls = null,
+            appSettingsControls = appSettingsControls,
+            memos = controls.state.list.items,
             listState = listState,
             onToggleNavBar = { onToggleNavBar?.invoke(it) },
             topBar = { isDetailVisible, isDualPane ->
@@ -73,19 +82,22 @@ fun SharedTransitionScope.ArchivedMemosScreen(
             },
             listPane = { onMemoClick ->
                 GenericMemosListPane(
-                    viewModel = viewModel,
-                    memos = uiState.archivedMemoList.list.items,
-                    isLoading = uiState.archivedMemoList.list.isLoading,
-                    isRefreshing = uiState.isRefreshing,
-                    nextPageToken = uiState.archivedMemoList.list.nextPageToken,
-                    onLoadMore = { viewModel.loadMoreArchivedMemos() },
-                    onRefresh = { viewModel.fetchArchivedMemos(refresh = true) },
+                    controls = controls,
+                    actionControls = actionControls,
+                    sessionControls = sessionControls,
+                    appSettingsControls = appSettingsControls,
+                    memos = controls.state.list.items,
+                    isLoading = controls.state.list.isLoading,
+                    isRefreshing = false, // TODO uiState.isRefreshing
+                    nextPageToken = controls.state.list.nextPageToken,
+                    onLoadMore = { controls.loadMore() },
+                    onRefresh = { controls.fetch(true) },
                     onMemoClick = onMemoClick,
                     listState = listState,
-                    userProvider = { uiState.session.currUser },
+                    userProvider = { sessionControls.state.currUser },
                     contentPadding = PaddingValues(16.dp),
-                    isOffline = uiState.archivedMemoList.list.isOffline,
-                    errorMessage = uiState.archivedMemoList.list.errorMessage
+                    isOffline = controls.state.list.isOffline,
+                    errorMessage = controls.state.list.errorMessage
                 )
             })
     }

@@ -58,13 +58,24 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.launch
 import org.example.memosm.R
+import org.example.memosm.api.MemosApi
+import org.example.memosm.data.DataStoreManager
+import org.example.memosm.data.DraftManager
+import org.example.memosm.data.cache.MemoCacheRepository
+import org.example.memosm.model.Account
 import org.example.memosm.model.Attachment
 import org.example.memosm.model.Location
 import org.example.memosm.model.ShareIntentData
 import org.example.memosm.model.Visibility
+import org.example.memosm.state.rememberAppSettingsState
+import org.example.memosm.state.rememberAttachmentState
+import org.example.memosm.state.rememberDraftState
+import org.example.memosm.state.rememberExploreMemosState
+import org.example.memosm.state.rememberMemoActionState
+import org.example.memosm.state.rememberSessionState
+import org.example.memosm.state.rememberUserMemosState
 import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.composer.ComposerMode
 import org.example.memosm.ui.component.composer.MemoComposerScreen
@@ -74,7 +85,6 @@ import org.example.memosm.ui.nav.AttachmentsScreen
 import org.example.memosm.ui.nav.ExploreScreen
 import org.example.memosm.ui.nav.MemosScreen
 import org.example.memosm.ui.nav.ProfileScreen
-import org.example.memosm.viewmodel.MemosViewModel
 
 enum class MainDestination(
     val labelRes: Int
@@ -91,14 +101,55 @@ fun MainScreen(
     shareIntentData: ShareIntentData? = null,
     onShareIntentConsumed: () -> Unit = {},
     shouldOpenComposer: Boolean = false,
-    onComposerOpened: () -> Unit = {}
+    onComposerOpened: () -> Unit = {},
+    api: MemosApi?,
+    accounts: List<Account>,
+    dataStoreManager: DataStoreManager,
+    draftManager: DraftManager,
+    memoCacheRepository: MemoCacheRepository
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(MainDestination.MEMOS) }
     var lastTapTime by remember { mutableLongStateOf(0L) }
-    val viewModel: MemosViewModel = koinViewModel()
-    val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+
+    val sessionControls = rememberSessionState(api, accounts)
+    val appSettingsControls = rememberAppSettingsState(dataStoreManager)
+
+    val activeAccount = accounts.find { it.isActive }
+
+    val userMemosControls = rememberUserMemosState(
+        api = api,
+        repository = memoCacheRepository,
+        currentUser = sessionControls.state.currUser,
+        accountId = activeAccount?.id,
+        pageSize = appSettingsControls.settings.pageSize
+    )
+
+    val exploreMemosControls = rememberExploreMemosState(
+        api = api,
+        repository = memoCacheRepository,
+        accountId = activeAccount?.id,
+        pageSize = appSettingsControls.settings.pageSize
+    )
+
+    val attachmentControls = rememberAttachmentState(api)
+    val draftControls = rememberDraftState(draftManager, activeAccount?.id?.toLongOrNull())
+
+    val memoActionControls = rememberMemoActionState(
+        api = api,
+        onMemoCreated = { memo ->
+            userMemosControls.insertItem(memo)
+        },
+        onMemoUpdated = { memo ->
+            userMemosControls.updateItem(memo)
+            exploreMemosControls.updateItem(memo)
+        },
+        onMemoDeleted = { name ->
+            userMemosControls.removeItem(name)
+            exploreMemosControls.removeItem(name)
+        }
+    )
 
     val saveableStateHolder = rememberSaveableStateHolder()
 
@@ -126,19 +177,12 @@ fun MainScreen(
     }
 
     LaunchedEffect(shareIntentData) {
-        // Only process if:
-        // 1. We have share data
-        // 2. We haven't already processed this exact share data
         if (shareIntentData != null && !shareIntentData.isEmpty && processedShareData != shareIntentData) {
-            // Create a fresh new draft with just the shared content
             shareText = shareIntentData.text ?: ""
             shareUris = shareIntentData.uris
             shareAttachments = emptyList()
             shareVisibility = null
             shareLocation = null
-
-            // Always initialize a new draft session for shared content
-            viewModel.draftDelegate.initializeNewDraftSession()
 
             processedShareData = shareIntentData
             showShareComposerDialog = true
@@ -174,8 +218,7 @@ fun MainScreen(
     if (isAddingAccount) {
         LoginDialog(onLoginSuccess = { newBaseUrl, newToken ->
             scope.launch {
-                viewModel.userDelegate.addAccount(newBaseUrl, newToken)
-                viewModel.userDelegate.updateCurrentAccountInList()
+                dataStoreManager.addAccount(newBaseUrl, newToken)
                 isAddingAccount = false
             }
         }, onDismiss = { isAddingAccount = false })
@@ -209,10 +252,10 @@ fun MainScreen(
             )
 
             MainDestination.PROFILE -> {
-                val user = uiState.session.currUser
-                val account = uiState.accounts.find { it.isActive }
+                val user = sessionControls.state.currUser
+                val account = accounts.find { it.isActive }
                 val rawAvatarUrl = user?.avatarUrl ?: account?.avatarUrl
-                val hostUrl = uiState.session.hostUrl
+                val hostUrl = sessionControls.state.hostUrl
 
                 val avatarUri = remember(rawAvatarUrl, hostUrl) {
                     if (rawAvatarUrl.isNullOrBlank()) Uri.EMPTY
@@ -221,7 +264,7 @@ fun MainScreen(
 
                 MemoImage(
                     attachment = null,
-                    token = uiState.session.token,
+                    token = sessionControls.state.token,
                     hostUrl = hostUrl,
                     uri = avatarUri,
                     filename = "avatar",
@@ -244,9 +287,9 @@ fun MainScreen(
         val currentTime = System.currentTimeMillis()
         if (currentDestination == destination && currentTime - lastTapTime < 500) {
             when (destination) {
-                MainDestination.MEMOS -> viewModel.fetchUserMemos(refresh = true)
-                MainDestination.EXPLORE -> viewModel.fetchExploreMemos(refresh = true)
-                MainDestination.ATTACHMENTS -> viewModel.fetchAttachments(refresh = true)
+                MainDestination.MEMOS -> userMemosControls.fetch(true)
+                MainDestination.EXPLORE -> exploreMemosControls.fetch(true)
+                MainDestination.ATTACHMENTS -> attachmentControls.fetch(true)
                 else -> {}
             }
         }
@@ -303,7 +346,11 @@ fun MainScreen(
                         saveableStateHolder.SaveableStateProvider(targetDestination) {
                             when (targetDestination) {
                                 MainDestination.MEMOS -> MemosScreen(
-                                    viewModel = viewModel,
+                                    controls = userMemosControls,
+                                    actionControls = memoActionControls,
+                                    sessionControls = sessionControls,
+                                    appSettingsControls = appSettingsControls,
+                                    draftControls = draftControls,
                                     onToggleNavBar = toggleNavBar,
                                     isNavBarVisible = isNavBarVisible,
                                     openComposer = shouldOpenComposer,
@@ -311,19 +358,24 @@ fun MainScreen(
                                 )
 
                                 MainDestination.EXPLORE -> ExploreScreen(
-                                    viewModel = viewModel,
+                                    controls = exploreMemosControls,
+                                    actionControls = memoActionControls,
+                                    sessionControls = sessionControls,
                                     onToggleNavBar = toggleNavBar,
                                     isNavBarVisible = isNavBarVisible
                                 )
 
                                 MainDestination.ATTACHMENTS -> AttachmentsScreen(
-                                    viewModel = viewModel,
+                                    controls = attachmentControls,
+                                    sessionControls = sessionControls,
                                     onToggleNavBar = toggleNavBar,
                                     isNavBarVisible = isNavBarVisible
                                 )
 
                                 MainDestination.PROFILE -> ProfileScreen(
-                                    viewModel = viewModel,
+                                    sessionControls = sessionControls,
+                                    appSettingsControls = appSettingsControls,
+                                    dataStoreManager = dataStoreManager,
                                     onLogout = onLogout,
                                     onAddAccount = { isAddingAccount = true },
                                     onToggleNavBar = toggleNavBar,
@@ -387,8 +439,10 @@ fun MainScreen(
                 shareLocation = null
             },
             onToggleNavBar = toggleNavBar,
-            viewModel = viewModel,
-            hostUrl = uiState.session.hostUrl,
+            actionControls = memoActionControls,
+            draftControls = draftControls,
+            sessionControls = sessionControls,
+            hostUrl = sessionControls.state.hostUrl,
             title = stringResource(R.string.memo_composer_fab_new_memo),
             initialContent = shareText ?: "",
             initialUris = shareUris,

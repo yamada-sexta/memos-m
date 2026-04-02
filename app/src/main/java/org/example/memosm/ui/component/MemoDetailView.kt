@@ -57,10 +57,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
 import org.example.memosm.model.Memo
+import org.example.memosm.state.MemoActionControls
+import org.example.memosm.state.SessionControls
+import org.example.memosm.state.AppSettingsControls
 import org.example.memosm.ui.component.composer.MemoComposerScreen
 import org.example.memosm.ui.component.composer.MemoEditScreen
 import org.example.memosm.ui.component.item.MemoItem
-import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.PaginatedListState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,15 +71,15 @@ fun MemoDetailView(
     modifier: Modifier = Modifier,
     memo: Memo,
     comments: PaginatedListState<Memo>,
-
     token: String,
     hostUrl: String = "",
     showBackButton: Boolean,
     onBack: () -> Unit,
-    viewModel: MemosViewModel,
+    actionControls: MemoActionControls?,
+    sessionControls: SessionControls?,
+    appSettingsControls: AppSettingsControls?,
     reactionOptions: List<String> = emptyList(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
     val onCommentMemo = LocalMemoCommenter.current
     val onEditMemo = LocalMemoEditor.current
     var memoToDelete by remember { mutableStateOf<Memo?>(null) }
@@ -102,8 +104,8 @@ fun MemoDetailView(
         }
     }
 
-    val isOwner = remember(memo.creator, uiState.session.currUser?.name) {
-        memo.creator == uiState.session.currUser?.name
+    val isOwner = remember(memo.creator, sessionControls?.state?.currUser?.name) {
+        memo.creator == sessionControls?.state?.currUser?.name
     }
 
     Surface(
@@ -141,7 +143,7 @@ fun MemoDetailView(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
             }, floatingActionButton = {
-                if (uiState.session.currUser != null) {
+                if (sessionControls?.state?.currUser != null) {
                     ExtendedFloatingActionButton(
                         onClick = { onCommentMemo(memo) },
                         expanded = isFabExpanded,
@@ -179,37 +181,29 @@ fun MemoDetailView(
                     item(key = "original_${memo.name ?: memo.content.hashCode()}") {
                         MemoItem(
                             memo = memo,
-                            user = uiState.users[memo.creator],
-                            currentUser = uiState.session.currUser,
+                            user = null, // TODO uiState.users[memo.creator]
+                            currentUser = sessionControls?.state?.currUser,
                             token = token,
                             hostUrl = hostUrl,
                             colors = CardDefaults.cardColors(),
                             onEdit = if (isOwner) {
                                 { onEditMemo(memo) }
                             } else null,
-                            onPin = if (isOwner) { pinned ->
-                                viewModel.memoActionDelegate.updateMemoPinned(memo, pinned)
-                            } else null,
+                            onPin = if (isOwner) { pinned -> actionControls?.updateMemoPinned?.invoke(memo, pinned) } else null,
                             onDelete = if (isOwner) {
                                 { memoToDelete = memo }
                             } else null,
                             onUpsertReaction = { emoji ->
-                                viewModel.memoActionDelegate.upsertMemoReaction(memo, emoji)
+                                actionControls?.upsertMemoReaction?.invoke(memo, emoji)
                             },
                             onDeleteReaction = { reaction ->
-                                viewModel.memoActionDelegate.deleteMemoReaction(memo, reaction)
+                                actionControls?.deleteMemoReaction?.invoke(memo, reaction)
                             },
-                            onContentUpdate = if (isOwner) { newContent ->
-                                viewModel.memoActionDelegate.updateMemo(
-                                    memo,
-                                    newContent,
-                                    memo.visibility,
-                                    memo.attachments ?: emptyList(),
-                                    memo.location
-                                )
-                            } else null,
+                            onContentUpdate = { newContent ->
+                                actionControls?.updateMemo?.invoke(memo, memo.copy(content = newContent))
+                            },
                             isDetailView = true,
-                            headerScale = uiState.appSettings.headerScale,
+                            headerScale = appSettingsControls?.settings?.headerScale ?: 1.0f,
                             reactionOptions = reactionOptions)
                     }
 
@@ -273,11 +267,11 @@ fun MemoDetailView(
                     itemsIndexed(
                         comments.items,
                         key = { index, it -> "comment_${it.name ?: it.content.hashCode()}_$index" }) { index, comment ->
-                        val isCommentOwner = comment.creator == uiState.session.currUser?.name
+                        val isCommentOwner = comment.creator == sessionControls?.state?.currUser?.name
                         MemoItem(
                             memo = comment,
-                            user = uiState.users[comment.creator],
-                            currentUser = uiState.session.currUser,
+                            user = null, // TODO uiState.users[comment.creator]
+                            currentUser = sessionControls?.state?.currUser,
                             token = token,
                             hostUrl = hostUrl,
                             colors = CardDefaults.cardColors(
@@ -290,22 +284,16 @@ fun MemoDetailView(
                                 { memoToDelete = comment }
                             } else null,
                             onUpsertReaction = { emoji ->
-                                viewModel.memoActionDelegate.upsertMemoReaction(comment, emoji)
+                                actionControls?.upsertMemoReaction?.invoke(comment, emoji)
                             },
                             onDeleteReaction = { reaction ->
-                                viewModel.memoActionDelegate.deleteMemoReaction(comment, reaction)
+                                actionControls?.deleteMemoReaction?.invoke(comment, reaction)
                             },
-                            onContentUpdate = if (isCommentOwner) { newContent ->
-                                viewModel.memoActionDelegate.updateMemo(
-                                    comment,
-                                    newContent,
-                                    comment.visibility,
-                                    comment.attachments ?: emptyList(),
-                                    comment.location
-                                )
-                            } else null,
+                            onContentUpdate = { newContent ->
+                                actionControls?.updateMemo?.invoke(comment, comment.copy(content = newContent))
+                            },
                             isDetailView = true,
-                            headerScale = uiState.appSettings.headerScale,
+                            headerScale = appSettingsControls?.settings?.headerScale ?: 1.0f,
                             reactionOptions = reactionOptions)
                     }
                 }
@@ -315,10 +303,9 @@ fun MemoDetailView(
 
     memoToDelete?.let { m ->
         DeleteConfirmationDialog(memo = m, onDismiss = { memoToDelete = null }, onConfirm = {
-            viewModel.memoActionDelegate.deleteMemo(m) {
-                memoToDelete = null
-                if (m == memo) onBack()
-            }
+            actionControls?.deleteMemo?.invoke(m.name!!)
+            memoToDelete = null
+            if (m == memo) onBack()
         })
     }
 }

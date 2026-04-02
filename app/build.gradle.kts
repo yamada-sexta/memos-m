@@ -128,12 +128,6 @@ androidComponents {
 dependencies {
     coreLibraryDesugaring(libs.android.desugarJdkLibs)
 
-    // ----------------------------
-    // Koin
-    // ----------------------------
-    implementation(libs.koin.android)
-    implementation(libs.koin.androidx.compose)
-
     implementation(project(":core"))
 
     // ----------------------------

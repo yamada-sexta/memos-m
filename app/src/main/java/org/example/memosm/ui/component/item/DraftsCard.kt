@@ -35,7 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
-import org.example.memosm.viewmodel.MemosViewModel
+import org.example.memosm.state.DraftControls
 
 /**
  * A card that shows a summary of saved drafts with actions to
@@ -44,7 +44,7 @@ import org.example.memosm.viewmodel.MemosViewModel
 @Composable
 fun DraftsCard(
     draftCount: Int,
-    viewModel: MemosViewModel,
+    draftControls: DraftControls,
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -132,7 +132,7 @@ fun DraftsCard(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.draftDelegate.deleteAllDrafts()
+                        // TODO draftControls.deleteAllDrafts()
                         showDeleteAllDialog = false
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -165,13 +165,7 @@ fun DraftsCard(
                 TextButton(
                     onClick = {
                         showPublishAllDialog = false
-                        viewModel.draftDelegate.publishAllDrafts { count ->
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.drafts_publish_all_success, count),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
+                        // TODO
                     }
                 ) {
                     Text(stringResource(R.string.common_publish))

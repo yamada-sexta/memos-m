@@ -32,11 +32,10 @@ import org.example.memosm.ui.component.LoginScreen
 import org.example.memosm.ui.theme.MemosMTheme
 import org.example.memosm.widget.DraftWidget
 
-import org.koin.android.ext.android.inject
+import org.example.memosm.api.AuthInterceptor
+import org.example.memosm.api.MemosApiFactory
 
 class MainActivity : ComponentActivity() {
-
-    private val dataStoreManager: DataStoreManager by inject()
 
     // StateFlow to hold pending share data, observable by Compose
     private val pendingShareDataFlow = MutableStateFlow<ShareIntentData?>(null)
@@ -60,6 +59,12 @@ class MainActivity : ComponentActivity() {
             MemosMTheme {
                 LocalContext.current
                 val scope = rememberCoroutineScope()
+
+                val application = applicationContext as MemosApplication
+                val dataStoreManager = application.dataStoreManager
+                val draftManager = application.draftManager
+                val memoCacheRepository = application.memoCacheRepository
+                val okHttpClient = application.okHttpClient
 
                 // Observe accounts instead of single credentials
                 val accounts by dataStoreManager.accounts.collectAsState(initial = null)
@@ -85,6 +90,19 @@ class MainActivity : ComponentActivity() {
                 } else {
                     val activeAccount = accounts?.find { it.isActive }
 
+                    var api by remember(activeAccount) { mutableStateOf<org.example.memosm.api.MemosApi?>(null) }
+
+                    LaunchedEffect(activeAccount) {
+                        if (activeAccount != null) {
+                            val client = okHttpClient.newBuilder()
+                                .addInterceptor(AuthInterceptor(activeAccount.accessToken))
+                                .build()
+                            api = MemosApiFactory.create(activeAccount.hostUrl, client)
+                        } else {
+                            api = null
+                        }
+                    }
+
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         if (activeAccount != null) {
                             MainScreen(
@@ -96,7 +114,13 @@ class MainActivity : ComponentActivity() {
                                 shareIntentData = pendingShareData,
                                 onShareIntentConsumed = { pendingShareDataFlow.value = null },
                                 shouldOpenComposer = shouldOpenComposer,
-                                onComposerOpened = { shouldOpenComposerFlow.value = false })
+                                onComposerOpened = { shouldOpenComposerFlow.value = false },
+                                api = api,
+                                accounts = accounts ?: emptyList(),
+                                dataStoreManager = dataStoreManager,
+                                draftManager = draftManager,
+                                memoCacheRepository = memoCacheRepository
+                            )
                         } else {
                             // If no active account, show login
                             LoginScreen(

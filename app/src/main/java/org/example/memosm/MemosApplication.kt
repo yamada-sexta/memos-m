@@ -11,33 +11,43 @@ import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import org.example.memosm.data.cache.MemoCacheDatabase
 import org.example.memosm.data.cache.MemoCacheRepository
-import org.example.memosm.di.appModule
-import org.example.memosm.di.networkModule
-import org.example.memosm.di.viewModelModule
-import org.koin.android.ext.koin.androidContext
-import org.koin.android.ext.koin.androidLogger
-import org.koin.core.context.startKoin
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
+import org.example.memosm.data.DataStoreManager
+import org.example.memosm.data.DraftManager
+import java.util.concurrent.TimeUnit
 
 class MemosApplication : Application(), SingletonImageLoader.Factory {
 
     lateinit var memoCacheRepository: MemoCacheRepository
+        private set
+    lateinit var dataStoreManager: DataStoreManager
+        private set
+    lateinit var draftManager: DraftManager
+        private set
+    lateinit var okHttpClient: OkHttpClient
         private set
 
     override fun onCreate() {
         super.onCreate()
         instance = this
 
-        startKoin {
-            androidLogger()
-            androidContext(this@MemosApplication)
-            modules(appModule, networkModule, viewModelModule)
-        }
-
-        // Initialize Room database and cache repository
-        // Note: In KMP/Koin, we might want to inject this repository where needed instead of holding it in Application
-        // But keeping it for now to minimize changes outside of DI migration
         val database = MemoCacheDatabase.getInstance(this)
         memoCacheRepository = MemoCacheRepository(database.memoDao())
+
+        val dataStore: DataStore<Preferences> = PreferenceDataStoreFactory.create(
+            produceFile = { preferencesDataStoreFile("settings") }
+        )
+        dataStoreManager = DataStoreManager(dataStore)
+        draftManager = DraftManager(this)
+
+        okHttpClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
