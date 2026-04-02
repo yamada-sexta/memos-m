@@ -18,7 +18,8 @@ import org.example.memosm.viewmodel.SessionState
 data class SessionControls(
     val state: SessionState,
     val accounts: List<Account>,
-    val fetchCurrentUser: () -> Unit
+    val fetchCurrentUser: () -> Unit,
+    val updateUserProfile: (User, (Boolean) -> Unit) -> Unit
 )
 
 @Composable
@@ -59,9 +60,29 @@ fun rememberSessionState(api: MemosApi?, accounts: List<Account>): SessionContro
         }
     }
 
+    val updateUserProfile: (User, (Boolean) -> Unit) -> Unit = { updatedUser, callback ->
+        scope.launch {
+            if (api != null && activeAccount != null) {
+                try {
+                    val userPath = activeAccount.user?.name ?: "users/me"
+                    // basic fields update mask
+                    val response = api.updateUser(userPath, updatedUser, "display_name,email,avatar_url,description")
+                    stateFlow.value = stateFlow.value.copy(currUser = response)
+                    callback(true)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    callback(false)
+                }
+            } else {
+                callback(false)
+            }
+        }
+    }
+
     return SessionControls(
         state = state,
         accounts = accounts,
-        fetchCurrentUser = { fetchCurrentUser() }
+        fetchCurrentUser = { fetchCurrentUser() },
+        updateUserProfile = updateUserProfile
     )
 }

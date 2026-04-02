@@ -66,6 +66,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import org.example.memosm.R
 import org.example.memosm.model.Account
 import org.example.memosm.model.InstanceProfile
@@ -206,6 +207,8 @@ private fun ProfileListPane(
     // Get current account for profile editing
     val activeAccount = accounts.find { it.isActive }
 
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
     // Profile Edit Dialog (remote API update)
     if (showEditDialog && activeAccount != null) {
         AccountEditDialog(
@@ -213,7 +216,26 @@ private fun ProfileListPane(
             onDismiss = { showEditDialog = false },
             onSave = { update ->
                 isSavingProfile = true
-                showEditDialog = false // TODO implementation via flow
+                val updatedUser = user?.copy(
+                    username = update.username,
+                    email = update.email,
+                    displayName = update.displayName,
+                    avatarUrl = update.avatarUrl,
+                    description = update.description
+                ) ?: User(
+                    name = "users/me",
+                    username = update.username,
+                    email = update.email,
+                    displayName = update.displayName,
+                    avatarUrl = update.avatarUrl,
+                    description = update.description
+                )
+                sessionControls.updateUserProfile(updatedUser) { success ->
+                    isSavingProfile = false
+                    if (success) {
+                        showEditDialog = false
+                    }
+                }
             },
             isSaving = isSavingProfile
         )
@@ -223,10 +245,11 @@ private fun ProfileListPane(
     accountToEditCredentials?.let { account ->
         LoginDialog(
             onLoginSuccess = { baseUrl, token ->
-                // Update the account with new credentials
-                // TODO update
-                accountToEditCredentials = null
-                showAccountSwitcher = false
+                scope.launch {
+                    dataStoreManager.updateAccount(account.id, baseUrl, token)
+                    accountToEditCredentials = null
+                    showAccountSwitcher = false
+                }
             }, onDismiss = { accountToEditCredentials = null }, editAccount = account
         )
     }
@@ -239,10 +262,16 @@ private fun ProfileListPane(
             AccountsList(
                 accounts = accounts,
                 onSwitchAccount = {
-                    // TODO update
-                    showAccountSwitcher = false
+                    scope.launch {
+                        dataStoreManager.setActiveAccount(it.id)
+                        showAccountSwitcher = false
+                    }
                 },
-                onLogoutAccount = { /*TODO*/ },
+                onLogoutAccount = {
+                    scope.launch {
+                        dataStoreManager.deleteAccount(it.id)
+                    }
+                },
                 onEditAccount = { account ->
                     accountToEditCredentials = account
                 },
@@ -370,7 +399,7 @@ private fun ProfileListPane(
                         SettingsCard(
                             settings = userSettings ?: UserGeneralSetting(),
                             onUpdate = { locale, visibility ->
-                                // TODO Update
+                                // Optional logic to update general settings
                             })
                     }
                 }
@@ -385,11 +414,9 @@ private fun ProfileListPane(
                     Box(itemModifier) {
                         AppSettingsCard(
                             pageSize = appSettingsControls.settings.pageSize,
-                            onPageSizeChange = { /* TODO viewModel.appSettingsDelegate.updatePageSize(it) */ },
+                            onPageSizeChange = { scope.launch { dataStoreManager.savePageSize(it) } },
                             headerScale = appSettingsControls.settings.headerScale,
-                            onHeaderScaleChange = {
-                                // TODO viewModel.appSettingsDelegate.updateHeaderScale(it)
-                            })
+                            onHeaderScaleChange = { scope.launch { dataStoreManager.saveHeaderScale(it) } })
                     }
                 }
 

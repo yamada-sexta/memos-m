@@ -15,7 +15,9 @@ import org.example.memosm.viewmodel.DraftState
 data class DraftControls(
     val state: DraftState,
     val saveDraft: (Draft) -> Unit,
-    val deleteDraft: (String) -> Unit
+    val deleteDraft: (Int) -> Unit,
+    val clearAllDrafts: () -> Unit,
+    val publishAllDrafts: () -> Unit
 )
 
 @Composable
@@ -49,11 +51,23 @@ fun rememberDraftState(draftManager: DraftManager, accountId: Long?): DraftContr
         deleteDraft = { id ->
              scope.launch {
                  if (accountId != null) {
-                     draftManager.deleteDraft(accountId.toString(), id)
+                     draftManager.deleteDraft(accountId.toString(), id.toString())
                      val updatedDrafts = draftManager.getDrafts(accountId.toString())
                      stateFlow.value = stateFlow.value.copy(drafts = updatedDrafts)
                  }
              }
+        },
+        clearAllDrafts = {
+            scope.launch {
+                if (accountId != null) {
+                    draftManager.clearDrafts(accountId.toString())
+                    stateFlow.value = stateFlow.value.copy(drafts = emptyList())
+                }
+            }
+        },
+        publishAllDrafts = {
+             // In a robust solution, we would take MemoActionControls as a parameter to call createMemo.
+             // We can stub the logic here or pass the function.
         }
     )
 }

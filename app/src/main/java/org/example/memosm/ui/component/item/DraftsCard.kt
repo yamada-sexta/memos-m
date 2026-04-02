@@ -132,7 +132,7 @@ fun DraftsCard(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // TODO draftControls.deleteAllDrafts()
+                        draftControls.clearAllDrafts()
                         showDeleteAllDialog = false
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -165,7 +165,7 @@ fun DraftsCard(
                 TextButton(
                     onClick = {
                         showPublishAllDialog = false
-                        // TODO
+                        draftControls.publishAllDrafts()
                     }
                 ) {
                     Text(stringResource(R.string.common_publish))

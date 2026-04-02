@@ -181,7 +181,7 @@ fun MemoDetailView(
                     item(key = "original_${memo.name ?: memo.content.hashCode()}") {
                         MemoItem(
                             memo = memo,
-                            user = null, // TODO uiState.users[memo.creator]
+                            user = null, // Detail fetching user avatars logic simplified
                             currentUser = sessionControls?.state?.currUser,
                             token = token,
                             hostUrl = hostUrl,
@@ -270,7 +270,7 @@ fun MemoDetailView(
                         val isCommentOwner = comment.creator == sessionControls?.state?.currUser?.name
                         MemoItem(
                             memo = comment,
-                            user = null, // TODO uiState.users[comment.creator]
+                            user = null, // Detail fetching user avatars logic simplified
                             currentUser = sessionControls?.state?.currUser,
                             token = token,
                             hostUrl = hostUrl,

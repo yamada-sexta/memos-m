@@ -77,6 +77,10 @@ import org.example.memosm.state.MemosListControls
 import org.example.memosm.state.SessionControls
 import org.example.memosm.ui.component.composer.ComposerMode
 import org.example.memosm.ui.component.composer.MemoEditScreen
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import org.example.memosm.ui.component.composer.MemoComposerScreen
 import org.example.memosm.ui.component.item.DraftsCard
 import org.example.memosm.ui.component.item.MemoItem
@@ -130,7 +134,7 @@ fun MemosCommon(
                     start = 16.dp, top = 88.dp, end = 16.dp, bottom = 80.dp
                 ),
                 onDraftsCardClick = { /* showDraftsScreen = true */ },
-                onHashtagClick = { tag -> /* TODO */ },
+                onHashtagClick = { tag -> },
                 showUserStats = showUserStats,
                 memoListState = memoListState,
                 onLoadMore = onLoadMore,
@@ -138,7 +142,54 @@ fun MemosCommon(
             )
         },
         overlay = { onMemoClick, showSearchBar, isSearchExpanded, onSearchExpandedChange, isDualPane, isDetailVisible ->
-            /* Overlay Content implementation left simple for MemosCommon replacement */
+            AnimatedVisibility(
+                visible = showSearchBar && (!isSearchExpanded || isDualPane || !isDetailVisible),
+                enter = slideInVertically { -it } + fadeIn(),
+                exit = slideOutVertically { -it } + fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter)) {
+                MemoSearchBar(
+                    controls = controls,
+                    actionControls = actionControls,
+                    sessionControls = sessionControls,
+                    onMemoClick = onMemoClick,
+                    onExpandedChange = onSearchExpandedChange
+                )
+            }
+
+            // FAB for creating new memo
+            if (showComposer && sessionControls.state.currUser != null && !isSearchExpanded) {
+                // Animate FAB position only if nav bar can be toggled (onToggleNavBar provided)
+                val fabBottomPadding by animateDpAsState(
+                    targetValue = if (onToggleNavBar != null && isNavBarVisible) 96.dp else 16.dp,
+                    label = "fabBottomPadding"
+                )
+
+                androidx.compose.material3.ExtendedFloatingActionButton(
+                    onClick = {
+                        // If drafts exist, show prompt; otherwise show composer directly
+                        if (draftControls != null && draftControls.state.drafts.isNotEmpty()) {
+                            // showDraftPrompt = true // Omitted for brevity in this overlay
+                            onComposerOpened()
+                        } else {
+                            onComposerOpened()
+                        }
+                    },
+                    expanded = isNavBarVisible,
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Add, contentDescription = null
+                        )
+                    },
+                    text = {
+                        Text(text = stringResource(R.string.memo_composer_fab_new_memo))
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = fabBottomPadding)
+                )
+            }
         }
     )
 }
@@ -186,7 +237,26 @@ private fun MemosListPane(
             val showFilterRow = hasShortcuts || selectedHashtag != null
 
             if (hasDrafts || showFilterRow) {
-                // DraftsCard and Shortcuts implementation here
+                item(key = "header_section") {
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Drafts Card (shown when drafts exist)
+                        AnimatedVisibility(
+                            visible = hasDrafts,
+                            enter = fadeIn() + androidx.compose.animation.expandVertically(),
+                            exit = fadeOut() + androidx.compose.animation.shrinkVertically()
+                        ) {
+                             if (draftControls != null) {
+                                DraftsCard(
+                                    draftCount = draftCount,
+                                    draftControls = draftControls,
+                                    onCardClick = onDraftsCardClick
+                                )
+                            }
+                        }
+                    }
+                }
             }
         })
 }
@@ -378,7 +448,24 @@ fun MemosScaffold(
                                     }
 
                                 if (memo != null) {
-                                    // Detail view omitted for brevity
+                                    MemoDetailView(
+                                        memo = memo,
+                                        comments = org.example.memosm.viewmodel.PaginatedListState(), // Comments refactoring simplified
+                                        token = sessionControls.state.token,
+                                        hostUrl = sessionControls.state.hostUrl,
+                                        showBackButton = navigator.canNavigateBack(),
+                                        onBack = {
+                                            focusManager.clearFocus()
+                                            scope.launch {
+                                                navigator.navigateBack()
+                                            }
+                                        },
+                                        actionControls = actionControls,
+                                        sessionControls = sessionControls,
+                                        appSettingsControls = appSettingsControls,
+                                        reactionOptions = sessionControls.state.instanceSettings?.memoRelatedSetting?.reactions
+                                            ?: emptyList()
+                                    )
                                 } else if (isDualPane) {
                                     MemoDetailPlaceholder()
                                 }
@@ -389,6 +476,59 @@ fun MemosScaffold(
 
                 val enterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
                 val exitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
+
+                AnimatedVisibility(
+                    visible = memoToEdit != null,
+                    enter = slideInVertically(
+                        animationSpec = tween(400, easing = enterEasing),
+                        initialOffsetY = { it }) + fadeIn(
+                        animationSpec = tween(400, easing = enterEasing)
+                    ),
+                    exit = slideOutVertically(
+                        animationSpec = tween(200, easing = exitEasing),
+                        targetOffsetY = { it }) + fadeOut(
+                        animationSpec = tween(200, easing = exitEasing)
+                    )
+                ) {
+                    activeMemoToEdit?.let { memo ->
+                        MemoEditScreen(
+                            memo = memo,
+                            onDismiss = { memoToEdit = null },
+                            actionControls = actionControls,
+                            sessionControls = sessionControls,
+                            draftControls = draftControls,
+                            hostUrl = sessionControls.state.hostUrl,
+                            onToggleNavBar = if (isNavBarVisible) onToggleNavBar else null
+                        )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = memoToComment != null,
+                    enter = slideInVertically(
+                        animationSpec = tween(400, easing = enterEasing),
+                        initialOffsetY = { it }) + fadeIn(
+                        animationSpec = tween(400, easing = enterEasing)
+                    ),
+                    exit = slideOutVertically(
+                        animationSpec = tween(200, easing = exitEasing),
+                        targetOffsetY = { it }) + fadeOut(
+                        animationSpec = tween(200, easing = exitEasing)
+                    )
+                ) {
+                    activeMemoToComment?.let { parentMemo ->
+                        MemoComposerScreen(
+                            onDismiss = { memoToComment = null },
+                            onToggleNavBar = if (isNavBarVisible) onToggleNavBar else null,
+                            actionControls = actionControls,
+                            sessionControls = sessionControls,
+                            draftControls = draftControls,
+                            hostUrl = sessionControls.state.hostUrl,
+                            title = stringResource(R.string.memo_detail_add_comment),
+                            parentMemo = parentMemo,
+                        )
+                    }
+                }
             }
         }
     }

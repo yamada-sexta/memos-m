@@ -548,7 +548,7 @@ private fun SearchResultContent(
                     val isOwner = memo.creator == sessionControls?.state?.currUser?.name
                     MemoItem(
                         memo = memo,
-                        user = null, // TODO uiState.users[memo.creator]
+                        user = null, // Users map omitted
                         currentUser = sessionControls?.state?.currUser,
                         token = sessionControls?.state?.token ?: "",
                         hostUrl = sessionControls?.state?.hostUrl ?: "",

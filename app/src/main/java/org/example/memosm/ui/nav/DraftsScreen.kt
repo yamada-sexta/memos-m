@@ -199,7 +199,7 @@ fun DraftsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        draftToDelete?.id?.let { draftControls.deleteDraft(it) }
+                        draftToDelete?.id?.let { draftControls.deleteDraft(it.toIntOrNull() ?: it.hashCode()) }
                         draftToDelete = null
                     }, colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
