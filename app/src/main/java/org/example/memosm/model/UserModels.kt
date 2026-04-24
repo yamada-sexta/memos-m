@@ -96,7 +96,7 @@ data class PasswordCredentials(
 )
 
 data class SSOCredentials(
-    val idpId: Int, val code: String, val redirectUri: String, val codeVerifier: String? = null
+    val idpName: String, val code: String, val redirectUri: String, val codeVerifier: String? = null
 )
 
 data class SignInResponse(
