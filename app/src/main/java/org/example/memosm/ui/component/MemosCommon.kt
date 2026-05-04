@@ -387,13 +387,35 @@ fun MemosScaffold(
     ) {
         val uiState by viewModel.uiState.collectAsState()
         val focusManager = LocalFocusManager.current
+        var lastAutoLoadScrollPosition by remember(listState) {
+            mutableStateOf<Pair<Int, Int>?>(null)
+        }
 
         val onEditMemo = LocalMemoEditor.current
         var memoToDelete by remember { mutableStateOf<Memo?>(null) }
 
         LaunchedEffect(listState, isLoading, nextPageToken) {
-            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }.collect { lastIndex ->
-                if (lastIndex != null && !isLoading && nextPageToken != null && lastIndex >= listState.layoutInfo.totalItemsCount - 5) {
+            snapshotFlow {
+                (listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset) to
+                    (listState.isScrollInProgress to listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index)
+            }.collect { (scrollPosition, scrollState) ->
+                val (isScrollInProgress, lastIndex) = scrollState
+                val isNearEnd =
+                    isScrollInProgress &&
+                        lastIndex != null &&
+                        !isLoading &&
+                        !nextPageToken.isNullOrBlank() &&
+                        lastIndex >= listState.layoutInfo.totalItemsCount - 5
+
+                if (!isNearEnd) {
+                    lastAutoLoadScrollPosition = null
+                    return@collect
+                }
+
+                if (
+                    lastAutoLoadScrollPosition != scrollPosition
+                ) {
+                    lastAutoLoadScrollPosition = scrollPosition
                     onLoadMore()
                 }
             }

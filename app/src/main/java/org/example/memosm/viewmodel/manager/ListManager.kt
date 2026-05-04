@@ -48,6 +48,7 @@ abstract class BaseListManager<T>(
 
     protected val _listState = MutableStateFlow(initialState)
     override val listState: StateFlow<PaginatedListState<T>> = _listState.asStateFlow()
+    private var lastRequestedPageToken: String? = null
 
     // Abstract methods to be implemented by specific managers
     // Returns a Pair of (Items, NextPageToken)
@@ -85,16 +86,19 @@ abstract class BaseListManager<T>(
     }
 
     override fun loadMore() {
+        val nextToken = _listState.value.nextPageToken?.takeIf { it.isNotBlank() } ?: return
         android.util.Log.d(
             TAG,
-            "loadMore: isLoading=${_listState.value.isLoading}, nextToken=${_listState.value.nextPageToken}"
+            "loadMore: isLoading=${_listState.value.isLoading}, nextToken=$nextToken, lastRequested=$lastRequestedPageToken"
         )
-        if (_listState.value.isLoading || _listState.value.nextPageToken.isNullOrBlank()) return
-        loadInternal(pageToken = _listState.value.nextPageToken)
+        if (_listState.value.isLoading || nextToken == lastRequestedPageToken) return
+        lastRequestedPageToken = nextToken
+        loadInternal(pageToken = nextToken)
     }
 
     override fun reset() {
         android.util.Log.d(TAG, "reset")
+        lastRequestedPageToken = null
         _listState.value = initialState
     }
 
@@ -162,6 +166,10 @@ abstract class BaseListManager<T>(
                 val updatedItems =
                     if (pageToken == null) processedItems else _listState.value.items + processedItems
 
+                if (pageToken == null) {
+                    lastRequestedPageToken = null
+                }
+
                 _listState.value = _listState.value.copy(
                     items = updatedItems,
                     nextPageToken = nextToken,
@@ -180,6 +188,9 @@ abstract class BaseListManager<T>(
                 }
 
             } catch (e: Exception) {
+                if (!pageToken.isNullOrBlank()) {
+                    lastRequestedPageToken = null
+                }
                 e.printStackTrace()
                 android.util.Log.e(TAG, "loadInternal error", e)
 

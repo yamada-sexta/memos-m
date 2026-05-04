@@ -99,11 +99,13 @@ fun AttachmentsScreen(
         derivedStateOf {
             val totalItemsCount = listState.layoutInfo.totalItemsCount
             if (totalItemsCount == 0 || uiState.attachmentList.list.isLoading) return@derivedStateOf false
+            if (!listState.isScrollInProgress) return@derivedStateOf false
 
             val lastVisibleItem =
                 listState.layoutInfo.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
 
-            uiState.attachmentList.list.nextPageToken != null && !uiState.attachmentList.list.nextPageToken.isNullOrBlank() && lastVisibleItem.index >= totalItemsCount - 5
+            !uiState.attachmentList.list.nextPageToken.isNullOrBlank() &&
+                lastVisibleItem.index >= totalItemsCount - 5
         }
     }
 
@@ -254,7 +256,11 @@ fun AttachmentsScreen(
             hostUrl = uiState.session.hostUrl,
             onDismiss = { showFullScreenViewer = false },
             onPageChanged = { index ->
-                if (index >= uiState.attachmentList.list.items.size - 5 && uiState.attachmentList.list.nextPageToken != null && !uiState.attachmentList.list.isLoading) {
+                if (
+                    index >= uiState.attachmentList.list.items.size - 5 &&
+                    !uiState.attachmentList.list.nextPageToken.isNullOrBlank() &&
+                    !uiState.attachmentList.list.isLoading
+                ) {
                     viewModel.loadMoreAttachments()
                 }
             }
