@@ -7,6 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -19,7 +20,6 @@ import org.example.memosm.data.DataStoreManager
 import org.example.memosm.data.cache.CacheListType
 import org.example.memosm.data.cache.MemoCacheRepository
 import org.example.memosm.model.Account
-import org.example.memosm.model.Attachment
 import org.example.memosm.model.Memo
 import org.example.memosm.model.MemoState
 import org.example.memosm.model.toDraft
@@ -169,11 +169,6 @@ class MemosViewModel(
     private var collectionJob: Job? = null
     private var cacheCollectionJob: Job? = null
 
-    private val cachedUserMemos = MutableStateFlow<List<Memo>>(emptyList())
-    private val cachedExploreMemos = MutableStateFlow<List<Memo>>(emptyList())
-    private val cachedArchivedMemos = MutableStateFlow<List<Memo>>(emptyList())
-    private val cachedAttachments = MutableStateFlow<List<Attachment>>(emptyList())
-
     private val _attachmentAspectRatios =
         MutableStateFlow<Map<Float, Map<String, Float>>>(emptyMap())
 
@@ -322,23 +317,20 @@ class MemosViewModel(
                     "MemosDebug",
                     "ViewModel: StateCollection. aspectRatiosCount=${aspectRatios.values.sumOf { it.size }}"
                 )
-                val mergedUserMemos = mergeUnsyncedMemos(cachedUserMemos.value, archived = false)
-                val mergedArchivedMemos =
-                    mergeUnsyncedMemos(cachedArchivedMemos.value, archived = true)
+                val mergedUserMemos = mergeUnsyncedMemos(userMemos.items, archived = false)
+                val mergedArchivedMemos = mergeUnsyncedMemos(archivedMemos.items, archived = true)
                 _uiState.value.copy(
                     userMemoList = _uiState.value.userMemoList.copy(
                         list = userMemos.copy(items = mergedUserMemos)
                     ),
-                    exploreMemoList = _uiState.value.exploreMemoList.copy(
-                        list = exploreMemos.copy(items = cachedExploreMemos.value)
-                    ),
+                    exploreMemoList = _uiState.value.exploreMemoList.copy(list = exploreMemos),
                     archivedMemoList = _uiState.value.archivedMemoList.copy(
                         list = archivedMemos.copy(items = mergedArchivedMemos)
                     ),
                     searchMemoList = _uiState.value.searchMemoList.copy(list = searchMemos),
                     detailPane = _uiState.value.detailPane.copy(comments = comments),
                     attachmentList = AttachmentListState(
-                        list = attachments.copy(items = cachedAttachments.value),
+                        list = attachments,
                         cellWidth = cellWidth,
                         aspectRatios = aspectRatios
                     )
@@ -492,17 +484,7 @@ class MemosViewModel(
     private fun observeLocalCache(accountId: String) {
         cacheCollectionJob?.cancel()
         cacheCollectionJob = viewModelScope.launch {
-            combine(
-                memoCacheRepository.observeCachedMemos(accountId, CacheListType.USER),
-                memoCacheRepository.observeCachedMemos(accountId, CacheListType.EXPLORE),
-                memoCacheRepository.observeCachedMemos(accountId, CacheListType.ARCHIVED),
-                memoCacheRepository.observeCachedAttachments(accountId),
-                memoCacheRepository.observeUnsyncedMemos(accountId)
-            ) { user, explore, archived, attachments, unsynced ->
-                cachedUserMemos.value = user
-                cachedExploreMemos.value = explore
-                cachedArchivedMemos.value = archived
-                cachedAttachments.value = attachments
+            memoCacheRepository.observeUnsyncedMemos(accountId).collect { unsynced ->
                 _uiState.update {
                     it.copy(
                         draft = it.draft.copy(
@@ -517,7 +499,7 @@ class MemosViewModel(
                         )
                     )
                 }
-            }.collect { }
+            }
         }
     }
 
