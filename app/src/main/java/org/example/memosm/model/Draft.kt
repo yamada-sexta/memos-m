@@ -9,6 +9,9 @@ import kotlin.time.Instant
  */
 data class Draft(
     val id: String = UUID.randomUUID().toString(),
+    val remoteName: String? = null,
+    val syncState: MemoSyncState = MemoSyncState.PENDING_CREATE,
+    val state: MemoState? = MemoState.NORMAL,
     val content: String = "",
     val visibility: Visibility = Visibility.PRIVATE,
     val attachments: List<Attachment> = emptyList(),
@@ -27,12 +30,15 @@ data class Draft(
      */
     fun toMemo(): Memo {
         return Memo(
+            name = remoteName,
+            localId = id,
+            syncState = syncState,
+            state = state,
             content = content,
             visibility = visibility,
             attachments = attachments.ifEmpty { null },
             location = location,
             displayTime = Instant.fromEpochMilliseconds(updatedAt),
-            state = MemoState.NORMAL,
         )
     }
 }
@@ -44,6 +50,9 @@ data class Draft(
 fun Memo.toDraft(): Draft {
     val now = System.currentTimeMillis()
     return Draft(
+        remoteName = name,
+        syncState = if (name == null) MemoSyncState.PENDING_CREATE else MemoSyncState.PENDING_UPDATE,
+        state = state,
         content = content,
         visibility = visibility,
         attachments = attachments ?: emptyList(),

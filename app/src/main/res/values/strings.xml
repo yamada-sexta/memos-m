@@ -195,30 +195,31 @@
     </string-array>
 
     <!-- Drafts -->
-    <string name="drafts_title">Drafts</string>
-    <string name="drafts_count">%1$d draft(s)</string>
-    <string name="drafts_empty">No drafts</string>
-    <string name="drafts_no_content">(Empty draft)</string>
+    <string name="drafts_title">Unsynced</string>
+    <string name="drafts_count">%1$d unsynced memo(s)</string>
+    <string name="drafts_empty">No unsynced memos</string>
+    <string name="drafts_no_content">(Empty unsynced memo)</string>
     <string name="drafts_action_edit">Edit</string>
-    <string name="drafts_action_post">Post</string>
+    <string name="drafts_action_post">Sync</string>
     <string name="drafts_action_delete">Delete</string>
-    <string name="drafts_delete_confirm_title">Delete Draft</string>
-    <string name="drafts_delete_confirm_message">Are you sure you want to delete this draft? This cannot be undone.</string>
-    <string name="drafts_prompt_title">Unsaved Drafts</string>
-    <string name="drafts_prompt_message">You have unsaved drafts. Would you like to continue your latest draft or start fresh?</string>
-    <string name="drafts_prompt_continue">Continue Draft</string>
+    <string name="drafts_delete_confirm_title">Delete Unsynced Memo</string>
+    <string name="drafts_delete_confirm_message">Are you sure you want to delete this unsynced memo? This cannot be undone.</string>
+    <string name="drafts_prompt_title">Unsynced Memos</string>
+    <string name="drafts_prompt_message">You have unsynced memos. Would you like to continue your latest local memo or start fresh?</string>
+    <string name="drafts_prompt_continue">Continue Latest</string>
     <string name="drafts_prompt_start_fresh">Start Fresh</string>
-    <string name="drafts_card_message">You have unsaved drafts</string>
+    <string name="drafts_card_message">You have unsynced local memos</string>
 
     <!-- Activity Map -->
     <string name="profile_activity_map">Activity Map</string>
     <string name="profile_activity_count">%1$d activities</string>
-    <string name="drafts_delete_all_confirmation_title">Delete all drafts?</string>
-    <string name="drafts_delete_all_confirmation_message">Are you sure you want to delete all drafts? This action cannot be undone.</string>
-    <string name="drafts_publish_all_confirmation_title">Publish all drafts?</string>
-    <string name="drafts_publish_all_confirmation_message">This will publish all %1$d drafts as individual memos. Continue?</string>
-    <string name="drafts_publish_all_success">Published %1$d drafts</string>
+    <string name="drafts_delete_all_confirmation_title">Delete all unsynced memos?</string>
+    <string name="drafts_delete_all_confirmation_message">Are you sure you want to delete all unsynced memos? This action cannot be undone.</string>
+    <string name="drafts_publish_all_confirmation_title">Sync all unsynced memos?</string>
+    <string name="drafts_publish_all_confirmation_message">This will try to sync all %1$d unsynced memos. Continue?</string>
+    <string name="drafts_publish_all_success">Synced %1$d memo(s)</string>
     <string name="common_publish">Publish</string>
+    <string name="common_sync">Sync</string>
 
     <string name="user_stats_widget_description">Displays user statistics.</string>
 </resources>

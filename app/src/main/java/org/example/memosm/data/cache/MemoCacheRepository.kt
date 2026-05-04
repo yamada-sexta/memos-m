@@ -1,7 +1,14 @@
 package org.example.memosm.data.cache
 
 import android.util.Log
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import org.example.memosm.model.Attachment
+import org.example.memosm.model.Draft
 import org.example.memosm.model.Memo
+import org.example.memosm.model.MemoState
+import org.example.memosm.model.MemoSyncState
+import org.example.memosm.model.toDraft
 
 private const val TAG = "MemoCacheRepository"
 
@@ -49,12 +56,92 @@ class MemoCacheRepository(private val memoDao: MemoDao) {
         }
     }
 
+    fun observeCachedMemos(accountId: String, listType: CacheListType): Flow<List<Memo>> {
+        return memoDao.observeMemos(accountId, listType.name).map { cached ->
+            cached.mapNotNull { it.toMemo() }
+        }
+    }
+
+    fun observeUnsyncedMemos(accountId: String): Flow<List<Memo>> {
+        return memoDao.observeMemosBySyncStateNot(accountId, MemoSyncState.SYNCED.name).map { cached ->
+            cached.mapNotNull { it.toMemo() }.sortedByDescending { memo ->
+                memo.displayTime?.toEpochMilliseconds() ?: 0L
+            }
+        }
+    }
+
+    suspend fun cacheAttachments(accountId: String, attachments: List<Attachment>) {
+        try {
+            memoDao.deleteAttachments(accountId)
+            val cached = attachments.mapIndexed { index, attachment ->
+                CachedAttachment.fromAttachment(attachment, accountId, index)
+            }
+            if (cached.isNotEmpty()) {
+                memoDao.insertAttachments(cached)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error caching attachments", e)
+        }
+    }
+
+    suspend fun getCachedAttachments(accountId: String): List<Attachment> {
+        return try {
+            memoDao.getAttachments(accountId).mapNotNull { it.toAttachment() }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error retrieving cached attachments", e)
+            emptyList()
+        }
+    }
+
+    fun observeCachedAttachments(accountId: String): Flow<List<Attachment>> {
+        return memoDao.observeAttachments(accountId).map { cached ->
+            cached.mapNotNull { it.toAttachment() }
+        }
+    }
+
+    suspend fun saveDraft(accountId: String, draft: Draft) {
+        val listType = if (draft.state == MemoState.ARCHIVED) {
+            CacheListType.ARCHIVED
+        } else {
+            CacheListType.USER
+        }
+        val memo = draft.toMemo().copy(
+            localId = draft.id,
+            syncState = draft.syncState,
+            displayTime = kotlin.time.Instant.fromEpochMilliseconds(draft.updatedAt),
+            updateTime = kotlin.time.Instant.fromEpochMilliseconds(draft.updatedAt),
+            createTime = kotlin.time.Instant.fromEpochMilliseconds(draft.createdAt)
+        )
+        memoDao.insertMemo(CachedMemo.fromMemo(memo, accountId, listType, 0))
+    }
+
+    suspend fun getDrafts(accountId: String): List<Draft> {
+        return memoDao.getMemosBySyncStateNot(accountId, MemoSyncState.SYNCED.name)
+            .mapNotNull { it.toMemo() }
+            .sortedByDescending { memo -> memo.displayTime?.toEpochMilliseconds() ?: 0L }
+            .map { memo ->
+                val draft = memo.toDraft()
+                draft.copy(id = memo.localId ?: draft.id, syncState = memo.syncState)
+            }
+    }
+
+    suspend fun deleteDraft(accountId: String, draftId: String) {
+        memoDao.deleteMemoByKey(accountId, draftId)
+    }
+
+    suspend fun clearDrafts(accountId: String) {
+        getDrafts(accountId).forEach { draft ->
+            memoDao.deleteMemoByKey(accountId, draft.id)
+        }
+    }
+
     /**
      * Clear all cached memos for an account.
      */
     suspend fun clearCache(accountId: String) {
         try {
             memoDao.deleteAllForAccount(accountId)
+            memoDao.deleteAttachments(accountId)
             Log.d(TAG, "Cleared cache for account $accountId")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing cache for account $accountId", e)
@@ -67,6 +154,7 @@ class MemoCacheRepository(private val memoDao: MemoDao) {
     suspend fun clearAllCache() {
         try {
             memoDao.deleteAll()
+            memoDao.deleteAllAttachments()
             Log.d(TAG, "Cleared all cache")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing all cache", e)

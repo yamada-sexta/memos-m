@@ -30,13 +30,11 @@ import androidx.compose.material.icons.automirrored.outlined.Shortcut
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Tag
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,7 +60,7 @@ import org.example.memosm.ui.component.MemoSearchBar
 import org.example.memosm.ui.component.MemosScaffold
 import org.example.memosm.ui.component.composer.ComposerMode
 import org.example.memosm.ui.component.composer.MemoComposerScreen
-import org.example.memosm.ui.component.item.DraftsCard
+import org.example.memosm.ui.component.item.UnsyncedChangesBanner
 import org.example.memosm.ui.component.rememberScrollContext
 import org.example.memosm.viewmodel.MemosViewModel
 
@@ -77,12 +75,7 @@ fun MemosScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     var showComposerDialog by remember { mutableStateOf(false) }
-    var showDraftsScreen by remember { mutableStateOf(false) }
-    var showDraftPrompt by remember { mutableStateOf(false) }
     var isFabExpanded by remember { mutableStateOf(true) }
-
-    // Track if we should start fresh (skip draft loading)
-    var startFresh by remember { mutableStateOf(false) }
 
     // FAB expansion based on scroll direction
     val scrollContext = rememberScrollContext(listState = listState, onScrollDown = {
@@ -105,14 +98,8 @@ fun MemosScreen(
     // Handle external composer open request (e.g. from widget)
     LaunchedEffect(openComposer) {
         if (openComposer) {
-            // Same logic as FAB click
-            if (uiState.draft.drafts.isNotEmpty()) {
-                showDraftPrompt = true
-            } else {
-                viewModel.draftDelegate.initializeNewDraftSession()
-                startFresh = true
-                showComposerDialog = true
-            }
+            viewModel.draftDelegate.initializeNewDraftSession()
+            showComposerDialog = true
             onComposerOpened()
         }
     }
@@ -142,7 +129,12 @@ fun MemosScreen(
                 contentPadding = PaddingValues(
                     start = 16.dp, top = 88.dp, end = 16.dp, bottom = bottomPadding
                 ),
-                onDraftsCardClick = { showDraftsScreen = true },
+                onContinueUnsynced = {
+                    viewModel.draftDelegate.getLatestDraft()?.let { latest ->
+                        viewModel.draftDelegate.setCurrentEditingDraft(latest.id)
+                        showComposerDialog = true
+                    }
+                },
                 onHashtagClick = { tag -> viewModel.shortcutDelegate.toggleHashtagFilter(tag) }
             )
         },
@@ -169,15 +161,8 @@ fun MemosScreen(
 
                 ExtendedFloatingActionButton(
                     onClick = {
-                        // If drafts exist, show prompt; otherwise show composer directly
-                        if (uiState.draft.drafts.isNotEmpty()) {
-                            showDraftPrompt = true
-                        } else {
-                            // Start fresh with a new draft session ID
-                            viewModel.draftDelegate.initializeNewDraftSession()
-                            startFresh = true
-                            showComposerDialog = true
-                        }
+                        viewModel.draftDelegate.initializeNewDraftSession()
+                        showComposerDialog = true
                     },
                     expanded = isFabExpanded,
                     icon = {
@@ -197,42 +182,6 @@ fun MemosScreen(
             }
         })
 
-    // Draft prompt dialog
-    if (showDraftPrompt) {
-        AlertDialog(
-            onDismissRequest = { showDraftPrompt = false },
-            title = { Text(stringResource(R.string.drafts_prompt_title)) },
-            text = { Text(stringResource(R.string.drafts_prompt_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDraftPrompt = false
-                        // Load latest draft
-                        val latestDraft = viewModel.draftDelegate.getLatestDraft()
-                        if (latestDraft != null) {
-                            viewModel.draftDelegate.setCurrentEditingDraft(latestDraft.id)
-                        }
-                        startFresh = false
-                        showComposerDialog = true
-                    }) {
-                    Text(stringResource(R.string.drafts_prompt_continue))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDraftPrompt = false
-                        // Start fresh with a new draft session ID
-                        viewModel.draftDelegate.initializeNewDraftSession()
-                        startFresh = true
-                        showComposerDialog = true
-                    }) {
-                    Text(stringResource(R.string.drafts_prompt_start_fresh))
-                }
-            })
-    }
-
-    // Drafts screen (full-screen)
     // Material Expressive easing
     val enterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
     val exitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
@@ -247,20 +196,17 @@ fun MemosScreen(
             animationSpec = tween(200, easing = exitEasing)
         )
     ) {
-        val latestDraft = if (!startFresh) viewModel.draftDelegate.getLatestDraft() else null
         val currentDraftId = uiState.draft.currentEditingDraftId
-        val draftToLoad = if (!startFresh && currentDraftId != null) {
+        val latestDraft = viewModel.draftDelegate.getLatestDraft()
+        val draftToLoad = if (currentDraftId != null) {
             uiState.draft.drafts.find { it.id == currentDraftId }
-        } else if (!startFresh) {
-            latestDraft
         } else {
-            null
+            latestDraft
         }
 
         MemoComposerScreen(
             onDismiss = {
                 showComposerDialog = false
-                startFresh = false
             },
             onToggleNavBar = onToggleNavBar,
             viewModel = viewModel,
@@ -273,19 +219,6 @@ fun MemosScreen(
             mode = ComposerMode.PUBLISH
         )
     }
-
-    AnimatedVisibility(
-        visible = showDraftsScreen, enter = slideInVertically(
-            animationSpec = tween(400, easing = enterEasing), initialOffsetY = { it }) + fadeIn(
-            animationSpec = tween(400, easing = enterEasing)
-        ), exit = slideOutVertically(
-            animationSpec = tween(200, easing = exitEasing), targetOffsetY = { it }) + fadeOut(
-            animationSpec = tween(200, easing = exitEasing)
-        )
-    ) {
-        DraftsScreen(
-            viewModel = viewModel, onDismiss = { showDraftsScreen = false })
-    }
 }
 
 @Composable
@@ -294,7 +227,7 @@ private fun MemosListPane(
     listState: LazyListState,
     onMemoClick: (Memo) -> Unit,
     contentPadding: PaddingValues,
-    onDraftsCardClick: () -> Unit,
+    onContinueUnsynced: () -> Unit,
     onHashtagClick: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -327,16 +260,18 @@ private fun MemosListPane(
                     Column(
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Drafts Card (shown when drafts exist)
+                        // Unsynced banner
                         AnimatedVisibility(
                             visible = hasDrafts,
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically()
                         ) {
-                            DraftsCard(
-                                draftCount = draftCount,
-                                viewModel = viewModel,
-                                onCardClick = onDraftsCardClick
+                            UnsyncedChangesBanner(
+                                unsyncedCount = draftCount,
+                                onContinueLatest = onContinueUnsynced,
+                                onSyncAll = {
+                                    viewModel.draftDelegate.publishAllDrafts()
+                                }
                             )
                         }
 
@@ -450,4 +385,3 @@ private fun MemosListPane(
         })
 
 }
-

@@ -469,7 +469,8 @@ fun MemosScaffold(
                         Box(
                             modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center
                         ) {
-                            val isOwner = memo.creator == uiState.session.currUser?.name
+                            val isOwner =
+                                memo.isUnsynced || memo.creator == uiState.session.currUser?.name
                             MemoItem(
                                 memo = memo,
                                 user = userProvider(memo),
@@ -488,7 +489,7 @@ fun MemosScaffold(
                                 onEdit = if (isOwner) {
                                     { onEditMemo(memo) }
                                 } else null,
-                                onArchive = if (isOwner) {
+                                onArchive = if (isOwner && !memo.isUnsynced) {
                                     {
                                         viewModel.memoActionDelegate.updateMemo(
                                             memo,
@@ -500,7 +501,7 @@ fun MemosScaffold(
                                         )
                                     }
                                 } else null,
-                                onUnarchive = if (isOwner) {
+                                onUnarchive = if (isOwner && !memo.isUnsynced) {
                                     {
                                         viewModel.memoActionDelegate.updateMemo(
                                             memo,
@@ -512,17 +513,27 @@ fun MemosScaffold(
                                         )
                                     }
                                 } else null,
-                                onPin = if (isOwner) { pinned ->
+                                onPin = if (isOwner && !memo.isUnsynced) { pinned ->
                                     viewModel.memoActionDelegate.updateMemoPinned(memo, pinned)
                                 } else null,
                                 onDelete = if (isOwner) {
-                                    { memoToDelete = memo }
+                                    {
+                                        if (memo.isUnsynced && memo.localId != null) {
+                                            viewModel.draftDelegate.deleteDraft(memo.localId)
+                                        } else {
+                                            memoToDelete = memo
+                                        }
+                                    }
                                 } else null,
                                 onUpsertReaction = { emoji ->
-                                    viewModel.memoActionDelegate.upsertMemoReaction(memo, emoji)
+                                    if (!memo.isUnsynced) {
+                                        viewModel.memoActionDelegate.upsertMemoReaction(memo, emoji)
+                                    }
                                 },
                                 onDeleteReaction = { reaction ->
-                                    viewModel.memoActionDelegate.deleteMemoReaction(memo, reaction)
+                                    if (!memo.isUnsynced) {
+                                        viewModel.memoActionDelegate.deleteMemoReaction(memo, reaction)
+                                    }
                                 },
                                 onContentUpdate = if (isOwner) { newContent ->
                                     viewModel.memoActionDelegate.updateMemo(

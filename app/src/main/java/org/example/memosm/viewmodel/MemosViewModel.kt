@@ -16,11 +16,13 @@ import org.example.memosm.api.MemosApi
 import org.example.memosm.api.MemosApiFactory
 import org.example.memosm.api.StreamingAttachmentApi
 import org.example.memosm.data.DataStoreManager
-import org.example.memosm.data.DraftManager
 import org.example.memosm.data.cache.CacheListType
 import org.example.memosm.data.cache.MemoCacheRepository
 import org.example.memosm.model.Account
+import org.example.memosm.model.Attachment
 import org.example.memosm.model.Memo
+import org.example.memosm.model.MemoState
+import org.example.memosm.model.toDraft
 import org.example.memosm.viewmodel.delegates.AppSettingsDelegate
 import org.example.memosm.viewmodel.delegates.AppSettingsDelegateImpl
 import org.example.memosm.viewmodel.delegates.DraftDelegate
@@ -45,7 +47,6 @@ import org.example.memosm.model.UserNotification
 
 class MemosViewModel(
     private val dataStoreManager: DataStoreManager,
-    private val draftManager: DraftManager,
     private val memoCacheRepository: MemoCacheRepository,
     private val okHttpClient: OkHttpClient
 ) : ViewModel() {
@@ -151,13 +152,27 @@ class MemosViewModel(
     private val attachmentManager: AttachmentManager =
         AttachmentManager(
             scope = viewModelScope, apiProvider = { api }, streamingApiProvider = {
-            currentHttpClient?.let {
-                StreamingAttachmentApi(it, currentBaseUrl ?: "")
-            }
-        }, initialCellWidth = _uiState.value.attachmentList.cellWidth
+                currentHttpClient?.let {
+                    StreamingAttachmentApi(it, currentBaseUrl ?: "")
+                }
+            }, cacheCallbacks = CacheCallbacks(onFetchSuccess = { attachments ->
+                val accountId =
+                    _uiState.value.accounts.find { it.isActive }?.id ?: return@CacheCallbacks
+                memoCacheRepository.cacheAttachments(accountId, attachments)
+            }, getCachedData = {
+                val accountId = _uiState.value.accounts.find { it.isActive }?.id
+                    ?: return@CacheCallbacks emptyList()
+                memoCacheRepository.getCachedAttachments(accountId)
+            }), initialCellWidth = _uiState.value.attachmentList.cellWidth
         )
 
     private var collectionJob: Job? = null
+    private var cacheCollectionJob: Job? = null
+
+    private val cachedUserMemos = MutableStateFlow<List<Memo>>(emptyList())
+    private val cachedExploreMemos = MutableStateFlow<List<Memo>>(emptyList())
+    private val cachedArchivedMemos = MutableStateFlow<List<Memo>>(emptyList())
+    private val cachedAttachments = MutableStateFlow<List<Attachment>>(emptyList())
 
     private val _attachmentAspectRatios =
         MutableStateFlow<Map<Float, Map<String, Float>>>(emptyMap())
@@ -188,7 +203,15 @@ class MemosViewModel(
     }
 
     val draftDelegate: DraftDelegate = DraftDelegateImpl(
-        viewModelScope, _uiState, draftManager, { api }) { userMemoManager.fetch(refresh = true) }
+        viewModelScope,
+        _uiState,
+        memoCacheRepository,
+        { api }
+    ) {
+        userMemoManager.fetch(refresh = true)
+        archivedMemoManager.fetch(refresh = true)
+        exploreMemoManager.fetch(refresh = true)
+    }
 
     private val memoListUpdater = object : MemoListUpdater {
         override fun updateMemoInLists(memo: Memo) {
@@ -268,6 +291,7 @@ class MemosViewModel(
         viewModelScope.launch {
             api = createApi(account.hostUrl, account.accessToken)
 
+            observeLocalCache(account.id)
             fetchCurrentUser()
             exploreMemoManager.fetch()
             if (account.user != null) {
@@ -298,14 +322,25 @@ class MemosViewModel(
                     "MemosDebug",
                     "ViewModel: StateCollection. aspectRatiosCount=${aspectRatios.values.sumOf { it.size }}"
                 )
+                val mergedUserMemos = mergeUnsyncedMemos(cachedUserMemos.value, archived = false)
+                val mergedArchivedMemos =
+                    mergeUnsyncedMemos(cachedArchivedMemos.value, archived = true)
                 _uiState.value.copy(
-                    userMemoList = _uiState.value.userMemoList.copy(list = userMemos),
-                    exploreMemoList = _uiState.value.exploreMemoList.copy(list = exploreMemos),
-                    archivedMemoList = _uiState.value.archivedMemoList.copy(list = archivedMemos),
+                    userMemoList = _uiState.value.userMemoList.copy(
+                        list = userMemos.copy(items = mergedUserMemos)
+                    ),
+                    exploreMemoList = _uiState.value.exploreMemoList.copy(
+                        list = exploreMemos.copy(items = cachedExploreMemos.value)
+                    ),
+                    archivedMemoList = _uiState.value.archivedMemoList.copy(
+                        list = archivedMemos.copy(items = mergedArchivedMemos)
+                    ),
                     searchMemoList = _uiState.value.searchMemoList.copy(list = searchMemos),
                     detailPane = _uiState.value.detailPane.copy(comments = comments),
                     attachmentList = AttachmentListState(
-                        list = attachments, cellWidth = cellWidth, aspectRatios = aspectRatios
+                        list = attachments.copy(items = cachedAttachments.value),
+                        cellWidth = cellWidth,
+                        aspectRatios = aspectRatios
                     )
                 )
             }.collect { newState ->
@@ -452,5 +487,67 @@ class MemosViewModel(
         scaleMap[key] = ratio
         currentMap[scale] = scaleMap
         _attachmentAspectRatios.value = currentMap
+    }
+
+    private fun observeLocalCache(accountId: String) {
+        cacheCollectionJob?.cancel()
+        cacheCollectionJob = viewModelScope.launch {
+            combine(
+                memoCacheRepository.observeCachedMemos(accountId, CacheListType.USER),
+                memoCacheRepository.observeCachedMemos(accountId, CacheListType.EXPLORE),
+                memoCacheRepository.observeCachedMemos(accountId, CacheListType.ARCHIVED),
+                memoCacheRepository.observeCachedAttachments(accountId),
+                memoCacheRepository.observeUnsyncedMemos(accountId)
+            ) { user, explore, archived, attachments, unsynced ->
+                cachedUserMemos.value = user
+                cachedExploreMemos.value = explore
+                cachedArchivedMemos.value = archived
+                cachedAttachments.value = attachments
+                _uiState.update {
+                    it.copy(
+                        draft = it.draft.copy(
+                            drafts = unsynced.map { memo ->
+                                val draft = memo.toDraft()
+                                draft.copy(
+                                    id = memo.localId ?: draft.id,
+                                    syncState = memo.syncState
+                                )
+                            },
+                            isDraftLoaded = true
+                        )
+                    )
+                }
+            }.collect { }
+        }
+    }
+
+    private fun mergeUnsyncedMemos(remoteMemos: List<Memo>, archived: Boolean): List<Memo> {
+        val drafts = _uiState.value.draft.drafts.filter { draft ->
+            if (archived) {
+                draft.state == MemoState.ARCHIVED
+            } else {
+                draft.state != MemoState.ARCHIVED
+            }
+        }
+        if (drafts.isEmpty()) return remoteMemos
+
+        val remoteNames = remoteMemos.mapNotNull { it.name }.toSet()
+        val replacements = drafts
+            .filter { !it.remoteName.isNullOrBlank() }
+            .associateBy { it.remoteName }
+
+        val localOnly = drafts
+            .filter { it.remoteName.isNullOrBlank() }
+            .map { it.toMemo() }
+
+        val replacedOrRemote = remoteMemos.map { memo ->
+            replacements[memo.name]?.toMemo() ?: memo
+        }
+
+        val offlineEditsMissingFromCache = drafts
+            .filter { !it.remoteName.isNullOrBlank() && it.remoteName !in remoteNames }
+            .map { it.toMemo() }
+
+        return localOnly + offlineEditsMissingFromCache + replacedOrRemote
     }
 }

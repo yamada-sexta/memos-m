@@ -102,8 +102,8 @@ fun MemoDetailView(
         }
     }
 
-    val isOwner = remember(memo.creator, uiState.session.currUser?.name) {
-        memo.creator == uiState.session.currUser?.name
+    val isOwner = remember(memo.creator, memo.isUnsynced, uiState.session.currUser?.name) {
+        memo.isUnsynced || memo.creator == uiState.session.currUser?.name
     }
 
     Surface(
@@ -176,7 +176,7 @@ fun MemoDetailView(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Original memo
-                    item(key = "original_${memo.name ?: memo.content.hashCode()}") {
+                    item(key = "original_${memo.name ?: memo.localId ?: memo.content.hashCode()}") {
                         MemoItem(
                             memo = memo,
                             user = uiState.users[memo.creator],
@@ -187,17 +187,28 @@ fun MemoDetailView(
                             onEdit = if (isOwner) {
                                 { onEditMemo(memo) }
                             } else null,
-                            onPin = if (isOwner) { pinned ->
+                            onPin = if (isOwner && !memo.isUnsynced) { pinned ->
                                 viewModel.memoActionDelegate.updateMemoPinned(memo, pinned)
                             } else null,
                             onDelete = if (isOwner) {
-                                { memoToDelete = memo }
+                                {
+                                    if (memo.isUnsynced && memo.localId != null) {
+                                        viewModel.draftDelegate.deleteDraft(memo.localId)
+                                        onBack()
+                                    } else {
+                                        memoToDelete = memo
+                                    }
+                                }
                             } else null,
                             onUpsertReaction = { emoji ->
-                                viewModel.memoActionDelegate.upsertMemoReaction(memo, emoji)
+                                if (!memo.isUnsynced) {
+                                    viewModel.memoActionDelegate.upsertMemoReaction(memo, emoji)
+                                }
                             },
                             onDeleteReaction = { reaction ->
-                                viewModel.memoActionDelegate.deleteMemoReaction(memo, reaction)
+                                if (!memo.isUnsynced) {
+                                    viewModel.memoActionDelegate.deleteMemoReaction(memo, reaction)
+                                }
                             },
                             onContentUpdate = if (isOwner) { newContent ->
                                 viewModel.memoActionDelegate.updateMemo(

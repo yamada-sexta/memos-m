@@ -20,7 +20,7 @@ plugins {
 
 android {
     namespace = "org.example.memosm"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.example.memosm"
@@ -231,4 +231,3 @@ dependencies {
     implementation(libs.androidx.room.paging)
 
 }
-

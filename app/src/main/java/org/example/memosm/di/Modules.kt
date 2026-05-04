@@ -1,13 +1,11 @@
 package org.example.memosm.di
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import okhttp3.OkHttpClient
 import org.example.memosm.data.DataStoreManager
-import org.example.memosm.data.DraftManager
 import org.example.memosm.data.cache.MemoCacheDatabase
 import org.example.memosm.data.cache.MemoCacheRepository
 import org.example.memosm.viewmodel.MemosViewModel
@@ -26,8 +24,6 @@ val appModule = module {
 
     single { DataStoreManager(get()) }
 
-    single { DraftManager(androidContext()) }
-
     // Room
     single { MemoCacheDatabase.getInstance(androidContext()) }
     single { get<MemoCacheDatabase>().memoDao() }
@@ -45,5 +41,5 @@ val networkModule = module {
 }
 
 val viewModelModule = module {
-    viewModel { MemosViewModel(get(), get(), get(), get()) }
+    viewModel { MemosViewModel(get(), get(), get()) }
 }

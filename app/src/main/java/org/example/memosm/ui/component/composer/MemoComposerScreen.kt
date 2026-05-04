@@ -159,13 +159,15 @@ fun MemoComposerScreen(
                     .widthIn(max = 800.dp)
                     .fillMaxSize()
                     .padding(horizontal = 8.dp),
-                onDraftChanged = if (initialMemo == null && parentMemo == null) {
+                onDraftChanged = if (parentMemo == null) {
                     { content, visibility, attachments, location ->
                         viewModel.draftDelegate.saveDraft(
-                            content,
-                            visibility,
-                            attachments,
-                            location
+                            content = content,
+                            visibility = visibility,
+                            attachments = attachments,
+                            location = location,
+                            remoteName = initialMemo?.name,
+                            state = initialMemo?.state
                         )
                     }
                 } else null

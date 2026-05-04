@@ -86,33 +86,19 @@ class MemoActionDelegateImpl(
         location: Location?,
         onSuccess: () -> Unit
     ) {
-        scope.launch {
-            try {
-                uiState.update { it.copy(isPosting = true) }
-                val memo = Memo(
-                    content = content,
-                    visibility = visibility,
-                    attachments = attachments,
-                    location = location
+        draftDelegate.publishDraft(
+            content = content,
+            visibility = visibility,
+            attachments = attachments.orEmpty(),
+            location = location
+        ) {
+            onSuccess()
+            uiState.update {
+                it.copy(
+                    draft = it.draft.copy(
+                        composerResetToken = System.currentTimeMillis().toInt()
+                    )
                 )
-                val created = api?.createMemo(memo)
-                if (created != null) {
-                    onSuccess()
-                    listUpdater.refreshUserMemos()
-                    // Delete the draft that was just published
-                    draftDelegate.clearCurrentEditingDraft()
-                    uiState.update {
-                        it.copy(
-                            draft = it.draft.copy(
-                                composerResetToken = System.currentTimeMillis().toInt()
-                            )
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                uiState.update { it.copy(error = e.message) }
-            } finally {
-                uiState.update { it.copy(isPosting = false) }
             }
         }
     }
@@ -126,38 +112,15 @@ class MemoActionDelegateImpl(
         state: MemoState?,
         onSuccess: () -> Unit
     ) {
-        scope.launch {
-            try {
-                val update = memo.copy(
-                    content = content,
-                    visibility = visibility,
-                    attachments = attachments,
-                    location = location,
-                    state = state
-                )
-                val maskParts = mutableListOf("content", "visibility", "attachments", "location")
-                if (state != null) {
-                    maskParts.add("state")
-                }
-
-                val updated = api?.updateMemo(memo.name!!, update, maskParts.joinToString(","))
-
-                if (updated != null) {
-                    onSuccess()
-
-                    // Handle local list moves if state changed
-                    val oldState = memo.state ?: MemoState.NORMAL
-                    val newState = updated.state ?: MemoState.NORMAL
-
-                    if (oldState != newState) {
-                        listUpdater.handleMemoStateChange(memo, updated)
-                    }
-
-                    listUpdater.updateMemoInLists(updated)
-                }
-            } catch (e: Exception) {
-                uiState.update { it.copy(error = e.message) }
-            }
+        draftDelegate.publishDraft(
+            content = content,
+            visibility = visibility,
+            attachments = attachments,
+            location = location,
+            remoteMemo = memo,
+            state = state ?: memo.state
+        ) {
+            onSuccess()
         }
     }
 

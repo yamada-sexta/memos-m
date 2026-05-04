@@ -9,7 +9,11 @@ import androidx.room.RoomDatabase
  * Room database for caching memos locally.
  * Uses destructive migration since cache can always be rebuilt from server.
  */
-@Database(entities = [CachedMemo::class], version = 2, exportSchema = false)
+@Database(
+    entities = [CachedMemo::class, CachedAttachment::class],
+    version = 4,
+    exportSchema = false
+)
 abstract class MemoCacheDatabase : RoomDatabase() {
 
     abstract fun memoDao(): MemoDao

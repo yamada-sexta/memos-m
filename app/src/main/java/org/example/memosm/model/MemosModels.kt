@@ -13,6 +13,12 @@ data class ListAttachmentsResponse(
     val attachments: List<Attachment>?, val nextPageToken: String?, val totalSize: Int?
 )
 
+enum class MemoSyncState {
+    SYNCED,
+    PENDING_CREATE,
+    PENDING_UPDATE
+}
+
 @Serializable
 enum class Visibility {
     @SerialName("PUBLIC")
@@ -42,6 +48,8 @@ enum class MemoState {
 
 data class Memo(
     val name: String? = null,
+    val localId: String? = null,
+    val syncState: MemoSyncState = MemoSyncState.SYNCED,
     val state: MemoState? = null,
     val creator: String? = null,
     @SerializedName("createTime", alternate = ["create_time"]) val createTime: Instant? = null,
@@ -58,7 +66,10 @@ data class Memo(
     val parent: String? = null,
     val snippet: String? = null,
     val location: Location? = null
-)
+) {
+    val isUnsynced: Boolean
+        get() = syncState != MemoSyncState.SYNCED
+}
 
 data class Attachment(
     val name: String? = null,

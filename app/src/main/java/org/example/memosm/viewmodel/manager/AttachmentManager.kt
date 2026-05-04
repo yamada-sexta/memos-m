@@ -27,8 +27,9 @@ class AttachmentManager(
     private val scope: CoroutineScope,
     private val apiProvider: () -> MemosApi?,
     private val streamingApiProvider: () -> StreamingAttachmentApi?,
+    cacheCallbacks: CacheCallbacks<Attachment>? = null,
     initialCellWidth: Float = 120f
-) : BaseListManager<Attachment>(scope) {
+) : BaseListManager<Attachment>(scope, cacheCallbacks = cacheCallbacks) {
 
 
     private val _cellWidth = MutableStateFlow(initialCellWidth)

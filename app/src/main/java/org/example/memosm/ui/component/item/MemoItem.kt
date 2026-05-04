@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -228,6 +229,15 @@ fun MemoItem(
                                     modifier = Modifier.size(10.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
+                                if (memo.isUnsynced) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Outlined.SyncProblem,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
                                 val commentCount = remember(memo.relations) {
                                     memo.relations?.count { it.type == MemoRelationType.COMMENT }
                                         ?: 0
@@ -278,6 +288,15 @@ fun MemoItem(
                                 modifier = Modifier.size(12.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
+                            if (memo.isUnsynced) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Outlined.SyncProblem,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
                             val commentCount = remember(memo.relations) {
                                 memo.relations?.count { it.type == MemoRelationType.COMMENT } ?: 0
                             }
@@ -709,5 +728,4 @@ fun MemoItem(
         )
     }
 }
-
 
