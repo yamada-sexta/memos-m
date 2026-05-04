@@ -289,10 +289,6 @@ class MemosViewModel(
             observeLocalCache(account.id)
             fetchCurrentUser()
             exploreMemoManager.fetch()
-            if (account.user != null) {
-                userMemoManager.fetch()
-            }
-            draftDelegate.loadDraftsForAccount(account.id)
         }
     }
 
