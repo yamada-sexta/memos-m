@@ -67,8 +67,15 @@ data class Memo(
     val snippet: String? = null,
     val location: Location? = null
 ) {
+    val effectiveSyncState: MemoSyncState
+        get() = when (syncState) {
+            MemoSyncState.PENDING_CREATE -> MemoSyncState.PENDING_CREATE
+            MemoSyncState.PENDING_UPDATE -> MemoSyncState.PENDING_UPDATE
+            else -> MemoSyncState.SYNCED
+        }
+
     val isUnsynced: Boolean
-        get() = syncState != MemoSyncState.SYNCED
+        get() = effectiveSyncState != MemoSyncState.SYNCED
 }
 
 data class Attachment(

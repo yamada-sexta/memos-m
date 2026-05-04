@@ -492,7 +492,7 @@ class MemosViewModel(
                                 val draft = memo.toDraft()
                                 draft.copy(
                                     id = memo.localId ?: draft.id,
-                                    syncState = memo.syncState
+                                    syncState = memo.effectiveSyncState
                                 )
                             },
                             isDraftLoaded = true

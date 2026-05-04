@@ -46,7 +46,7 @@ data class CachedMemo(
                 memoJson = gson.toJson(memo),
                 displayOrder = order,
                 cachedAt = System.currentTimeMillis(),
-                syncState = memo.syncState.name
+                syncState = memo.effectiveSyncState.name
             )
         }
     }

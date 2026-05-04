@@ -121,7 +121,10 @@ class MemoCacheRepository(private val memoDao: MemoDao) {
             .sortedByDescending { memo -> memo.displayTime?.toEpochMilliseconds() ?: 0L }
             .map { memo ->
                 val draft = memo.toDraft()
-                draft.copy(id = memo.localId ?: draft.id, syncState = memo.syncState)
+                draft.copy(
+                    id = memo.localId ?: draft.id,
+                    syncState = memo.effectiveSyncState
+                )
             }
     }
 
