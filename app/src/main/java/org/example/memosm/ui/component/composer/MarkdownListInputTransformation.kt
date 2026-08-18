@@ -62,7 +62,7 @@ class MarkdownListInputTransformation : InputTransformation {
 
         // Let's use specific regexes.
 
-        // 1. lista zadań: "- [ ] " or "- [x] "
+        // 1. Task List: "- [ ] " or "- [x] "
         // If it was "- [x] ", we probably want to continue with "- [ ] " (unchecked)
         val taskRegex = Regex("^(\\s*[-*+]\\s+\\[)[ xX]?(\\]\\s+)")
         val taskMatch = taskRegex.find(line)
@@ -72,7 +72,7 @@ class MarkdownListInputTransformation : InputTransformation {
             return "$prefixStart $prefixEnd"
         }
 
-        // 2. lista punktowana: "- " or "* " or "+ "
+        // 2. Bullet List: "- " or "* " or "+ "
         val bulletRegex = Regex("^(\\s*[-*+]\\s+)")
         val bulletMatch = bulletRegex.find(line)
         if (bulletMatch != null) {
