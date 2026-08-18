@@ -63,11 +63,12 @@ class AudioRecorder(
             mediaRecorder = recorder
             isRecording = true
         } catch (e: Exception) {
-            val message = context.getString(
-                R.string.memo_composer_error_start_recording,
-                e.message ?: ""
-            )
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            Log.e("AudioRecorder", "Failed to start recording", e)
+            Toast.makeText(
+                context,
+                context.getString(R.string.common_operation_failed),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

@@ -650,7 +650,8 @@ private fun downloadAttachmentFile(
             context, context.getString(R.string.attachments_download_started), Toast.LENGTH_SHORT
         ).show()
     } catch (e: Exception) {
-        val message = context.getString(R.string.attachments_error_download_failed, e.message ?: "")
+        Log.e("AttachmentCard", "Download failed", e)
+        val message = context.getString(R.string.common_operation_failed)
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
     }
 }

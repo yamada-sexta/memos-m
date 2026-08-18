@@ -49,7 +49,7 @@ fun NativeMarkdownLatex(
                 val list = MTMathListBuilder.buildFromString(latex)
                 if (list == null) "Invalid Syntax" else null
             } catch (e: Exception) {
-                e.message ?: "Error"
+                null
             }
         )
     }
