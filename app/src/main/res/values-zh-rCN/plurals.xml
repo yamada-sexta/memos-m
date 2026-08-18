@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <plurals name="drafts_count_plural"><item quantity="other">%1$d 个草稿</item></plurals>
-    <plurals name="drafts_publish_all_confirmation_message_plural"><item quantity="other">这将把所有 %1$d 个草稿作为独立笔记发布。是否继续？</item></plurals>
-    <plurals name="drafts_publish_all_success_plural"><item quantity="other">已发布 %1$d 个草稿</item></plurals>
+    <plurals name="drafts_count_plural">
+        <item quantity="other">%1$d 个草稿</item>
+    </plurals>
+    <plurals name="drafts_publish_all_confirmation_message_plural">
+        <item quantity="other">这将把所有 %1$d 个草稿作为独立笔记发布。是否继续？</item>
+    </plurals>
+    <plurals name="drafts_publish_all_success_plural">
+        <item quantity="other">已发布 %1$d 个草稿</item>
+    </plurals>
 </resources>

@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <plurals name="drafts_count_plural"><item quantity="one">%1$d wersja robocza</item><item quantity="few">%1$d wersje robocze</item><item quantity="many">%1$d wersji roboczych</item><item quantity="other">%1$d wersji roboczych</item></plurals>
-    <plurals name="drafts_publish_all_confirmation_message_plural"><item quantity="one">Zostanie opublikowana %1$d wersja robocza jako osobna notatka. Kontynuować?</item><item quantity="few">Zostaną opublikowane %1$d wersje robocze jako osobne notatki. Kontynuować?</item><item quantity="many">Zostanie opublikowanych %1$d wersji roboczych jako osobne notatki. Kontynuować?</item><item quantity="other">Zostanie opublikowanych %1$d wersji roboczych jako osobne notatki. Kontynuować?</item></plurals>
-    <plurals name="drafts_publish_all_success_plural"><item quantity="one">Opublikowano %1$d wersję roboczą</item><item quantity="few">Opublikowano %1$d wersje robocze</item><item quantity="many">Opublikowano %1$d wersji roboczych</item><item quantity="other">Opublikowano %1$d wersji roboczych</item></plurals>
+    <plurals name="drafts_count_plural">
+        <item quantity="one">%1$d wersja robocza</item>
+        <item quantity="few">%1$d wersje robocze</item>
+        <item quantity="many">%1$d wersji roboczych</item>
+        <item quantity="other">%1$d wersji roboczych</item>
+    </plurals>
+    <plurals name="drafts_publish_all_confirmation_message_plural">
+        <item quantity="one">Zostanie opublikowana %1$d wersja robocza jako osobna notatka. Kontynuować?</item>
+        <item quantity="few">Zostaną opublikowane %1$d wersje robocze jako osobne notatki. Kontynuować?</item>
+        <item quantity="many">Zostanie opublikowanych %1$d wersji roboczych jako osobne notatki. Kontynuować?</item>
+        <item quantity="other">Zostanie opublikowanych %1$d wersji roboczych jako osobne notatki. Kontynuować?</item>
+    </plurals>
+    <plurals name="drafts_publish_all_success_plural">
+        <item quantity="one">Opublikowano %1$d wersję roboczą</item>
+        <item quantity="few">Opublikowano %1$d wersje robocze</item>
+        <item quantity="many">Opublikowano %1$d wersji roboczych</item>
+        <item quantity="other">Opublikowano %1$d wersji roboczych</item>
+    </plurals>
 </resources>

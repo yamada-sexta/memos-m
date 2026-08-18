@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <plurals name="drafts_count_plural"><item quantity="one">%1$d Entwurf</item><item quantity="other">%1$d Entwürfe</item></plurals>
-    <plurals name="drafts_publish_all_confirmation_message_plural"><item quantity="one">Dies wird %1$d Entwurf als einzelnes Memo veröffentlichen. Fortfahren?</item><item quantity="other">Dies wird alle %1$d Entwürfe als einzelne Memos veröffentlichen. Fortfahren?</item></plurals>
-    <plurals name="drafts_publish_all_success_plural"><item quantity="one">%1$d Entwurf veröffentlicht</item><item quantity="other">%1$d Entwürfe veröffentlicht</item></plurals>
+    <plurals name="drafts_count_plural">
+        <item quantity="one">%1$d Entwurf</item>
+        <item quantity="other">%1$d Entwürfe</item>
+    </plurals>
+    <plurals name="drafts_publish_all_confirmation_message_plural">
+        <item quantity="one">Dies wird %1$d Entwurf als einzelnes Memo veröffentlichen. Fortfahren?</item>
+        <item quantity="other">Dies wird alle %1$d Entwürfe als einzelne Memos veröffentlichen. Fortfahren?</item>
+    </plurals>
+    <plurals name="drafts_publish_all_success_plural">
+        <item quantity="one">%1$d Entwurf veröffentlicht</item>
+        <item quantity="other">%1$d Entwürfe veröffentlicht</item>
+    </plurals>
 </resources>

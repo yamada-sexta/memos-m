@@ -4,7 +4,7 @@
     <string name="common_no_active_account">Brak aktywnego konta</string>
     <string name="common_operation_failed">Nie udało się ukończyć operacji. Spróbuj ponownie.</string>
     <string name="login_error_invalid_url">Nieprawidłowy format adresu URL</string>
-    <string name="login_error_invalid_instance">Nieprawidłowa instancja Memos lub adres URL serwera</string>
+    <string name="login_error_invalid_instance">Podany adres nie prowadzi do prawidłowej instancji Memos</string>
     <string name="login_error_empty_token">Token nie może być pusty</string>
     <string name="login_error_verification_failed">Weryfikacja tokenu nie powiodła się</string>
     <string name="login_error_empty_credentials">Nazwa użytkownika i hasło nie mogą być puste</string>
@@ -37,15 +37,10 @@
     <string name="memo_input_task_list">Lista zadań</string>
     <string name="memo_input_quote">Cytat</string>
     <string name="memo_input_code_block">Blok kodu</string>
-    <string name="attachments_unknown_filename">Plik</string>
+    <string name="attachments_unknown_filename">Nieznany plik</string>
     <string name="profile_shortcuts_error_save">Nie udało się zapisać skrótu</string>
     <string name="profile_webhooks_error_save">Nie udało się zapisać webhooka</string>
 
     <string name="markdown_equation_error_title">Błąd równania</string>
     <string name="markdown_equation_error_message">Nie można wyświetlić równania</string>
-    <string name="app_name">MemosM</string>
-    <string name="login_host_url_placeholder">https://memos.example.com</string>
-    <string name="profile_about_repo_url" translatable="false">https://github.com/yamada-sexta/memos-m</string>
-    <string name="profile_about_issues_url" translatable="false">https://github.com/yamada-sexta/memos-m/issues</string>
-    <string name="profile_shortcuts_help_url" translatable="false">https://www.usememos.com/docs/shortcuts</string>
 </resources>

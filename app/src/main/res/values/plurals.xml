@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <plurals name="drafts_count_plural"><item quantity="one">%1$d draft</item><item quantity="other">%1$d drafts</item></plurals>
-    <plurals name="drafts_publish_all_confirmation_message_plural"><item quantity="one">This will publish %1$d draft as an individual memo. Continue?</item><item quantity="other">This will publish all %1$d drafts as individual memos. Continue?</item></plurals>
-    <plurals name="drafts_publish_all_success_plural"><item quantity="one">Published %1$d draft</item><item quantity="other">Published %1$d drafts</item></plurals>
+    <plurals name="drafts_count_plural">
+        <item quantity="one">%1$d draft</item>
+        <item quantity="other">%1$d drafts</item>
+    </plurals>
+    <plurals name="drafts_publish_all_confirmation_message_plural">
+        <item quantity="one">This will publish %1$d draft as an individual memo. Continue?</item>
+        <item quantity="other">This will publish all %1$d drafts as individual memos. Continue?</item>
+    </plurals>
+    <plurals name="drafts_publish_all_success_plural">
+        <item quantity="one">Published %1$d draft</item>
+        <item quantity="other">Published %1$d drafts</item>
+    </plurals>
 </resources>
