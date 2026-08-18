@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">MemosM</string>
     <string name="login_title">Login to Memos</string>
     <string name="login_token">Token</string>
@@ -38,8 +38,8 @@
     <string name="profile_app_settings_page_size_hint">Items per page</string>
     <string name="profile_app_settings_header_scale">Header Scale</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
-    <string name="profile_notifications">Notifications</string>
-    <string name="profile_notifications_empty">No notification</string>
+    <string tools:ignore="MissingTranslation" name="profile_notifications">Notifications</string>
+    <string tools:ignore="MissingTranslation" name="profile_notifications_empty">No notification</string>
     <string name="profile_archived">Archived</string>
     <string name="profile_shortcuts">Shortcuts</string>
     <string name="profile_shortcuts_none">No shortcuts configured</string>
@@ -168,7 +168,7 @@
     <string name="common_error_failed_to_load_explore">Unable to load explore</string>
     <string name="common_error_failed_to_load_profile">Unable to load profile</string>
     <string name="common_error_failed_to_load_attachments">Unable to load attachments</string>
-    <string name="common_error_failed_to_load_notifications">Unable to load notifications</string>
+    <string tools:ignore="MissingTranslation" name="common_error_failed_to_load_notifications">Unable to load notifications</string>
     <string name="offline_title">Offline</string>
     <string name="offline_cached_data_message">Showing cached data. Pull to refresh.</string>
     <string name="memo_input_add_tag">Add tag</string>

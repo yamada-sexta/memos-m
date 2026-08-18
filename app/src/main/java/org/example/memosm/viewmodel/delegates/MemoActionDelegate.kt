@@ -1,5 +1,7 @@
 package org.example.memosm.viewmodel.delegates
 
+import android.util.Log
+import org.example.memosm.R
 import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +17,7 @@ import org.example.memosm.model.Reaction
 import org.example.memosm.model.UpsertMemoReactionRequest
 import org.example.memosm.model.Visibility
 import org.example.memosm.viewmodel.MemosUiState
+import org.example.memosm.viewmodel.UiMessage
 import org.example.memosm.viewmodel.manager.AttachmentManager
 import org.example.memosm.viewmodel.manager.CommentListManager
 
@@ -113,7 +116,8 @@ class MemoActionDelegateImpl(
                     }
                 }
             } catch (e: Exception) {
-                uiState.update { it.copy(error = e.message) }
+                Log.e("MemosViewModel", "Operation failed", e)
+                uiState.update { it.copy(error = UiMessage(R.string.common_operation_failed)) }
             } finally {
                 uiState.update { it.copy(isPosting = false) }
             }
@@ -159,7 +163,8 @@ class MemoActionDelegateImpl(
                     listUpdater.updateMemoInLists(updated)
                 }
             } catch (e: Exception) {
-                uiState.update { it.copy(error = e.message) }
+                Log.e("MemosViewModel", "Operation failed", e)
+                uiState.update { it.copy(error = UiMessage(R.string.common_operation_failed)) }
             }
         }
     }
@@ -173,7 +178,8 @@ class MemoActionDelegateImpl(
                 // Local update: Remove from all lists
                 listUpdater.removeMemoFromLists(memo.name!!)
             } catch (e: Exception) {
-                uiState.update { it.copy(error = e.message) }
+                Log.e("MemosViewModel", "Operation failed", e)
+                uiState.update { it.copy(error = UiMessage(R.string.common_operation_failed)) }
             }
         }
     }
@@ -188,7 +194,8 @@ class MemoActionDelegateImpl(
                     listUpdater.updateMemoInLists(updated)
                 }
             } catch (e: Exception) {
-                uiState.update { it.copy(error = e.message) }
+                Log.e("MemosViewModel", "Operation failed", e)
+                uiState.update { it.copy(error = UiMessage(R.string.common_operation_failed)) }
             }
         }
     }

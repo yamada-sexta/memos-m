@@ -296,12 +296,12 @@ fun MemoComposerBottomBar(
                                                     iconSize = 20.dp
                                                 )
                                                 Spacer(modifier = Modifier.width(12.dp))
-                                                Text("Record Audio")
+                                                Text(stringResource(R.string.memo_composer_record_audio))
                                             }
                                         }, onClick = {
                                             // Click handled by AudioRecorderIconButton, or we can close menu here
                                             // But since AudioRecorderIconButton intercepts click, this might not trigger if clicking the button.
-                                            // Clicking the text "Record Audio" will trigger this.
+                                            // Clicking the audio label will trigger this.
                                             // Ideally we want the whole row to toggle recording.
                                             // But AudioRecorderIconButton is self-contained.
                                             // If we want the menu item to act as the recorder, we need to access recorder state... which we moved out.

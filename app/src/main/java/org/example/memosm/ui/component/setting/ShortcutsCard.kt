@@ -44,8 +44,8 @@ import org.example.memosm.model.Shortcut
 @Composable
 fun ShortcutsCard(
     shortcuts: List<Shortcut>,
-    onCreate: (String, String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
-    onUpdate: (Shortcut, String, String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onCreate: (String, String, onSuccess: () -> Unit, onError: (Int) -> Unit) -> Unit,
+    onUpdate: (Shortcut, String, String, onSuccess: () -> Unit, onError: (Int) -> Unit) -> Unit,
     onDelete: (Shortcut) -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf<Shortcut?>(null) }
@@ -181,12 +181,12 @@ fun ShortcutEditDialog(
     initialTitle: String = "",
     initialFilter: String = "",
     onDismiss: () -> Unit,
-    onConfirm: (String, String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onConfirm: (String, String, onSuccess: () -> Unit, onError: (Int) -> Unit) -> Unit
 ) {
     var titleText by remember { mutableStateOf(initialTitle) }
     var filterText by remember { mutableStateOf(initialFilter) }
     var isSaving by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorMessageRes by remember { mutableStateOf<Int?>(null) }
 
     val context = LocalContext.current
     val helpUrl = stringResource(R.string.profile_shortcuts_help_url)
@@ -196,9 +196,9 @@ fun ShortcutEditDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (errorMessage != null) {
+                if (errorMessageRes != null) {
                     Text(
-                        text = errorMessage!!,
+                        text = stringResource(errorMessageRes ?: R.string.profile_shortcuts_error_save),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -208,7 +208,7 @@ fun ShortcutEditDialog(
                     value = titleText,
                     onValueChange = {
                         titleText = it
-                        errorMessage = null
+                        errorMessageRes = null
                     },
                     label = { Text(stringResource(R.string.profile_shortcuts_title)) },
                     modifier = Modifier.fillMaxWidth(),
@@ -219,7 +219,7 @@ fun ShortcutEditDialog(
                     value = filterText,
                     onValueChange = {
                         filterText = it
-                        errorMessage = null
+                        errorMessageRes = null
                     },
                     label = { Text(stringResource(R.string.profile_shortcuts_filter)) },
                     modifier = Modifier.fillMaxWidth(),
@@ -247,7 +247,7 @@ fun ShortcutEditDialog(
             TextButton(
                 onClick = {
                     isSaving = true
-                    errorMessage = null
+                    errorMessageRes = null
                     onConfirm(
                         titleText,
                         filterText,
@@ -255,9 +255,9 @@ fun ShortcutEditDialog(
                             isSaving = false
                             onDismiss()
                         },
-                        { error ->
+                        { errorRes ->
                             isSaving = false
-                            errorMessage = error
+                            errorMessageRes = errorRes
                         }
                     )
                 },

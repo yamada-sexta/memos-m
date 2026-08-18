@@ -40,7 +40,7 @@ object MemosApiFactory {
         // Probe for version
         return try {
             val profile = v0353Api.getInstanceProfile()
-            val version = profile.version ?: "Unknown"
+            val version = profile.version ?: "unknown"
             Log.i("MemosApiFactory", "Detected Memos server version: $version")
 
             if (version.startsWith("0.26")) {

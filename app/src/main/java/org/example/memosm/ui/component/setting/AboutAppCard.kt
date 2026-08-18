@@ -53,6 +53,7 @@ import org.example.memosm.ui.nav.InfoRow
 
 private data class KaomojiMessage(val text: String, val kaomoji: String)
 
+@Suppress("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AboutAppCard() {
@@ -64,7 +65,8 @@ fun AboutAppCard() {
             null
         }
     }
-    val versionName = packageInfo?.versionName ?: "UNKNOWN"
+    val versionName = packageInfo?.versionName ?: stringResource(R.string.common_not_available)
+    val versionLabel = stringResource(R.string.profile_about_version)
     val versionCopiedMessage = stringResource(R.string.profile_about_version_copied)
 
     val kaomojisArray = stringArrayResource(R.array.profile_about_kaomojis)
@@ -115,7 +117,7 @@ fun AboutAppCard() {
                     }, onLongClick = {
                         val clipboard =
                             context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("App Version", versionName)
+                        val clip = ClipData.newPlainText(versionLabel, versionName)
                         clipboard.setPrimaryClip(clip)
 
                         currentToast.value?.cancel()

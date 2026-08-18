@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,7 @@ fun DraftsCard(
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var showPublishAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val publishSuccessFormat = stringResource(R.string.drafts_publish_all_success)
 
     Card(
         modifier = modifier
@@ -83,7 +85,7 @@ fun DraftsCard(
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    text = stringResource(R.string.drafts_count, draftCount),
+                    text = pluralStringResource(R.plurals.drafts_count_plural, draftCount, draftCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                 )
@@ -156,8 +158,8 @@ fun DraftsCard(
             title = { Text(stringResource(R.string.drafts_publish_all_confirmation_title)) },
             text = {
                 Text(
-                    stringResource(
-                        R.string.drafts_publish_all_confirmation_message, draftCount
+                    pluralStringResource(
+                        R.plurals.drafts_publish_all_confirmation_message_plural, draftCount, draftCount
                     )
                 )
             },
@@ -168,7 +170,7 @@ fun DraftsCard(
                         viewModel.draftDelegate.publishAllDrafts { count ->
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.drafts_publish_all_success, count),
+                                publishSuccessFormat.format(count),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }

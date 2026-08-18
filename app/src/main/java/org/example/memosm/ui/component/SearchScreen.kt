@@ -68,6 +68,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -83,7 +84,7 @@ import org.example.memosm.model.Memo
 import org.example.memosm.ui.component.item.MemoItem
 import org.example.memosm.viewmodel.MemosUiState
 import org.example.memosm.viewmodel.MemosViewModel
-import java.text.SimpleDateFormat
+import android.text.format.DateFormat
 import java.util.Date
 import java.util.Locale
 
@@ -586,6 +587,7 @@ private fun DateSelectorCard(
     onClear: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     Card(
         modifier = modifier, colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -606,9 +608,7 @@ private fun DateSelectorCard(
                 )
                 val dateText = remember(dateMillis) {
                     if (dateMillis != null) {
-                        SimpleDateFormat(
-                            "MMM dd, yyyy", Locale.getDefault()
-                        ).format(Date(dateMillis))
+                        DateFormat.getMediumDateFormat(context).format(Date(dateMillis))
                     } else {
                         "Any" // Will use stringResource(R.string.search_date_any) below
                     }

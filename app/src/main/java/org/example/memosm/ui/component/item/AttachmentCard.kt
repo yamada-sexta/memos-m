@@ -145,8 +145,9 @@ fun AttachmentCard(
         }
     }
 
-    val filename = remember(attachment?.filename, uri) {
-        attachment?.filename ?: uri.lastPathSegment ?: "file"
+    val unknownFilename = stringResource(R.string.attachments_unknown_filename)
+    val filename = remember(attachment?.filename, uri, unknownFilename) {
+        attachment?.filename ?: uri.lastPathSegment ?: unknownFilename
     }
 
     val isImage = remember(displayType) {

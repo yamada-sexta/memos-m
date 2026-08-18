@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources tools:ignore="MissingTranslation" xmlns:tools="http://schemas.android.com/tools">
+    <!-- Default English resources extracted from hardcoded user-facing Kotlin/Compose strings during the Polish i18n audit. -->
+    <string name="common_unknown_error">Unknown error</string>
+    <string name="common_no_active_account">No active account found</string>
+    <string name="common_operation_failed">The operation could not be completed. Please try again.</string>
+    <string name="login_error_invalid_url">Invalid URL format</string>
+    <string name="login_error_invalid_instance">Invalid Memos instance or host URL</string>
+    <string name="login_error_empty_token">Token cannot be empty</string>
+    <string name="login_error_invalid_token">Invalid token</string>
+    <string name="login_error_verification_failed">Token verification failed</string>
+    <string name="login_error_empty_credentials">Username and password cannot be empty</string>
+    <string name="login_error_invalid_credentials">Invalid username or password</string>
+    <string name="login_error_check_credentials">Check your login details</string>
+    <string name="widget_stats_select_account">Select account</string>
+    <string name="widget_stats_tap_to_configure">Tap to configure</string>
+    <string name="widget_stats_loading">Loading…</string>
+    <string name="widget_stats_error_format">Error: %1$s</string>
+    <string name="widget_stats_for_account">Stats for %1$s</string>
+    <string name="widget_stats_error_user_not_found">User not found</string>
+    <string name="widget_stats_error_network">Network error</string>
+    <string name="widget_stats_error_account_not_found">Account not found</string>
+    <string name="notification_default_title">Notification</string>
+    <string name="notification_type_memo_comment">Memo comment</string>
+    <string name="notification_type_memo_mention">Memo mention</string>
+    <string name="notification_status_unread">Unread</string>
+    <string name="notification_status_read">Read</string>
+    <string name="notification_status_archived">Archived</string>
+    <string name="notification_error_load">Unable to load notifications. Please try again.</string>
+    <string name="memo_composer_record_audio">Record audio</string>
+    <string name="memo_composer_start_recording">Start recording</string>
+    <string name="memo_composer_stop_recording">Stop recording</string>
+    <string name="memo_composer_error_file_too_large">File size exceeds the 10 MB limit</string>
+    <string name="memo_input_show_suggestions">Show suggestions</string>
+    <string name="memo_input_format_bold">Bold</string>
+    <string name="memo_input_format_italic">Italic</string>
+    <string name="memo_input_format_strikethrough">Strikethrough</string>
+    <string name="memo_input_format_code">Code</string>
+    <string name="memo_input_heading">Heading %1$d</string>
+    <string name="memo_input_bullet_list">Bullet list</string>
+    <string name="memo_input_task_list">Task list</string>
+    <string name="memo_input_quote">Quote</string>
+    <string name="memo_input_code_block">Code block</string>
+    <string name="attachments_unknown_filename">File</string>
+    <string name="profile_error_save">Unable to save changes</string>
+    <string name="profile_shortcuts_error_save">Unable to save shortcut</string>
+    <string name="profile_webhooks_error_save">Unable to save webhook</string>
+</resources>

@@ -82,17 +82,17 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
                                         val stats = api.getUserStats(username)
                                         StatsState.Success(stats, account)
                                     } else {
-                                        StatsState.Error("User not found")
+                                        StatsState.Error(R.string.widget_stats_error_user_not_found)
                                     }
                                 } catch (e: Exception) {
-                                    StatsState.Error(e.message ?: "Network error")
+                                    StatsState.Error(R.string.widget_stats_error_network)
                                 }
                             } else {
-                                StatsState.Error("Account not found")
+                                StatsState.Error(R.string.widget_stats_error_account_not_found)
                             }
                         }
                     } catch (e: Exception) {
-                        StatsState.Error(e.message ?: "Unknown error")
+                        StatsState.Error(R.string.common_unknown_error)
                     }
                 }
             }
@@ -107,8 +107,8 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
                         EmptyState(context)
                     } else {
                         when (val currentState = state) {
-                            is StatsState.Loading -> LoadingState()
-                            is StatsState.Error -> ErrorState(currentState.message)
+                            is StatsState.Loading -> LoadingState(context)
+                            is StatsState.Error -> ErrorState(context, currentState.messageRes)
                             is StatsState.Success -> StatsContent(
                                 currentState.stats, currentState.account
                             )
@@ -127,7 +127,7 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Tap to configure",
+                text = context.getString(R.string.widget_stats_tap_to_configure),
                 style = TextStyle(color = GlanceTheme.colors.onSurface),
                 modifier = GlanceModifier.clickable(actionStartActivity<UserStatsWidgetConfigActivity>())
             )
@@ -135,21 +135,21 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
     }
 
     @Composable
-    fun LoadingState() {
+    fun LoadingState(context: Context) {
         Box(
             modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center
         ) {
-            Text("Loading...", style = TextStyle(color = GlanceTheme.colors.onSurface))
+            Text(context.getString(R.string.widget_stats_loading), style = TextStyle(color = GlanceTheme.colors.onSurface))
         }
     }
 
     @Composable
-    fun ErrorState(message: String) {
+    fun ErrorState(context: Context, @androidx.annotation.StringRes messageRes: Int) {
         Box(
             modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center
         ) {
             Text(
-                "Error: $message", style = TextStyle(color = GlanceTheme.colors.error)
+                context.getString(R.string.widget_stats_error_format, context.getString(messageRes)), style = TextStyle(color = GlanceTheme.colors.error)
             )
         }
     }
@@ -191,7 +191,7 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Stats for ${account.name}",
+                                text = context.getString(R.string.widget_stats_for_account, account.name),
                                 style = TextStyle(
                                     color = GlanceTheme.colors.onSurface,
                                     fontWeight = FontWeight.Bold,
@@ -217,7 +217,7 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Stats for ${account.name}",
+                        text = context.getString(R.string.widget_stats_for_account, account.name),
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurface,
                             fontWeight = FontWeight.Bold,
@@ -329,5 +329,5 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
 sealed class StatsState {
     object Loading : StatsState()
     data class Success(val stats: UserStats, val account: Account) : StatsState()
-    data class Error(val message: String) : StatsState()
+    data class Error(@param:androidx.annotation.StringRes val messageRes: Int) : StatsState()
 }
