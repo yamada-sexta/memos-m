@@ -149,7 +149,7 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
             modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center
         ) {
             Text(
-                context.getString(R.string.widget_stats_error_format, context.getString(messageRes)), style = TextStyle(color = GlanceTheme.colors.error)
+                context.getString(messageRes), style = TextStyle(color = GlanceTheme.colors.error)
             )
         }
     }

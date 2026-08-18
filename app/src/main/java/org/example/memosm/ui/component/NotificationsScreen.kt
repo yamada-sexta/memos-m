@@ -190,7 +190,7 @@ private fun NotificationCard(notification: UserNotification) {
                     notification.sender?.substringAfterLast("/")?.takeIf { it.isNotBlank() }?.let {
                         add(it)
                     }
-                    notification.status?.takeIf { it.isNotBlank() }?.let { add(notificationStatus(it)) }
+                    notificationStatusResource(notification.status)?.let { add(stringResource(it)) }
                     notification.createTime?.takeIf { it.isNotBlank() }?.let {
                         add(formatNotificationTime(it))
                     }
@@ -218,15 +218,13 @@ private fun notificationTitle(notification: UserNotification): String {
     return stringResource(type) + notification.activityId?.let { " #$it" }.orEmpty()
 }
 
-@Composable
-private fun notificationStatus(value: String): String {
-    val resource = when (value.uppercase()) {
-        "UNREAD" -> R.string.notification_status_unread
-        "READ" -> R.string.notification_status_read
-        "ARCHIVED" -> R.string.notification_status_archived
-        else -> R.string.notification_default_title
-    }
-    return stringResource(resource)
+@androidx.annotation.StringRes
+internal fun notificationStatusResource(value: String?): Int? = when (value?.uppercase()) {
+    "UNREAD" -> R.string.notification_status_unread
+    "READ" -> R.string.notification_status_read
+    "ARCHIVED" -> R.string.notification_status_archived
+    "STATUS_UNSPECIFIED", "UNSPECIFIED", null, "" -> null
+    else -> null
 }
 
 private fun formatNotificationTime(value: String): String {

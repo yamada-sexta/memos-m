@@ -52,7 +52,6 @@ fun DraftsCard(
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var showPublishAllDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val publishSuccessFormat = stringResource(R.string.drafts_publish_all_success)
 
     Card(
         modifier = modifier
@@ -170,7 +169,11 @@ fun DraftsCard(
                         viewModel.draftDelegate.publishAllDrafts { count ->
                             Toast.makeText(
                                 context,
-                                publishSuccessFormat.format(count),
+                                context.resources.getQuantityString(
+                                    R.plurals.drafts_publish_all_success_plural,
+                                    count,
+                                    count
+                                ),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }

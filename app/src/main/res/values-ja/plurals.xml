@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="drafts_count_plural"><item quantity="other">%1$d 件の下書き</item></plurals>
+    <plurals name="drafts_publish_all_confirmation_message_plural"><item quantity="other">これらすべての %1$d 件の下書きを個別のメモとして公開します。よろしいですか？</item></plurals>
+    <plurals name="drafts_publish_all_success_plural"><item quantity="other">%1$d 件の下書きを公開しました</item></plurals>
+</resources>

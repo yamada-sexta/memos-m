@@ -6,7 +6,7 @@
     <string name="login_username">Nazwa użytkownika</string>
     <string name="login_host_url">Adres URL serwera</string>
     <string name="login_error_empty_host">Adres URL serwera nie może być pusty</string>
-    <string name="login_error_failed">Logowanie nie powiodło się: %1$s</string>
+    <string name="login_error_failed">Logowanie nie powiodło się. Spróbuj ponownie.</string>
     <string name="login_button">Zaloguj się</string>
 
     <string name="nav_memos">Notatki</string>
@@ -22,7 +22,7 @@
     <string name="profile_stats_memos">Notatki</string>
     <string name="profile_stats_tags">Tagi</string>
     <string name="profile_stats_pinned">Przypięte</string>
-    <string name="profile_stats_links">Łącza</string>
+    <string name="profile_stats_links">Linki</string>
     <string name="profile_stats_code">Kod</string>
     <string name="profile_stats_todo">Zadania</string>
     <string name="profile_tags_no_tags">Nie znaleziono tagów</string>
@@ -63,7 +63,7 @@
     <string name="profile_instance_url">Adres URL</string>
     <string name="profile_logout">Wyloguj się</string>
 
-    <string name="profile_about">MemosM — informacje</string>
+    <string name="profile_about">Informacje o MemosM</string>
     <string name="profile_about_version">Wersja aplikacji</string>
     <string name="profile_about_version_copied">Skopiowano wersję do schowka</string>
     <string name="profile_about_repo">Kod źródłowy</string>
@@ -71,8 +71,8 @@
     <string name="profile_about_licenses">Licencje open source</string>
     <string name="profile_add_account">Dodaj konto</string>
     <string name="profile_accounts">Konta</string>
-    <string name="profile_remove_account_title">Usuń konto</string>
-    <string name="profile_remove_account_confirm">Czy na pewno chcesz usunąć konto „%1$s”? Aby ponownie uzyskać do niego dostęp, trzeba będzie się zalogować.</string>
+    <string name="profile_remove_account_title">Usuń konto z aplikacji</string>
+    <string name="profile_remove_account_confirm">Czy na pewno chcesz usunąć z aplikacji konto „%1$s”? Aby ponownie uzyskać do niego dostęp, trzeba będzie się zalogować.</string>
     <string name="profile_edit_account">Edytuj profil</string>
     <string name="profile_username">Nazwa użytkownika</string>
     <string name="profile_display_name">Nazwa wyświetlana</string>
@@ -115,15 +115,15 @@
     <string name="memo_composer_location_longitude">Długość geograficzna</string>
     <string name="memo_composer_location_default_placeholder">Bieżąca lokalizacja</string>
     <string name="memo_composer_error_stop_recording">Nie udało się zatrzymać nagrywania</string>
-    <string name="memo_composer_error_start_recording">Nie udało się rozpocząć nagrywania: %1$s</string>
+    <string name="memo_composer_error_start_recording">Nie udało się rozpocząć nagrywania</string>
     <string name="memo_composer_error_microphone_permission">Wymagany jest dostęp do mikrofonu</string>
     <string name="memo_composer_fab_new_memo">Nowa notatka</string>
 
     <string name="attachments_none_found">Nie znaleziono załączników</string>
     <string name="attachments_error">Błąd</string>
-    <string name="attachments_error_open_link">Nie można otworzyć łącza</string>
+    <string name="attachments_error_open_link">Nie można otworzyć linku</string>
     <string name="attachments_download_started">Rozpoczęto pobieranie</string>
-    <string name="attachments_error_download_failed">Pobieranie nie powiodło się: %1$s</string>
+    <string name="attachments_error_download_failed">Nie udało się pobrać pliku</string>
     <string name="attachments_info_title">Informacje o załączniku</string>
     <string name="attachments_info_filename">Nazwa pliku</string>
     <string name="attachments_info_type">Typ</string>
@@ -185,7 +185,7 @@
         <item>Hehe|(o^ ^o)</item>
         <item>Nie klikaj mnie!|(⁄ ⁄•⁄ω⁄•⁄ ⁄)</item>
         <item>Przestań!|(⁄ ⁄&gt;⁄ ▽ ⁄&lt;⁄ ⁄)</item>
-        <item>Znaleziono mnie!|(￣▽￣*)ゞ</item>
+        <item>Znalazłeś mnie!|(￣▽￣*)ゞ</item>
         <item>Auć!|&gt;_&lt;</item>
         <item>Proszę, przestań…|m(_ _)m</item>
     </string-array>
@@ -203,7 +203,7 @@
     <string name="drafts_prompt_title">Niezapisane wersje robocze</string>
     <string name="drafts_prompt_message">Masz niezapisane wersje robocze. Kontynuować ostatnią czy rozpocząć nową?</string>
     <string name="drafts_prompt_continue">Kontynuuj wersję roboczą</string>
-    <string name="drafts_prompt_start_fresh">Rozpocznij nową</string>
+    <string name="drafts_prompt_start_fresh">Zacznij od nowa</string>
     <string name="drafts_card_message">Masz niezapisane wersje robocze</string>
 
     <!-- Activity Map -->
@@ -213,7 +213,6 @@
     <string name="drafts_delete_all_confirmation_message">Czy na pewno chcesz usunąć wszystkie wersje robocze? Tej operacji nie można cofnąć.</string>
     <string name="drafts_publish_all_confirmation_title">Opublikować wszystkie wersje robocze?</string>
     <string name="drafts_publish_all_confirmation_message">Wersje robocze zostaną opublikowane jako osobne notatki (liczba: %1$d). Kontynuować?</string>
-    <string name="drafts_publish_all_success">Opublikowano wersje robocze (liczba: %1$d)</string>
     <string name="common_publish">Opublikuj</string>
 
     <string name="user_stats_widget_description">Wyświetla statystyki użytkownika.</string>

@@ -5,7 +5,7 @@
     <string name="login_username">Benutzername</string>
     <string name="login_host_url">Host-URL</string>
     <string name="login_error_empty_host">Host-URL darf nicht leer sein</string>
-    <string name="login_error_failed">Anmeldung fehlgeschlagen: %1$s</string>
+    <string name="login_error_failed">Anmeldung fehlgeschlagen. Bitte versuche es erneut.</string>
     <string name="login_button">Anmelden</string>
 
     <string name="nav_memos">Memos</string>
@@ -115,7 +115,7 @@
     <string name="memo_composer_location_longitude">Längengrad</string>
     <string name="memo_composer_location_default_placeholder">Aktueller Standort</string>
     <string name="memo_composer_error_stop_recording">Aufnahme konnte nicht gestoppt werden</string>
-    <string name="memo_composer_error_start_recording">Aufnahme konnte nicht gestartet werden: %1$s</string>
+    <string name="memo_composer_error_start_recording">Aufnahme konnte nicht gestartet werden</string>
     <string name="memo_composer_error_microphone_permission">Mikrofonberechtigung erforderlich</string>
     <string name="memo_composer_fab_new_memo">Neues Memo</string>
 
@@ -123,7 +123,7 @@
     <string name="attachments_error">Fehler</string>
     <string name="attachments_error_open_link">Link konnte nicht geöffnet werden</string>
     <string name="attachments_download_started">Download gestartet</string>
-    <string name="attachments_error_download_failed">Download fehlgeschlagen: %1$s</string>
+    <string name="attachments_error_download_failed">Datei konnte nicht heruntergeladen werden</string>
     <string name="attachments_info_title">Anhangsinfo</string>
     <string name="attachments_info_filename">Dateiname</string>
     <string name="attachments_info_type">Typ</string>
@@ -212,7 +212,6 @@
     <string name="drafts_delete_all_confirmation_message">Sind Sie sicher, dass Sie alle Entwürfe löschen möchten? Dieser Vorgang kann nicht rückgängig gemacht werden.</string>
     <string name="drafts_publish_all_confirmation_title">Alle Entwürfe veröffentlichen?</string>
     <string name="drafts_publish_all_confirmation_message">Dies wird alle %1$d Entwürfe als einzelne Memos veröffentlichen. Fortfahren?</string>
-    <string name="drafts_publish_all_success">%1$d Entwürfe veröffentlicht</string>
     <string name="common_publish">Veröffentlichen</string>
 
     <string name="user_stats_widget_description">Zeigt Benutzerstatistiken an.</string>

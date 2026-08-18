@@ -606,15 +606,11 @@ private fun DateSelectorCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
-                val dateText = remember(dateMillis) {
-                    if (dateMillis != null) {
-                        DateFormat.getMediumDateFormat(context).format(Date(dateMillis))
-                    } else {
-                        "Any" // Will use stringResource(R.string.search_date_any) below
-                    }
+                val dateText = dateMillis?.let {
+                    DateFormat.getMediumDateFormat(context).format(Date(it))
                 }
                 Text(
-                    text = if (dateMillis != null) dateText else stringResource(R.string.search_date_any),
+                    text = dateText ?: stringResource(R.string.search_date_any),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )

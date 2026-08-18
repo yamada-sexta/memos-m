@@ -7,7 +7,7 @@
     <string name="login_host_url">Host URL</string>
     <string name="login_host_url_placeholder" translatable="false">https://demo.usememos.com</string>
     <string name="login_error_empty_host">Host URL cannot be empty</string>
-    <string name="login_error_failed">Login failed: %1$s</string>
+    <string name="login_error_failed">Login failed. Please try again.</string>
     <string name="login_button">Login</string>
 
     <string name="nav_memos">Memos</string>
@@ -119,7 +119,7 @@
     <string name="memo_composer_location_longitude">Longitude</string>
     <string name="memo_composer_location_default_placeholder">Current Location</string>
     <string name="memo_composer_error_stop_recording">Failed to stop recording</string>
-    <string name="memo_composer_error_start_recording">Failed to start recording: %1$s</string>
+    <string name="memo_composer_error_start_recording">Failed to start recording</string>
     <string name="memo_composer_error_microphone_permission">Microphone permission required</string>
     <string name="memo_composer_fab_new_memo">New Memo</string>
 
@@ -127,7 +127,7 @@
     <string name="attachments_error">Error</string>
     <string name="attachments_error_open_link">Unable to open link</string>
     <string name="attachments_download_started">Download started</string>
-    <string name="attachments_error_download_failed">Download failed: %1$s</string>
+    <string name="attachments_error_download_failed">Unable to download file</string>
     <string name="attachments_info_title">Attachment Info</string>
     <string name="attachments_info_filename">Filename</string>
     <string name="attachments_info_type">Type</string>
@@ -191,7 +191,7 @@
         <item>Stop it!|(⁄ ⁄&gt;⁄ ▽ ⁄&lt;⁄ ⁄)</item>
         <item>You found me!|(￣▽￣*)ゞ</item>
         <item>Ouch!|&gt;_&lt;</item>
-        <item>Please stop… m(_ _)m</item>
+        <item>Please stop…|m(_ _)m</item>
     </string-array>
 
     <!-- Drafts -->
@@ -217,7 +217,6 @@
     <string name="drafts_delete_all_confirmation_message">Are you sure you want to delete all drafts? This action cannot be undone.</string>
     <string name="drafts_publish_all_confirmation_title">Publish all drafts?</string>
     <string name="drafts_publish_all_confirmation_message">This will publish all %1$d drafts as individual memos. Continue?</string>
-    <string name="drafts_publish_all_success">Published %1$d drafts</string>
     <string name="common_publish">Publish</string>
 
     <string name="user_stats_widget_description">Displays user statistics.</string>
