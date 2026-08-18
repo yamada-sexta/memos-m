@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_title">Zaloguj się do Memos</string>
+    <string name="login_token">Token</string>
+    <string name="login_password">Hasło</string>
+    <string name="login_username">Nazwa użytkownika</string>
+    <string name="login_host_url">Adres URL serwera</string>
+    <string name="login_error_empty_host">Adres URL serwera nie może być pusty</string>
+    <string name="login_error_failed">Logowanie nie powiodło się: %1$s</string>
+    <string name="login_button">Zaloguj się</string>
+
+    <string name="nav_memos">Notatki</string>
+    <string name="nav_explore">Odkryj</string>
+    <string name="nav_attachments">Załączniki</string>
+    <string name="nav_profile">Profil</string>
+
+    <string name="profile_user_info_not_available">Informacje o użytkowniku są niedostępne</string>
+    <string name="profile_retry">Spróbuj ponownie</string>
+    <string name="profile_avatar_description">Awatar</string>
+    <string name="profile_user_id">Identyfikator użytkownika</string>
+    <string name="profile_statistics">Statystyki</string>
+    <string name="profile_stats_memos">Notatki</string>
+    <string name="profile_stats_tags">Tagi</string>
+    <string name="profile_stats_pinned">Przypięte</string>
+    <string name="profile_stats_links">Łącza</string>
+    <string name="profile_stats_code">Kod</string>
+    <string name="profile_stats_todo">Zadania</string>
+    <string name="profile_tags_no_tags">Nie znaleziono tagów</string>
+    <string name="profile_settings_general">Ustawienia ogólne</string>
+    <string name="profile_settings_locale">Język</string>
+    <string name="profile_settings_locale_default">Domyślny</string>
+    <string name="profile_settings_locale_edit">Edytuj język</string>
+    <string name="profile_settings_locale_label">Kod języka (np. pl, en, zh-Hans)</string>
+    <string name="profile_settings_visibility">Domyślna widoczność notatek</string>
+    <string name="profile_app_settings">Ustawienia aplikacji</string>
+    <string name="profile_app_settings_page_size">Liczba elementów na stronę</string>
+    <string name="profile_app_settings_page_size_hint">Elementy na stronę</string>
+    <string name="profile_app_settings_header_scale">Skala nagłówków</string>
+    <string name="profile_app_settings_header_scale_format">%.1fx</string>
+    <string name="profile_notifications">Powiadomienia</string>
+    <string name="profile_notifications_empty">Brak powiadomień</string>
+    <string name="profile_archived">Zarchiwizowane</string>
+    <string name="profile_shortcuts">Skróty</string>
+    <string name="profile_shortcuts_none">Nie skonfigurowano skrótów</string>
+    <string name="profile_shortcuts_add">Dodaj skrót</string>
+    <string name="profile_shortcuts_edit">Edytuj skrót</string>
+    <string name="profile_shortcuts_title">Tytuł</string>
+    <string name="profile_shortcuts_filter">Filtr</string>
+    <string name="profile_shortcuts_help">Pomoc dotycząca składni filtra</string>
+    <string name="profile_shortcuts_delete_title">Usuń skrót</string>
+    <string name="profile_shortcuts_delete_confirm">Czy na pewno chcesz usunąć ten skrót?</string>
+    <string name="profile_webhooks">Webhooki</string>
+    <string name="profile_webhooks_none">Nie skonfigurowano webhooków</string>
+    <string name="profile_webhooks_add">Dodaj webhook</string>
+    <string name="profile_webhooks_edit">Edytuj webhook</string>
+    <string name="profile_webhooks_display_name">Nazwa wyświetlana</string>
+    <string name="profile_webhooks_url">Adres URL</string>
+    <string name="profile_webhooks_delete_title">Usuń webhook</string>
+    <string name="profile_webhooks_delete_confirm">Czy na pewno chcesz usunąć ten webhook?</string>
+    <string name="profile_instance_info">Informacje o instancji</string>
+    <string name="profile_instance_version">Wersja</string>
+    <string name="profile_instance_mode">Tryb</string>
+    <string name="profile_instance_url">Adres URL</string>
+    <string name="profile_logout">Wyloguj się</string>
+
+    <string name="profile_about">MemosM — informacje</string>
+    <string name="profile_about_version">Wersja aplikacji</string>
+    <string name="profile_about_version_copied">Skopiowano wersję do schowka</string>
+    <string name="profile_about_repo">Kod źródłowy</string>
+    <string name="profile_about_issues">Zgłoś problem</string>
+    <string name="profile_about_licenses">Licencje open source</string>
+    <string name="profile_add_account">Dodaj konto</string>
+    <string name="profile_accounts">Konta</string>
+    <string name="profile_remove_account_title">Usuń konto</string>
+    <string name="profile_remove_account_confirm">Czy na pewno chcesz usunąć konto „%1$s”? Aby ponownie uzyskać do niego dostęp, trzeba będzie się zalogować.</string>
+    <string name="profile_edit_account">Edytuj profil</string>
+    <string name="profile_username">Nazwa użytkownika</string>
+    <string name="profile_display_name">Nazwa wyświetlana</string>
+    <string name="profile_email">Adres e-mail</string>
+    <string name="profile_avatar_url">Adres URL awatara</string>
+    <string name="profile_description">Opis</string>
+    <string name="profile_new_password">Nowe hasło</string>
+    <string name="profile_password_hint">Pozostaw puste, aby zachować obecne hasło</string>
+    <string name="profile_edit_credentials">Edytuj dane logowania</string>
+    <string name="profile_credential_hint">Zmiany są zapisywane tylko lokalnie. Zachowaj ostrożność — nieprawidłowe dane logowania będą wymagały ponownego zalogowania.</string>
+
+    <string name="memo_action_edit">Edytuj</string>
+    <string name="memo_action_archive">Archiwizuj</string>
+    <string name="memo_action_unarchive">Przywróć z archiwum</string>
+    <string name="memo_action_pin">Przypnij</string>
+    <string name="memo_action_unpin">Odepnij</string>
+    <string name="memo_action_delete">Usuń</string>
+    <string name="memo_action_more">Więcej</string>
+    <string name="memo_action_open_web">Otwórz w przeglądarce</string>
+    <string name="memo_action_show_raw">Pokaż tekst źródłowy</string>
+    <string name="memo_publish">Opublikuj</string>
+    <string name="memo_list_end">To już wszystkie notatki</string>
+    <string name="memo_unknown_user">Nieznany użytkownik</string>
+    <string name="memo_unknown_time">Nieznana data</string>
+    <string name="memo_action_update">Aktualizuj</string>
+    <string name="memo_action_post">Opublikuj</string>
+    <string name="memo_action_add_reaction">Dodaj reakcję</string>
+    <string name="memo_action_play">Odtwórz</string>
+    <string name="memo_action_pause">Wstrzymaj</string>
+
+    <string name="memo_composer_placeholder">Jakieś przemyślenia…</string>
+    <string name="memo_composer_remove_attachment">Usuń załącznik</string>
+    <string name="memo_composer_remove_location">Usuń lokalizację</string>
+    <string name="memo_composer_attach_file">Dołącz plik</string>
+    <string name="memo_composer_add_image">Dodaj obraz</string>
+    <string name="memo_composer_add_location">Dodaj lokalizację</string>
+    <string name="memo_composer_edit_location">Edytuj lokalizację</string>
+    <string name="memo_composer_location_name">Nazwa</string>
+    <string name="memo_composer_location_latitude">Szerokość geograficzna</string>
+    <string name="memo_composer_location_longitude">Długość geograficzna</string>
+    <string name="memo_composer_location_default_placeholder">Bieżąca lokalizacja</string>
+    <string name="memo_composer_error_stop_recording">Nie udało się zatrzymać nagrywania</string>
+    <string name="memo_composer_error_start_recording">Nie udało się rozpocząć nagrywania: %1$s</string>
+    <string name="memo_composer_error_microphone_permission">Wymagany jest dostęp do mikrofonu</string>
+    <string name="memo_composer_fab_new_memo">Nowa notatka</string>
+
+    <string name="attachments_none_found">Nie znaleziono załączników</string>
+    <string name="attachments_error">Błąd</string>
+    <string name="attachments_error_open_link">Nie można otworzyć łącza</string>
+    <string name="attachments_download_started">Rozpoczęto pobieranie</string>
+    <string name="attachments_error_download_failed">Pobieranie nie powiodło się: %1$s</string>
+    <string name="attachments_info_title">Informacje o załączniku</string>
+    <string name="attachments_info_filename">Nazwa pliku</string>
+    <string name="attachments_info_type">Typ</string>
+    <string name="attachments_info_size">Rozmiar</string>
+    <string name="attachments_info_created">Utworzono</string>
+    <string name="attachments_info_id">Identyfikator</string>
+    <string name="attachments_download_dialog_title">Pobierz plik</string>
+    <string name="attachments_download_dialog_confirm">Czy pobrać plik „%1$s” do folderu Pobrane?</string>
+    <string name="attachments_download_button">Pobierz</string>
+
+    <string name="memo_dialog_edit_title">Edytuj notatkę</string>
+    <string name="memo_dialog_delete_title">Usuń notatkę</string>
+    <string name="memo_dialog_delete_confirm">Czy na pewno chcesz usunąć tę notatkę? Tej operacji nie można cofnąć.</string>
+    <string name="memo_dialog_raw_title">Tekst źródłowy</string>
+
+    <string name="memo_detail_title">Szczegóły notatki</string>
+    <string name="memo_detail_comments">Komentarze (%1$d)</string>
+    <string name="memo_detail_no_comments">Brak komentarzy</string>
+    <string name="memo_detail_add_comment">Dodaj komentarz</string>
+    <string name="memo_detail_comment_placeholder">Napisz komentarz…</string>
+    <string name="memo_detail_back">Wstecz</string>
+    <string name="memo_detail_placeholder">Wybierz notatkę, aby wyświetlić szczegóły</string>
+
+    <string name="memo_visibility_public">Publiczne</string>
+    <string name="memo_visibility_protected">Przestrzeń robocza</string>
+    <string name="memo_visibility_private">Prywatne</string>
+    <string name="memo_visibility_unspecified">Nieznana</string>
+
+    <string name="common_save">Zapisz</string>
+    <string name="common_share">Udostępnij</string>
+    <string name="common_cancel">Anuluj</string>
+    <string name="common_close">Zamknij</string>
+    <string name="common_not_available">Brak danych</string>
+    <string name="common_remove">Usuń</string>
+    <string name="common_delete">Usuń</string>
+    <string name="common_error_failed_to_load">Nie udało się wczytać danych</string>
+    <string name="common_error_failed_to_load_memos">Nie udało się wczytać notatek</string>
+    <string name="common_error_failed_to_load_explore">Nie udało się wczytać widoku Odkryj</string>
+    <string name="common_error_failed_to_load_profile">Nie udało się wczytać profilu</string>
+    <string name="common_error_failed_to_load_attachments">Nie udało się wczytać załączników</string>
+    <string name="common_error_failed_to_load_notifications">Nie udało się wczytać powiadomień</string>
+    <string name="offline_title">Brak połączenia</string>
+    <string name="offline_cached_data_message">Wyświetlane są dane z pamięci podręcznej. Przeciągnij w dół, aby odświeżyć.</string>
+    <string name="memo_input_add_tag">Dodaj tag</string>
+
+    <string name="memo_search_placeholder">Szukaj notatek…</string>
+    <string name="memo_search_explore_placeholder">Szukaj w widoku Odkryj…</string>
+    <string name="memo_search_hint">Wpisz tekst do wyszukania</string>
+    <string name="memo_search_no_results">Nie znaleziono wyników</string>
+    <string name="search_date_start">Od</string>
+    <string name="search_date_end">Do</string>
+    <string name="search_date_any">Dowolna</string>
+    <string name="search_sort_title">Sortowanie</string>
+    <string name="search_sort_newest">Najpierw najnowsze</string>
+    <string name="search_sort_oldest">Najpierw najstarsze</string>
+
+    <string-array name="profile_about_kaomojis">
+        <item>Hurra!|(ﾉ´ з `)ノ</item>
+        <item>Hehe|(o^ ^o)</item>
+        <item>Nie klikaj mnie!|(⁄ ⁄•⁄ω⁄•⁄ ⁄)</item>
+        <item>Przestań!|(⁄ ⁄&gt;⁄ ▽ ⁄&lt;⁄ ⁄)</item>
+        <item>Znaleziono mnie!|(￣▽￣*)ゞ</item>
+        <item>Auć!|&gt;_&lt;</item>
+        <item>Proszę, przestań…|m(_ _)m</item>
+    </string-array>
+
+    <!-- Drafts -->
+    <string name="drafts_title">Wersje robocze</string>
+    <string name="drafts_count">Liczba wersji roboczych: %1$d</string>
+    <string name="drafts_empty">Brak wersji roboczych</string>
+    <string name="drafts_no_content">(Pusta wersja robocza)</string>
+    <string name="drafts_action_edit">Edytuj</string>
+    <string name="drafts_action_post">Opublikuj</string>
+    <string name="drafts_action_delete">Usuń</string>
+    <string name="drafts_delete_confirm_title">Usuń wersję roboczą</string>
+    <string name="drafts_delete_confirm_message">Czy na pewno chcesz usunąć tę wersję roboczą? Tej operacji nie można cofnąć.</string>
+    <string name="drafts_prompt_title">Niezapisane wersje robocze</string>
+    <string name="drafts_prompt_message">Masz niezapisane wersje robocze. Kontynuować ostatnią czy rozpocząć nową?</string>
+    <string name="drafts_prompt_continue">Kontynuuj wersję roboczą</string>
+    <string name="drafts_prompt_start_fresh">Rozpocznij nową</string>
+    <string name="drafts_card_message">Masz niezapisane wersje robocze</string>
+
+    <!-- Activity Map -->
+    <string name="profile_activity_map">Mapa aktywności</string>
+    <string name="profile_activity_count">Liczba aktywności: %1$d</string>
+    <string name="drafts_delete_all_confirmation_title">Usunąć wszystkie wersje robocze?</string>
+    <string name="drafts_delete_all_confirmation_message">Czy na pewno chcesz usunąć wszystkie wersje robocze? Tej operacji nie można cofnąć.</string>
+    <string name="drafts_publish_all_confirmation_title">Opublikować wszystkie wersje robocze?</string>
+    <string name="drafts_publish_all_confirmation_message">Wersje robocze zostaną opublikowane jako osobne notatki (liczba: %1$d). Kontynuować?</string>
+    <string name="drafts_publish_all_success">Opublikowano wersje robocze (liczba: %1$d)</string>
+    <string name="common_publish">Opublikuj</string>
+
+    <string name="user_stats_widget_description">Wyświetla statystyki użytkownika.</string>
+</resources>
