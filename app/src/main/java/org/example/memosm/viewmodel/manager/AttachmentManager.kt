@@ -219,5 +219,70 @@ class AttachmentManager(
             )
             return url
         }
+
+        /**
+         * Returns the server-generated thumbnail URL used for image previews.
+         *
+         * Regular external links are deliberately not used here when the attachment has a name:
+         * the Memos server owns thumbnail generation and serves it from the attachment file route.
+         * Share links are the exception because their token must remain in the URL.
+         */
+        fun getAttachmentThumbnailUrl(hostUrl: String, attachment: Attachment?): String? {
+            if (attachment == null) return null
+
+            val externalLink = attachment.externalLink
+            if (!externalLink.isNullOrBlank() && hasQueryParameter(externalLink, "share_token")) {
+                return setQueryParameter(
+                    resolveResourceUrl(hostUrl, externalLink) ?: return null,
+                    "thumbnail",
+                    "true"
+                )
+            }
+
+            if (!attachment.name.isNullOrBlank()) {
+                val attachmentUrl = resolveResourceUrl(
+                    hostUrl, "file/${attachment.name}/${attachment.filename}"
+                ) ?: return null
+                return setQueryParameter(attachmentUrl, "thumbnail", "true")
+            }
+
+            // Unnamed attachments cannot be addressed through the server file route.
+            return resolveResourceUrl(hostUrl, externalLink)
+        }
+
+        private fun hasQueryParameter(url: String, key: String): Boolean {
+            val query = url.substringBefore('#').substringAfter('?', missingDelimiterValue = "")
+            return query.split('&').any { parameter ->
+                parameter.substringBefore('=') == key
+            }
+        }
+
+        private fun setQueryParameter(url: String, key: String, value: String): String {
+            val fragment = url.substringAfter('#', missingDelimiterValue = "")
+            val withoutFragment = url.substringBefore('#')
+            val base = withoutFragment.substringBefore('?')
+            val query = withoutFragment.substringAfter('?', missingDelimiterValue = "")
+            var replaced = false
+            val parameters = query.split('&').filter { it.isNotEmpty() }.map { parameter ->
+                if (parameter.substringBefore('=') == key) {
+                    replaced = true
+                    "$key=$value"
+                } else {
+                    parameter
+                }
+            }.toMutableList()
+
+            if (!replaced) parameters += "$key=$value"
+
+            return buildString {
+                append(base)
+                append('?')
+                append(parameters.joinToString("&"))
+                if (fragment.isNotEmpty()) {
+                    append('#')
+                    append(fragment)
+                }
+            }
+        }
     }
 }
