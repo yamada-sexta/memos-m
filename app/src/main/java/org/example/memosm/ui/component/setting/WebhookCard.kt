@@ -40,8 +40,8 @@ import org.example.memosm.model.UserWebhook
 @Composable
 fun WebhooksCard(
     webhooks: List<UserWebhook>,
-    onCreate: (displayName: String, url: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
-    onUpdate: (UserWebhook, displayName: String, url: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onCreate: (displayName: String, url: String, onSuccess: () -> Unit, onError: (Int) -> Unit) -> Unit,
+    onUpdate: (UserWebhook, displayName: String, url: String, onSuccess: () -> Unit, onError: (Int) -> Unit) -> Unit,
     onDelete: (UserWebhook) -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf<UserWebhook?>(null) }
@@ -177,21 +177,21 @@ fun WebhookEditDialog(
     initialDisplayName: String = "",
     initialUrl: String = "",
     onDismiss: () -> Unit,
-    onConfirm: (String, String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onConfirm: (String, String, onSuccess: () -> Unit, onError: (Int) -> Unit) -> Unit
 ) {
     var displayNameText by remember { mutableStateOf(initialDisplayName) }
     var urlText by remember { mutableStateOf(initialUrl) }
     var isSaving by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorMessageRes by remember { mutableStateOf<Int?>(null) }
 
     AlertDialog(
         onDismissRequest = if (isSaving) ({}) else onDismiss,
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (errorMessage != null) {
+                if (errorMessageRes != null) {
                     Text(
-                        text = errorMessage!!,
+                        text = stringResource(errorMessageRes ?: R.string.profile_webhooks_error_save),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -201,7 +201,7 @@ fun WebhookEditDialog(
                     value = displayNameText,
                     onValueChange = {
                         displayNameText = it
-                        errorMessage = null
+                        errorMessageRes = null
                     },
                     label = { Text(stringResource(R.string.profile_webhooks_display_name)) },
                     modifier = Modifier.fillMaxWidth(),
@@ -212,7 +212,7 @@ fun WebhookEditDialog(
                     value = urlText,
                     onValueChange = {
                         urlText = it
-                        errorMessage = null
+                        errorMessageRes = null
                     },
                     label = { Text(stringResource(R.string.profile_webhooks_url)) },
                     modifier = Modifier.fillMaxWidth(),
@@ -230,7 +230,7 @@ fun WebhookEditDialog(
             TextButton(
                 onClick = {
                     isSaving = true
-                    errorMessage = null
+                    errorMessageRes = null
                     onConfirm(
                         displayNameText,
                         urlText,
@@ -238,9 +238,9 @@ fun WebhookEditDialog(
                             isSaving = false
                             onDismiss()
                         },
-                        { error ->
+                        { errorRes ->
                             isSaving = false
-                            errorMessage = error
+                            errorMessageRes = errorRes
                         }
                     )
                 },

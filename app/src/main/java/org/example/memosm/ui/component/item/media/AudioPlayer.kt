@@ -271,7 +271,10 @@ fun PlayPauseButton(
             ) { playing ->
                 Icon(
                     imageVector = if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                    contentDescription = null,
+                    contentDescription = androidx.compose.ui.res.stringResource(
+                        if (playing) org.example.memosm.R.string.memo_action_pause
+                        else org.example.memosm.R.string.memo_action_play
+                    ),
                     modifier = Modifier.size(iconSize),
                     tint = tint
                 )

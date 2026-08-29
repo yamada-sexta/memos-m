@@ -50,6 +50,7 @@ fun MemoImage(
     hostUrl: String = "",
     uri: Uri = Uri.EMPTY,
     filename: String = "",
+    contentDescription: String? = filename.takeIf { it.isNotBlank() },
     isRound: Boolean = false,
     placeholderIcon: ImageVector? = null,
     onRatioAvailable: (Float) -> Unit = {},
@@ -140,7 +141,7 @@ fun MemoImage(
 
             AsyncImage(
                 model = imageRequest,
-                contentDescription = filename,
+                contentDescription = contentDescription,
                 modifier = imgModifier.zoomable(isFullScreen, onDismiss),
                 contentScale = if (isFullScreen) ContentScale.Fit else ContentScale.Crop,
                 onLoading = { isLoading = true; isError = false },

@@ -91,7 +91,7 @@ fun AccountsList(
                 Text(
                     stringResource(
                         R.string.profile_remove_account_confirm,
-                        accountToRemove?.name ?: "Unknown"
+                        accountToRemove?.name ?: stringResource(R.string.memo_unknown_user)
                     )
                 )
             },

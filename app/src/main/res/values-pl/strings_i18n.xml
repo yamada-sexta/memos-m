@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+        <string name="common_unknown_error">Nieznany błąd</string>
+    <string name="common_no_active_account">Brak aktywnego konta</string>
+    <string name="common_operation_failed">Nie udało się ukończyć operacji. Spróbuj ponownie.</string>
+    <string name="login_error_invalid_url">Nieprawidłowy format adresu URL</string>
+    <string name="login_error_invalid_instance">Podany adres nie prowadzi do prawidłowej instancji Memos</string>
+    <string name="login_error_empty_token">Token nie może być pusty</string>
+    <string name="login_error_verification_failed">Weryfikacja tokenu nie powiodła się</string>
+    <string name="login_error_empty_credentials">Nazwa użytkownika i hasło nie mogą być puste</string>
+    <string name="login_error_invalid_credentials">Nieprawidłowa nazwa użytkownika lub hasło</string>
+    <string name="widget_stats_select_account">Wybierz konto</string>
+    <string name="widget_stats_tap_to_configure">Dotknij, aby skonfigurować</string>
+    <string name="widget_stats_loading">Ładowanie…</string>
+    <string name="widget_stats_for_account">Statystyki: %1$s</string>
+    <string name="widget_stats_error_user_not_found">Nie znaleziono użytkownika</string>
+    <string name="widget_stats_error_network">Błąd sieci</string>
+    <string name="widget_stats_error_account_not_found">Nie znaleziono konta</string>
+    <string name="notification_default_title">Powiadomienie</string>
+    <string name="notification_type_memo_comment">Komentarz do notatki</string>
+    <string name="notification_type_memo_mention">Wzmianka w notatce</string>
+    <string name="notification_status_unread">Nieprzeczytane</string>
+    <string name="notification_status_read">Przeczytane</string>
+    <string name="notification_status_archived">Zarchiwizowane</string>
+    <string name="notification_error_load">Nie udało się wczytać powiadomień. Spróbuj ponownie.</string>
+    <string name="memo_composer_record_audio">Nagraj dźwięk</string>
+    <string name="memo_composer_start_recording">Rozpocznij nagrywanie</string>
+    <string name="memo_composer_stop_recording">Zatrzymaj nagrywanie</string>
+    <string name="memo_composer_error_file_too_large">Rozmiar pliku przekracza limit 10 MB</string>
+    <string name="memo_input_show_suggestions">Pokaż sugestie</string>
+    <string name="memo_input_format_bold">Pogrubienie</string>
+    <string name="memo_input_format_italic">Kursywa</string>
+    <string name="memo_input_format_strikethrough">Przekreślenie</string>
+    <string name="memo_input_format_code">Kod</string>
+    <string name="memo_input_heading">Nagłówek %1$d</string>
+    <string name="memo_input_bullet_list">Lista punktowana</string>
+    <string name="memo_input_task_list">Lista zadań</string>
+    <string name="memo_input_quote">Cytat</string>
+    <string name="memo_input_code_block">Blok kodu</string>
+    <string name="attachments_unknown_filename">Nieznany plik</string>
+    <string name="profile_shortcuts_error_save">Nie udało się zapisać skrótu</string>
+    <string name="profile_webhooks_error_save">Nie udało się zapisać webhooka</string>
+
+    <string name="markdown_equation_error_title">Błąd równania</string>
+    <string name="markdown_equation_error_message">Nie można wyświetlić równania</string>
+</resources>

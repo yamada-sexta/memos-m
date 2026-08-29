@@ -5,7 +5,7 @@
     <string name="login_username">用户名</string>
     <string name="login_host_url">服务器地址</string>
     <string name="login_error_empty_host">服务器地址不能为空</string>
-    <string name="login_error_failed">登录失败: %1$s</string>
+    <string name="login_error_failed">登录失败，请重试。</string>
     <string name="login_button">登录</string>
 
     <string name="nav_memos">笔记</string>
@@ -115,7 +115,7 @@
     <string name="memo_composer_location_longitude">经度</string>
     <string name="memo_composer_location_default_placeholder">当前位置</string>
     <string name="memo_composer_error_stop_recording">停止录音失败</string>
-    <string name="memo_composer_error_start_recording">开始录音失败: %1$s</string>
+    <string name="memo_composer_error_start_recording">无法开始录音</string>
     <string name="memo_composer_error_microphone_permission">需要麦克风权限</string>
     <string name="memo_composer_fab_new_memo">新建笔记</string>
 
@@ -123,7 +123,7 @@
     <string name="attachments_error">错误</string>
     <string name="attachments_error_open_link">无法打开链接</string>
     <string name="attachments_download_started">开始下载</string>
-    <string name="attachments_error_download_failed">下载失败: %1$s</string>
+    <string name="attachments_error_download_failed">无法下载文件</string>
     <string name="attachments_info_title">附件信息</string>
     <string name="attachments_info_filename">文件名</string>
     <string name="attachments_info_type">类型</string>
@@ -213,7 +213,6 @@
     <string name="drafts_delete_all_confirmation_message">您确定要删除所有草稿吗？此操作无法撤销。</string>
     <string name="drafts_publish_all_confirmation_title">发布所有草稿？</string>
     <string name="drafts_publish_all_confirmation_message">这将把所有 %1$d 个草稿作为独立笔记发布。是否继续？</string>
-    <string name="drafts_publish_all_success">已发布 %1$d 个草稿</string>
     <string name="common_publish">发布</string>
 
     <string name="user_stats_widget_description">显示用户统计信息。</string>

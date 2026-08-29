@@ -183,8 +183,8 @@ abstract class BaseListManager<T>(
                 e.printStackTrace()
                 android.util.Log.e(TAG, "loadInternal error", e)
 
-                // Extract a user-friendly error message
-                val errorMessage = e.message ?: e.toString()
+                // Keep technical exception details in logs; UI receives a generic, localizable message.
+                val errorMessage = null
 
                 // On failure, try to load from cache (only for initial fetch)
                 if (pageToken == null && cacheCallbacks != null) {

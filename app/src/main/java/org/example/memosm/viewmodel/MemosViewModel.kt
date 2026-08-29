@@ -401,9 +401,15 @@ class MemosViewModel(
     }
 
     suspend fun listCurrentUserNotifications(maxItems: Int = 100): List<UserNotification> {
-        val currentApi = api ?: throw IllegalStateException("Unable to access notifications.")
+        val currentApi = api ?: run {
+            Log.e("MemosViewModel", "Cannot load notifications: API is unavailable")
+            throw IllegalStateException()
+        }
         val userName = _uiState.value.session.currUser?.name
-            ?: throw IllegalStateException("User information not available.")
+            ?: run {
+                Log.e("MemosViewModel", "Cannot load notifications: current user is unavailable")
+                throw IllegalStateException()
+            }
 
         val notifications = mutableListOf<UserNotification>()
         var nextPageToken: String? = null

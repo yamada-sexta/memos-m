@@ -224,7 +224,7 @@ fun MainScreen(
                     token = uiState.session.token,
                     hostUrl = hostUrl,
                     uri = avatarUri,
-                    filename = "avatar",
+                    contentDescription = null,
                     isRound = true,
                     placeholderIcon = if (isSelected) Icons.Default.Person else Icons.Outlined.Person,
                     modifier = modifier

@@ -526,7 +526,7 @@ private fun ProfileListPane(
                         Box(itemModifier) {
                             ErrorView(
                                 title = stringResource(R.string.common_error_failed_to_load_profile),
-                                message = uiState.error!!,
+                                message = stringResource(uiState.error!!.resourceId, *uiState.error!!.formatArgs.toTypedArray()),
                                 onRetry = { viewModel.fetchUserMemos(refresh = true) })
                         }
                     }
@@ -538,7 +538,7 @@ private fun ProfileListPane(
             } else if (!uiState.userMemoList.list.isLoading) {
                 item {
                     ErrorView(
-                        message = uiState.error
+                        message = uiState.error?.let { stringResource(it.resourceId, *it.formatArgs.toTypedArray()) }
                             ?: stringResource(R.string.profile_user_info_not_available),
                         onRetry = { viewModel.fetchUserMemos(refresh = true) },
                         modifier = itemModifier.fillParentMaxHeight(0.7f)

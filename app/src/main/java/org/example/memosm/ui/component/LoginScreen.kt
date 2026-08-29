@@ -121,7 +121,7 @@ fun LoginDialog(
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
                     ) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close")
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.common_close))
                     }
 
                     LoginContent(
@@ -156,6 +156,12 @@ fun LoginContent(
 
     val errorEmptyHost = stringResource(R.string.login_error_empty_host)
     val errorFailed = stringResource(R.string.login_error_failed)
+    val errorInvalidUrl = stringResource(R.string.login_error_invalid_url)
+    val errorInvalidInstance = stringResource(R.string.login_error_invalid_instance)
+    val errorEmptyToken = stringResource(R.string.login_error_empty_token)
+    val errorVerificationFailed = stringResource(R.string.login_error_verification_failed)
+    val errorEmptyCredentials = stringResource(R.string.login_error_empty_credentials)
+    val errorInvalidCredentials = stringResource(R.string.login_error_invalid_credentials)
 
     val performLogin = {
         scope.launch {
@@ -177,7 +183,7 @@ fun LoginContent(
             val httpUrl = normalizedHost.toHttpUrlOrNull()
 
             if (httpUrl == null) {
-                errorMessage = "Invalid URL format"
+                errorMessage = errorInvalidUrl
                 isLoading = false
                 return@launch
             }
@@ -200,7 +206,7 @@ fun LoginContent(
                 try {
                     api.getInstanceProfile()
                 } catch (e: Exception) {
-                    errorMessage = "Invalid Memos instance or host URL"
+                    errorMessage = errorInvalidInstance
                     isLoading = false
                     return@launch
                 }
@@ -208,7 +214,7 @@ fun LoginContent(
                 if (loginMode == LoginMode.TOKEN) {
                     val trimmedToken = token.trim()
                     if (trimmedToken.isBlank()) {
-                        errorMessage = "Token cannot be empty"
+                        errorMessage = errorEmptyToken
                         isLoading = false
                         return@launch
                     }
@@ -227,12 +233,12 @@ fun LoginContent(
                         authApi.getCurrentSession()
                         onLoginSuccess(baseUrl, trimmedToken)
                     } catch (e: Exception) {
-                        errorMessage =
-                            "Invalid token: ${e.localizedMessage ?: "Verification failed"}"
+                        Log.e("MemosLogin", "Token verification failed", e)
+                        errorMessage = errorVerificationFailed
                     }
                 } else {
                     if (username.isBlank() || password.isBlank()) {
-                        errorMessage = "Username and password cannot be empty"
+                        errorMessage = errorEmptyCredentials
                         isLoading = false
                         return@launch
                     }
@@ -245,14 +251,13 @@ fun LoginContent(
 
                     } catch (e: Exception) {
                         Log.e("MemosLogin", "Login failed", e)
-                        errorMessage =
-                            "Login failed: ${e.localizedMessage ?: "Check your credentials"}"
+                        errorMessage = errorInvalidCredentials
                     }
                 }
 
             } catch (e: Exception) {
                 Log.e("MemosLogin", "Login failed", e)
-                errorMessage = errorFailed.format(e.localizedMessage ?: "unknown")
+                errorMessage = errorFailed
             } finally {
                 isLoading = false
             }

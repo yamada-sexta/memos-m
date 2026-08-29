@@ -1,5 +1,6 @@
 package org.example.memosm.viewmodel.delegates
 
+import org.example.memosm.R
 import android.util.Log
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
@@ -13,7 +14,7 @@ import org.example.memosm.viewmodel.MemosUiState
 interface WebhookDelegate {
     suspend fun fetchWebhooks(userResourceName: String)
     fun createWebhook(
-        displayName: String, url: String, onSuccess: () -> Unit, onError: (String) -> Unit
+        displayName: String, url: String, onSuccess: () -> Unit, onError: (Int) -> Unit
     )
 
     fun updateWebhook(
@@ -21,7 +22,7 @@ interface WebhookDelegate {
         displayName: String,
         url: String,
         onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        onError: (Int) -> Unit
     )
 
     fun deleteWebhook(webhook: UserWebhook)
@@ -46,7 +47,7 @@ class WebhookDelegateImpl(
     }
 
     override fun createWebhook(
-        displayName: String, url: String, onSuccess: () -> Unit, onError: (String) -> Unit
+        displayName: String, url: String, onSuccess: () -> Unit, onError: (Int) -> Unit
     ) {
         scope.launch {
             try {
@@ -66,7 +67,7 @@ class WebhookDelegateImpl(
         displayName: String,
         url: String,
         onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        onError: (Int) -> Unit
     ) {
         scope.launch {
             try {
@@ -103,20 +104,8 @@ class WebhookDelegateImpl(
         }
     }
 
-    private fun getErrorResponse(e: Exception): String {
-        if (e is retrofit2.HttpException) {
-            try {
-                val errorBody = e.response()?.errorBody()?.string()
-                if (!errorBody.isNullOrBlank()) {
-                    val errorObj =
-                        Gson().fromJson(errorBody, com.google.gson.JsonObject::class.java)
-                    if (errorObj.has("message")) {
-                        return errorObj.get("message").asString
-                    }
-                }
-            } catch (ignored: Exception) {
-            }
-        }
-        return e.message ?: "Unknown error"
+    private fun getErrorResponse(e: Exception): Int {
+        Log.e("MemosViewModel", "Error saving webhook", e)
+        return R.string.profile_webhooks_error_save
     }
 }

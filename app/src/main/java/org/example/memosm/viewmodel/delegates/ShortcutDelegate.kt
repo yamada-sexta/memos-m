@@ -1,5 +1,6 @@
 package org.example.memosm.viewmodel.delegates
 
+import org.example.memosm.R
 import android.util.Log
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
@@ -15,7 +16,7 @@ interface ShortcutDelegate {
     fun toggleShortcutFilter(shortcut: Shortcut)
     fun toggleHashtagFilter(tag: String)
     fun createShortcut(
-        title: String, filter: String, onSuccess: () -> Unit, onError: (String) -> Unit
+        title: String, filter: String, onSuccess: () -> Unit, onError: (Int) -> Unit
     )
 
     fun updateShortcut(
@@ -23,7 +24,7 @@ interface ShortcutDelegate {
         title: String,
         filter: String,
         onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        onError: (Int) -> Unit
     )
 
     fun deleteShortcut(shortcut: Shortcut)
@@ -81,7 +82,7 @@ class ShortcutDelegateImpl(
     }
 
     override fun createShortcut(
-        title: String, filter: String, onSuccess: () -> Unit, onError: (String) -> Unit
+        title: String, filter: String, onSuccess: () -> Unit, onError: (Int) -> Unit
     ) {
         scope.launch {
             try {
@@ -101,7 +102,7 @@ class ShortcutDelegateImpl(
         title: String,
         filter: String,
         onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        onError: (Int) -> Unit
     ) {
         scope.launch {
             try {
@@ -139,20 +140,8 @@ class ShortcutDelegateImpl(
         }
     }
 
-    private fun getErrorResponse(e: Exception): String {
-        if (e is retrofit2.HttpException) {
-            try {
-                val errorBody = e.response()?.errorBody()?.string()
-                if (!errorBody.isNullOrBlank()) {
-                    val errorObj =
-                        Gson().fromJson(errorBody, com.google.gson.JsonObject::class.java)
-                    if (errorObj.has("message")) {
-                        return errorObj.get("message").asString
-                    }
-                }
-            } catch (ignored: Exception) {
-            }
-        }
-        return e.message ?: "Unknown error"
+    private fun getErrorResponse(e: Exception): Int {
+        Log.e("MemosViewModel", "Error saving resource", e)
+        return R.string.profile_shortcuts_error_save
     }
 }

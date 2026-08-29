@@ -5,7 +5,7 @@
     <string name="login_username">使用者名稱</string>
     <string name="login_host_url">伺服器網址</string>
     <string name="login_error_empty_host">伺服器網址不能為空</string>
-    <string name="login_error_failed">登入失敗: %1$s</string>
+    <string name="login_error_failed">登入失敗，請再試一次。</string>
     <string name="login_button">登入</string>
 
     <string name="nav_memos">筆記</string>
@@ -112,7 +112,7 @@
     <string name="memo_composer_location_longitude">經度</string>
     <string name="memo_composer_location_default_placeholder">目前位置</string>
     <string name="memo_composer_error_stop_recording">停止錄音失敗</string>
-    <string name="memo_composer_error_start_recording">開始錄音失敗: %1$s</string>
+    <string name="memo_composer_error_start_recording">無法開始錄音</string>
     <string name="memo_composer_error_microphone_permission">需要麥克風權限</string>
     <string name="memo_composer_fab_new_memo">新增筆記</string>
 
@@ -120,7 +120,7 @@
     <string name="attachments_error">錯誤</string>
     <string name="attachments_error_open_link">無法開啟連結</string>
     <string name="attachments_download_started">開始下載</string>
-    <string name="attachments_error_download_failed">下載失敗: %1$s</string>
+    <string name="attachments_error_download_failed">無法下載檔案</string>
     <string name="attachments_info_title">附件資訊</string>
     <string name="attachments_info_filename">檔名</string>
     <string name="attachments_info_type">類型</string>
@@ -200,7 +200,6 @@
     <string name="drafts_delete_all_confirmation_message">您確定要刪除所有草稿嗎？此動作無法復原。</string>
     <string name="drafts_publish_all_confirmation_title">發佈所有草稿？</string>
     <string name="drafts_publish_all_confirmation_message">這將把所有 %1$d 個草稿作為獨立筆記發佈。是否繼續？</string>
-    <string name="drafts_publish_all_success">已發佈 %1$d 個草稿</string>
     <string name="common_publish">發佈</string>
 
     <string name="user_stats_widget_description">顯示使用者統計資訊。</string>
