@@ -1,3 +1,5 @@
+
+
 <div align="center">
   <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="128" alt="MemosM App Icon" />
 
@@ -76,7 +78,7 @@ You can also download from [release](https://github.com/yamada-sexta/memos-m/rel
     - [x] Comment on Memos
     - [x] Search Memos
   - Markdown
-    - [x] Baisc rendering
+    - [x] Basic rendering
     - [x] Checkboxes
     - [x] Codeblocks with syntax highlighting
     - [x] Table
