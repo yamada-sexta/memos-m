@@ -87,6 +87,7 @@ fun MemoComposer(
         ComposerMode.COMMENT -> stringResource(R.string.memo_detail_comment_placeholder)
     }
     val context = LocalContext.current
+    val fileTooLargeMessage = stringResource(R.string.memo_composer_error_file_too_large)
 
     // Changed to TextFieldValue for VisualTransformation support
     var contentState by remember {
@@ -197,7 +198,7 @@ fun MemoComposer(
                                 val size = getFileSize(context, uri)
                                 if (size > 10 * 1024 * 1024) {
                                     Toast.makeText(
-                                        context, "File size exceeds 10MB limit", Toast.LENGTH_SHORT
+                                        context, fileTooLargeMessage, Toast.LENGTH_SHORT
                                     ).show()
                                     false
                                 } else {

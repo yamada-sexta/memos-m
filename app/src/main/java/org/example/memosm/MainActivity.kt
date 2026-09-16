@@ -216,7 +216,7 @@ class MainActivity : ComponentActivity() {
 
             // Fallback: derive filename from URI path or MIME type
             if (displayName.isNullOrBlank()) {
-                val baseName = uri.lastPathSegment ?: "file"
+                val baseName = uri.lastPathSegment ?: getString(R.string.attachments_unknown_filename)
                 val mimeType = contentResolver.getType(uri)
                 val ext = if (mimeType != null) {
                     android.webkit.MimeTypeMap.getSingleton()

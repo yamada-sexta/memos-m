@@ -145,8 +145,9 @@ fun AttachmentCard(
         }
     }
 
-    val filename = remember(attachment?.filename, uri) {
-        attachment?.filename ?: uri.lastPathSegment ?: "file"
+    val unknownFilename = stringResource(R.string.attachments_unknown_filename)
+    val filename = remember(attachment?.filename, uri, unknownFilename) {
+        attachment?.filename ?: uri.lastPathSegment ?: unknownFilename
     }
 
     val isImage = remember(displayType) {
@@ -649,7 +650,8 @@ private fun downloadAttachmentFile(
             context, context.getString(R.string.attachments_download_started), Toast.LENGTH_SHORT
         ).show()
     } catch (e: Exception) {
-        val message = context.getString(R.string.attachments_error_download_failed, e.message ?: "")
+        Log.e("AttachmentCard", "Download failed", e)
+        val message = context.getString(R.string.attachments_error_download_failed)
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
     }
 }

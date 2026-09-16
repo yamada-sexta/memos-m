@@ -37,6 +37,8 @@ import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.example.memosm.data.DataStoreManager
+import org.example.memosm.R
+import androidx.compose.ui.res.stringResource
 import org.example.memosm.model.Account
 import org.example.memosm.ui.component.resolveResourceUrl
 import org.koin.android.ext.android.inject
@@ -69,7 +71,7 @@ class UserStatsWidgetConfigActivity : ComponentActivity() {
             MaterialTheme {
                 Scaffold(
                     topBar = {
-                        TopAppBar(title = { Text("Select Account") })
+                        TopAppBar(title = { Text(stringResource(R.string.widget_stats_select_account)) })
                     }) { padding ->
                     val accounts = produceState<List<Account>>(initialValue = emptyList()) {
                         value = dataStoreManager.getAccounts()
@@ -138,7 +140,7 @@ fun AccountItem(account: Account, onClick: () -> Unit) {
 
         Column {
             Text(
-                text = account.displayName ?: account.name ?: "Unknown User",
+                text = account.displayName ?: account.name ?: stringResource(R.string.memo_unknown_user),
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(

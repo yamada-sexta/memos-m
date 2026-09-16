@@ -5,7 +5,7 @@
     <string name="login_username">ユーザー名</string>
     <string name="login_host_url">ホストURL</string>
     <string name="login_error_empty_host">ホストURLを入力してください</string>
-    <string name="login_error_failed">ログインに失敗しました: %1$s</string>
+    <string name="login_error_failed">ログインに失敗しました。もう一度お試しください。</string>
     <string name="login_button">ログイン</string>
 
     <string name="nav_memos">メモ</string>
@@ -115,7 +115,7 @@
     <string name="memo_composer_location_longitude">経度</string>
     <string name="memo_composer_location_default_placeholder">現在地</string>
     <string name="memo_composer_error_stop_recording">録音の停止に失敗しました</string>
-    <string name="memo_composer_error_start_recording">録音の開始に失敗しました: %1$s</string>
+    <string name="memo_composer_error_start_recording">録音を開始できませんでした</string>
     <string name="memo_composer_error_microphone_permission">マイクの権限が必要です</string>
     <string name="memo_composer_fab_new_memo">メモを作成</string>
 
@@ -123,7 +123,7 @@
     <string name="attachments_error">エラー</string>
     <string name="attachments_error_open_link">リンクを開けません</string>
     <string name="attachments_download_started">ダウンロードを開始しました</string>
-    <string name="attachments_error_download_failed">ダウンロードに失敗しました: %1$s</string>
+    <string name="attachments_error_download_failed">ファイルをダウンロードできませんでした</string>
     <string name="attachments_info_title">添付ファイルの情報</string>
     <string name="attachments_info_filename">ファイル名</string>
     <string name="attachments_info_type">種類</string>
@@ -213,7 +213,6 @@
     <string name="drafts_delete_all_confirmation_message">本当にすべての下書きを削除しますか？この操作は取り消せません。</string>
     <string name="drafts_publish_all_confirmation_title">すべての下書きを公開しますか？</string>
     <string name="drafts_publish_all_confirmation_message">これらすべての %1$d 件の下書きを個別のメモとして公開します。よろしいですか？</string>
-    <string name="drafts_publish_all_success">%1$d 件の下書きを公開しました</string>
     <string name="common_publish">公開</string>
 
     <string name="user_stats_widget_description">ユーザー統計を表示します。</string>

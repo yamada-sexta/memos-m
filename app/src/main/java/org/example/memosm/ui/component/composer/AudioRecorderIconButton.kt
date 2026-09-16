@@ -63,11 +63,12 @@ class AudioRecorder(
             mediaRecorder = recorder
             isRecording = true
         } catch (e: Exception) {
-            val message = context.getString(
-                R.string.memo_composer_error_start_recording,
-                e.message ?: ""
-            )
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            Log.e("AudioRecorder", "Failed to start recording", e)
+            Toast.makeText(
+                context,
+                context.getString(R.string.memo_composer_error_start_recording),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -172,10 +173,10 @@ fun AudioRecorderIconButton(
     ) {
         androidx.compose.material3.Icon(
             imageVector = if (isRecording) androidx.compose.material.icons.Icons.Default.Mic else androidx.compose.material.icons.Icons.Outlined.MicNone,
-            contentDescription = androidx.compose.ui.res.stringResource(R.string.memo_composer_error_microphone_permission)
-                .removeSuffix(
-                    " required"
-                ),
+            contentDescription = androidx.compose.ui.res.stringResource(
+                if (isRecording) R.string.memo_composer_stop_recording
+                else R.string.memo_composer_start_recording
+            ),
             tint = if (isRecording) androidx.compose.material3.MaterialTheme.colorScheme.error else androidx.compose.material3.LocalContentColor.current,
             modifier = Modifier.size(iconSize)
         )

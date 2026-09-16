@@ -161,7 +161,7 @@ fun AttachmentsScreen(
                 if (uiState.error != null) {
                     ErrorView(
                         title = stringResource(R.string.common_error_failed_to_load_attachments),
-                        message = uiState.error!!,
+                        message = stringResource(uiState.error!!.resourceId, *uiState.error!!.formatArgs.toTypedArray()),
                         onRetry = { viewModel.fetchAttachments(refresh = false) },
                         modifier = Modifier.align(Alignment.Center)
                     )

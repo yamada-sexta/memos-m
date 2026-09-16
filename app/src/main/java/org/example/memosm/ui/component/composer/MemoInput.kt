@@ -54,6 +54,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.IntOffset
@@ -97,13 +98,14 @@ fun MemoInput(
     var showSuggestionPopup by remember { mutableStateOf(false) }
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val density = LocalDensity.current
+    val resources = LocalContext.current.resources
 
     val markdownHandler = rememberMarkdownLanguageHandler()
 
     // Monitor text/selection changes to trigger suggestions
     LaunchedEffect(contentState.text, contentState.selection) {
         val result = SuggestionProvider.getSuggestions(
-            contentState.text, contentState.selection, availableTags
+            contentState.text, contentState.selection, availableTags, resources
         )
         currentSuggestionResult = result
         if (result != null && result.type.isAutoShown) {
@@ -333,7 +335,7 @@ fun MemoInput(
                                     Box(modifier = Modifier.padding(8.dp)) {
                                         Icon(
                                             imageVector = Icons.Outlined.Add,
-                                            contentDescription = "Show suggestions",
+                                            contentDescription = stringResource(R.string.memo_input_show_suggestions),
                                             modifier = Modifier.size(20.dp),
                                             tint = MaterialTheme.colorScheme.primary
                                         )

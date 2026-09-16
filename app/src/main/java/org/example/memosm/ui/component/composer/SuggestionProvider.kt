@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.composer
 
+import android.content.res.Resources
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Check
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.Title
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextRange
+import org.example.memosm.R
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
@@ -53,11 +55,12 @@ object SuggestionProvider {
     fun getSuggestions(
         text: String,
         selection: TextRange,
-        availableTags: Map<String, Int>
+        availableTags: Map<String, Int>,
+        resources: Resources
     ): SuggestionResult? {
         // 1. Selection Logic (Formatting)
         if (!selection.collapsed) {
-            return getFormattingSuggestions(selection)
+            return getFormattingSuggestions(selection, resources)
         }
 
         val cursorIndex = selection.start
@@ -67,11 +70,11 @@ object SuggestionProvider {
         val rootNode = parser.buildMarkdownTreeFromString(text)
         val nodeAtCursor = findNodeAt(rootNode, (cursorIndex - 1).coerceAtLeast(0))
 
-        // 2. Context Checks (Guard against suggestions in Code Blocks)
+        // 2. Context Checks (Guard against suggestions inside fenced code)
         if (isInCodeBlock(nodeAtCursor, cursorIndex)) {
             // Check if we are in the language declaration part of a fence
             if (isLanguagePart(nodeAtCursor, cursorIndex, text)) {
-                return getLanguageSuggestions(text, cursorIndex)
+                return getLanguageSuggestions(text, cursorIndex, resources = resources)
             }
             return null
         }
@@ -120,7 +123,7 @@ object SuggestionProvider {
                     // Check if everything before lastHashIndex on this line is whitespace
                     val prefixBeforeHash = textBeforeCursor.substring(lineStartIndex, lastHashIndex)
                     if (prefixBeforeHash.trim().isEmpty()) {
-                        return getBlockSuggestions(lineStartIndex)
+                        return getBlockSuggestions(lineStartIndex, resources)
                     }
                 }
             }
@@ -128,7 +131,7 @@ object SuggestionProvider {
 
         // 4. Start of Line / Block Context
         if (currentLinePrefix.trim().isEmpty()) {
-            return getBlockSuggestions(lineStartIndex)
+            return getBlockSuggestions(lineStartIndex, resources)
         }
 
         // Header suggestion while typing '#'
@@ -137,67 +140,67 @@ object SuggestionProvider {
             // We can suggest changing level
             val currentLevel = currentLinePrefix.length
             // Provide suggestions for headers
-            return getHeaderSuggestions(lineStartIndex, currentLevel)
+            return getHeaderSuggestions(lineStartIndex, currentLevel, resources)
         }
 
         // List suggestion while typing '-'
         if (currentLinePrefix == "-") {
-            return getListSuggestions(lineStartIndex)
+            return getListSuggestions(lineStartIndex, resources)
         }
 
-        // Code Block start
+        // code fence start
         if (currentLinePrefix == "```") {
-            return getLanguageSuggestions(text, cursorIndex)
+            return getLanguageSuggestions(text, cursorIndex, resources = resources)
         }
         if (currentLinePrefix.startsWith("```")) {
             val typedLang = currentLinePrefix.substring(3)
             if (!typedLang.contains(' ')) {
-                return getLanguageSuggestions(text, cursorIndex, typedLang)
+                return getLanguageSuggestions(text, cursorIndex, resources = resources, filter = typedLang)
             }
         }
 
         return null
     }
 
-    private fun getFormattingSuggestions(selection: TextRange): SuggestionResult {
+    private fun getFormattingSuggestions(selection: TextRange, resources: Resources): SuggestionResult {
         val items = listOf(
-            SuggestionItem("Bold", "**", Icons.Outlined.FormatBold, SuggestionType.FORMATTING),
-            SuggestionItem("Italic", "_", Icons.Outlined.FormatItalic, SuggestionType.FORMATTING),
+            SuggestionItem(resources.getString(R.string.memo_input_format_bold), "**", Icons.Outlined.FormatBold, SuggestionType.FORMATTING),
+            SuggestionItem(resources.getString(R.string.memo_input_format_italic), "_", Icons.Outlined.FormatItalic, SuggestionType.FORMATTING),
             SuggestionItem(
-                "Strike",
+                resources.getString(R.string.memo_input_format_strikethrough),
                 "~~",
                 Icons.Outlined.FormatStrikethrough,
                 SuggestionType.FORMATTING
             ),
-            SuggestionItem("Code", "`", Icons.Outlined.Code, SuggestionType.FORMATTING)
+            SuggestionItem(resources.getString(R.string.memo_input_format_code), "`", Icons.Outlined.Code, SuggestionType.FORMATTING)
         )
         return SuggestionResult(items, selection.start, "", SuggestionType.FORMATTING)
     }
 
-    private fun getBlockSuggestions(startIndex: Int): SuggestionResult {
+    private fun getBlockSuggestions(startIndex: Int, resources: Resources): SuggestionResult {
         val items = listOf(
-            SuggestionItem("Heading 1", "# ", Icons.Outlined.Title, SuggestionType.MARKDOWN),
-            SuggestionItem("Heading 2", "## ", Icons.Outlined.Title, SuggestionType.MARKDOWN),
-            SuggestionItem("Heading 3", "### ", Icons.Outlined.Title, SuggestionType.MARKDOWN),
+            SuggestionItem(resources.getString(R.string.memo_input_heading, 1), "# ", Icons.Outlined.Title, SuggestionType.MARKDOWN),
+            SuggestionItem(resources.getString(R.string.memo_input_heading, 2), "## ", Icons.Outlined.Title, SuggestionType.MARKDOWN),
+            SuggestionItem(resources.getString(R.string.memo_input_heading, 3), "### ", Icons.Outlined.Title, SuggestionType.MARKDOWN),
             SuggestionItem(
-                "Bullet List",
+                resources.getString(R.string.memo_input_bullet_list),
                 "- ",
                 Icons.AutoMirrored.Outlined.List,
                 SuggestionType.MARKDOWN
             ),
-            SuggestionItem("Task List", "- [ ] ", Icons.Outlined.Check, SuggestionType.MARKDOWN),
-            SuggestionItem("Quote", "> ", Icons.Outlined.FormatQuote, SuggestionType.MARKDOWN),
-            SuggestionItem("Code Block", "```\n```", Icons.Outlined.Code, SuggestionType.MARKDOWN)
+            SuggestionItem(resources.getString(R.string.memo_input_task_list), "- [ ] ", Icons.Outlined.Check, SuggestionType.MARKDOWN),
+            SuggestionItem(resources.getString(R.string.memo_input_quote), "> ", Icons.Outlined.FormatQuote, SuggestionType.MARKDOWN),
+            SuggestionItem(resources.getString(R.string.memo_input_code_block), "```\n```", Icons.Outlined.Code, SuggestionType.MARKDOWN)
         )
         return SuggestionResult(items, startIndex, "", SuggestionType.MARKDOWN)
     }
 
-    private fun getHeaderSuggestions(startIndex: Int, currentLevel: Int): SuggestionResult {
+    private fun getHeaderSuggestions(startIndex: Int, currentLevel: Int, resources: Resources): SuggestionResult {
         // Provide explicit header options
         val items = (1..6).map { level ->
             val hashes = "#".repeat(level) + " "
             SuggestionItem(
-                "Heading $level",
+                resources.getString(R.string.memo_input_heading, level),
                 hashes,
                 Icons.Outlined.FormatSize,
                 SuggestionType.AUTO_MARKDOWN
@@ -207,16 +210,16 @@ object SuggestionProvider {
         return SuggestionResult(items, startIndex, "", SuggestionType.AUTO_MARKDOWN)
     }
 
-    private fun getListSuggestions(startIndex: Int): SuggestionResult {
+    private fun getListSuggestions(startIndex: Int, resources: Resources): SuggestionResult {
         val items = listOf(
             SuggestionItem(
-                "Bullet List",
+                resources.getString(R.string.memo_input_bullet_list),
                 "- ",
                 Icons.AutoMirrored.Outlined.List,
                 SuggestionType.AUTO_MARKDOWN
             ),
             SuggestionItem(
-                "Task List",
+                resources.getString(R.string.memo_input_task_list),
                 "- [ ] ",
                 Icons.Outlined.Check,
                 SuggestionType.AUTO_MARKDOWN
@@ -228,6 +231,7 @@ object SuggestionProvider {
     private fun getLanguageSuggestions(
         text: String,
         cursorIndex: Int,
+        resources: Resources,
         filter: String = ""
     ): SuggestionResult {
         // Determine start index for replacement.

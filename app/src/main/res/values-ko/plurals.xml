@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="drafts_count_plural">
+        <item quantity="other">초안 %1$d개</item>
+    </plurals>
+    <plurals name="drafts_publish_all_confirmation_message_plural">
+        <item quantity="other">모든 %1$d개의 초안을 개별 메모로 게시합니다. 계속하시겠습니까?</item>
+    </plurals>
+    <plurals name="drafts_publish_all_success_plural">
+        <item quantity="other">초안 %1$d개를 게시했습니다</item>
+    </plurals>
+</resources>

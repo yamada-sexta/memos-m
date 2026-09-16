@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.item.markdown
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,14 +20,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.agog.mathdisplay.MTMathView
 import com.agog.mathdisplay.parse.MTMathListBuilder
+import org.example.memosm.R
 
 @Composable
 fun NativeMarkdownLatex(
@@ -43,18 +44,16 @@ fun NativeMarkdownLatex(
 ) {
     val localDensity = androidx.compose.ui.platform.LocalDensity.current
     // 1. Pre-validate the LaTeX string
-    val validationError by remember(latex) {
-        mutableStateOf(
-            try {
-                val list = MTMathListBuilder.buildFromString(latex)
-                if (list == null) "Invalid Syntax" else null
-            } catch (e: Exception) {
-                e.message ?: "Error"
-            }
-        )
+    val isValid = remember(latex) {
+        try {
+            MTMathListBuilder.buildFromString(latex) != null
+        } catch (e: Exception) {
+            Log.e("NativeMarkdownLatex", "Failed to validate LaTeX", e)
+            false
+        }
     }
 
-    if (validationError != null) {
+    if (!isValid) {
         // 2. Choose error display based on inline status
         if (inline) {
             InlineLatexError(
@@ -63,7 +62,6 @@ fun NativeMarkdownLatex(
             )
         } else {
             BlockLatexErrorCard(
-                error = validationError!!,
                 source = latex,
                 modifier = modifier
             )
@@ -124,7 +122,6 @@ private fun InlineLatexError(
 
 @Composable
 private fun BlockLatexErrorCard(
-    error: String,
     source: String,
     modifier: Modifier = Modifier
 ) {
@@ -149,14 +146,14 @@ private fun BlockLatexErrorCard(
                     tint = MaterialTheme.colorScheme.error
                 )
                 Text(
-                    text = "Equation Error",
+                    text = stringResource(R.string.markdown_equation_error_title),
                     style = typography.titleSmall,
                     color = MaterialTheme.colorScheme.error
                 )
             }
 
             Text(
-                text = error,
+                text = stringResource(R.string.markdown_equation_error_message),
                 style = typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
