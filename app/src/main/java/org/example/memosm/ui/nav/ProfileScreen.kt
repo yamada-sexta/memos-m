@@ -58,6 +58,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import org.example.memosm.ui.component.LocalNetworkPermission
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -202,6 +205,8 @@ private fun ProfileListPane(
     val instance = uiState.session.instanceProfile
     val userSettings = uiState.session.userSettings
     val accounts = uiState.accounts
+    val networkPermission = LocalNetworkPermission.current
+    val scope = rememberCoroutineScope()
 
     // Scroll direction tracking for nav bar visibility
     rememberScrollContext(
@@ -277,9 +282,13 @@ private fun ProfileListPane(
         ) {
             AccountsList(
                 accounts = accounts,
-                onSwitchAccount = {
-                    viewModel.userDelegate.switchAccount(it)
-                    showAccountSwitcher = false
+                onSwitchAccount = { account ->
+                    scope.launch {
+                        if (networkPermission.ensureAccess(account.hostUrl)) {
+                            viewModel.userDelegate.switchAccount(account)
+                            showAccountSwitcher = false
+                        }
+                    }
                 },
                 onLogoutAccount = { viewModel.userDelegate.removeAccount(it) },
                 onEditAccount = { account ->

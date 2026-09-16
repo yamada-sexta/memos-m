@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +52,6 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.format.TextStyle
-import java.util.Locale
 
 /**
  * Combined Stats and Activity Card with responsive layout.
@@ -259,9 +259,10 @@ private fun CalendarMonthView(
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
 
-    val monthYearText = remember(yearMonth) {
-        val pattern = DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMM yyyy")
-        val formatter = DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
+    val locale = LocalConfiguration.current.locales[0]
+    val monthYearText = remember(yearMonth, locale) {
+        val pattern = DateFormat.getBestDateTimePattern(locale, "MMMM yyyy")
+        val formatter = DateTimeFormatter.ofPattern(pattern, locale)
         yearMonth.format(formatter)
     }
 
@@ -294,7 +295,7 @@ private fun CalendarMonthView(
         ) {
             for (day in daysOfWeek) {
                 Text(
-                    text = day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                    text = day.getDisplayName(TextStyle.NARROW, locale),
                     style = MaterialTheme.typography.labelSmall,
                     color = onSurfaceVariant,
                     textAlign = TextAlign.Center,

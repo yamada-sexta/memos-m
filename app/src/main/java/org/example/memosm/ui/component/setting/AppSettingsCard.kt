@@ -23,6 +23,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import android.os.Build
+import kotlinx.coroutines.launch
+import org.example.memosm.ui.component.LocalNetworkPermission
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,6 +44,8 @@ fun AppSettingsCard(
     onHeaderScaleChange: (Float) -> Unit
 ) {
     var showPageSizeDialog by remember { mutableStateOf(false) }
+    val networkPermission = LocalNetworkPermission.current
+    val scope = rememberCoroutineScope()
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = 16.dp)) {
@@ -50,6 +56,24 @@ fun AppSettingsCard(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
+
+            if (Build.VERSION.SDK_INT >= 37) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.local_network_permission_title)) },
+                    supportingContent = {
+                        Text(stringResource(
+                            if (networkPermission.granted) R.string.local_network_permission_allowed
+                            else R.string.local_network_permission_description
+                        ))
+                    },
+                    trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        if (networkPermission.granted) networkPermission.openSettings()
+                        else scope.launch { networkPermission.requestAccess() }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
 
             ListItem(
                 headlineContent = { Text(stringResource(R.string.profile_app_settings_page_size)) },

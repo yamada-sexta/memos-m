@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_network_permission_title">ローカルネットワークへのアクセス</string>
+    <string name="local_network_permission_description">ローカルネットワーク上のMemosサーバーへの接続をMemosMに許可します。</string>
+    <string name="local_network_permission_allowed">ローカルネットワークへのアクセスは許可されています。</string>
+    <string name="local_network_permission_denied">ローカルのMemosサーバーに接続するには、Androidのアプリ設定で「付近のデバイス」を許可してください。公開サーバーはこの権限なしで利用できます。</string>
+    <string name="local_network_open_settings">設定を開く</string>
+    <string name="local_network_widget_permission">MemosMを開いてローカルネットワークへのアクセスを許可してください。</string>
+</resources>

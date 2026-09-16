@@ -58,6 +58,8 @@ The Canary build is the "bleeding edge" version. It contains the very latest cod
 
 You can also download from [release](https://github.com/yamada-sexta/memos-m/releases/tag/latest) directly.
 
+On Android 17 and later, connecting to a local Memos server may require the **Nearby devices** permission. MemosM requests it when you sign in to a local server or open a saved local account. If access was denied, use **Local network access** on the login screen or in app settings to enable it. Public servers do not require this permission.
+
 ---
 
 ## Features

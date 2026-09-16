@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_network_permission_title">로컬 네트워크 접근</string>
+    <string name="local_network_permission_description">MemosM이 로컬 네트워크의 Memos 서버에 연결하도록 허용합니다.</string>
+    <string name="local_network_permission_allowed">로컬 네트워크 접근이 허용되어 있습니다.</string>
+    <string name="local_network_permission_denied">로컬 Memos 서버에 연결하려면 Android 앱 설정에서 주변 기기 권한을 허용하세요. 공개 서버는 이 권한 없이도 이용할 수 있습니다.</string>
+    <string name="local_network_open_settings">설정 열기</string>
+    <string name="local_network_widget_permission">MemosM을 열어 로컬 네트워크 접근을 허용하세요.</string>
+</resources>

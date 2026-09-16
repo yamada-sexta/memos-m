@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,13 +23,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.example.memosm.data.DataStoreManager
 import org.example.memosm.model.ShareIntentData
 import org.example.memosm.ui.MainScreen
 import org.example.memosm.ui.component.LoginScreen
+import org.example.memosm.ui.component.LocalNetworkPermission
+import org.example.memosm.ui.component.rememberLocalNetworkPermission
 import org.example.memosm.ui.theme.MemosMTheme
 import org.example.memosm.widget.DraftWidget
 
@@ -58,54 +60,67 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MemosMTheme {
-                LocalContext.current
-                val scope = rememberCoroutineScope()
+                val networkPermission = rememberLocalNetworkPermission()
+                CompositionLocalProvider(LocalNetworkPermission provides networkPermission) {
+                    val scope = rememberCoroutineScope()
 
-                // Observe accounts instead of single credentials
-                val accounts by dataStoreManager.accounts.collectAsState(initial = null)
+                    // Observe accounts instead of single credentials
+                    val accounts by dataStoreManager.accounts.collectAsState(initial = null)
 
-                // Wait for DataStore to emit initial values
-                var isCheckingSession by remember { mutableStateOf(true) }
+                    // Wait for DataStore to emit initial values
+                    var isCheckingSession by remember { mutableStateOf(true) }
 
-                // Collect pending share data from the flow
-                val pendingShareData by pendingShareDataFlow.collectAsState()
-                val shouldOpenComposer by shouldOpenComposerFlow.collectAsState()
+                    // Collect pending share data from the flow
+                    val pendingShareData by pendingShareDataFlow.collectAsState()
+                    val shouldOpenComposer by shouldOpenComposerFlow.collectAsState()
 
-                LaunchedEffect(accounts) {
-                    if (accounts != null) {
-                        // Once we have a non-null list (even if empty), we've finished the initial load
-                        isCheckingSession = false
+                    LaunchedEffect(accounts) {
+                        if (accounts != null) {
+                            // Once we have a non-null list (even if empty), we've finished the initial load
+                            isCheckingSession = false
+                        }
                     }
-                }
 
-                if (isCheckingSession) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else {
-                    val activeAccount = accounts?.find { it.isActive }
+                    if (isCheckingSession) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        val activeAccount = accounts?.find { it.isActive }
+                        var checkedAccount by remember { mutableStateOf<String?>(null) }
+                        LaunchedEffect(activeAccount?.id) {
+                            activeAccount?.let {
+                                networkPermission.ensureAccess(it.hostUrl)
+                                checkedAccount = it.id
+                            }
+                        }
 
-                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                        if (activeAccount != null) {
-                            MainScreen(
-                                onLogout = {
-                                    scope.launch {
-                                        dataStoreManager.deleteAccount(activeAccount.id)
-                                    }
-                                },
-                                shareIntentData = pendingShareData,
-                                onShareIntentConsumed = { pendingShareDataFlow.value = null },
-                                shouldOpenComposer = shouldOpenComposer,
-                                onComposerOpened = { shouldOpenComposerFlow.value = false })
-                        } else {
-                            // If no active account, show login
-                            LoginScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                onLoginSuccess = { baseUrl, token ->
-                                    scope.launch {
-                                        dataStoreManager.addAccount(baseUrl, token)
-                                    }
-                                })
+                        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                            if (activeAccount != null && checkedAccount != activeAccount.id) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator()
+                                }
+                            } else if (activeAccount != null) {
+                                MainScreen(
+                                    onLogout = {
+                                        scope.launch {
+                                            dataStoreManager.deleteAccount(activeAccount.id)
+                                        }
+                                    },
+                                    shareIntentData = pendingShareData,
+                                    onShareIntentConsumed = { pendingShareDataFlow.value = null },
+                                    shouldOpenComposer = shouldOpenComposer,
+                                    onComposerOpened = { shouldOpenComposerFlow.value = false })
+                            } else {
+                                // If no active account, show login
+                                LoginScreen(
+                                    modifier = Modifier.padding(innerPadding),
+                                    onLoginSuccess = { baseUrl, token ->
+                                        scope.launch {
+                                            dataStoreManager.addAccount(baseUrl, token)
+                                        }
+                                    })
+                            }
                         }
                     }
                 }

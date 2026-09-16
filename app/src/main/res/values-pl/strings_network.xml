@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_network_permission_title">Dostęp do sieci lokalnej</string>
+    <string name="local_network_permission_description">Zezwól MemosM na łączenie się z serwerem Memos w sieci lokalnej.</string>
+    <string name="local_network_permission_allowed">Dostęp do sieci lokalnej jest dozwolony.</string>
+    <string name="local_network_permission_denied">Aby połączyć się z lokalnym serwerem Memos, zezwól na dostęp do urządzeń w pobliżu w ustawieniach aplikacji Androida. Serwery publiczne pozostają dostępne bez tego uprawnienia.</string>
+    <string name="local_network_open_settings">Otwórz ustawienia</string>
+    <string name="local_network_widget_permission">Otwórz MemosM, aby zezwolić na dostęp do sieci lokalnej.</string>
+</resources>

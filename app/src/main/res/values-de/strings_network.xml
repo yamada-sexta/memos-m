@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_network_permission_title">Zugriff auf das lokale Netzwerk</string>
+    <string name="local_network_permission_description">Erlaube MemosM, sich mit einem Memos-Server in deinem lokalen Netzwerk zu verbinden.</string>
+    <string name="local_network_permission_allowed">Der Zugriff auf das lokale Netzwerk ist erlaubt.</string>
+    <string name="local_network_permission_denied">Erlaube Geräte in der Nähe in den Android-App-Einstellungen, um dich mit deinem lokalen Memos-Server zu verbinden. Öffentliche Server bleiben ohne diese Berechtigung erreichbar.</string>
+    <string name="local_network_open_settings">Einstellungen öffnen</string>
+    <string name="local_network_widget_permission">Öffne MemosM, um den Zugriff auf das lokale Netzwerk zu erlauben.</string>
+</resources>

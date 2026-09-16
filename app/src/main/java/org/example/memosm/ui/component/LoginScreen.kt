@@ -1,6 +1,7 @@
 package org.example.memosm.ui.component
 
 import android.util.Log
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -153,6 +156,8 @@ fun LoginContent(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
+    val networkPermission = LocalNetworkPermission.current
+    val localNetworkDenied = stringResource(R.string.local_network_permission_denied)
 
     val errorEmptyHost = stringResource(R.string.login_error_empty_host)
     val errorFailed = stringResource(R.string.login_error_failed)
@@ -189,6 +194,10 @@ fun LoginContent(
             }
 
             try {
+                if (!networkPermission.ensureAccess(baseUrl)) {
+                    errorMessage = localNetworkDenied
+                    return@launch
+                }
                 val logging = HttpLoggingInterceptor { message ->
                     Log.d("MemosApi", message)
                 }.apply {
@@ -255,6 +264,8 @@ fun LoginContent(
                     }
                 }
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("MemosLogin", "Login failed", e)
                 errorMessage = errorFailed
@@ -278,6 +289,12 @@ fun LoginContent(
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 32.dp)
         )
+
+        if (Build.VERSION.SDK_INT >= 37 && !networkPermission.granted) {
+            TextButton(onClick = { scope.launch { networkPermission.requestAccess() } }) {
+                Text(stringResource(R.string.local_network_permission_title))
+            }
+        }
 
         SecondaryTabRow(
             selectedTabIndex = loginMode.ordinal, modifier = Modifier.fillMaxWidth()

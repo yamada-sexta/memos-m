@@ -41,6 +41,8 @@ import org.example.memosm.api.MemosApiFactory
 import org.example.memosm.data.DataStoreManager
 import org.example.memosm.model.Account
 import org.example.memosm.model.UserStats
+import org.example.memosm.network.hasLocalNetworkPermission
+import org.example.memosm.network.serverNeedsLocalNetworkPermission
 
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -69,6 +71,10 @@ class UserStatsWidget : GlanceAppWidget(), KoinComponent {
                             val account = accounts.find { it.id == accountId }
 
                             if (account != null) {
+                                if (!hasLocalNetworkPermission(context) &&
+                                    serverNeedsLocalNetworkPermission(context, account.hostUrl)) {
+                                    return@withContext StatsState.Error(R.string.local_network_widget_permission)
+                                }
                                 try {
                                     val client = OkHttpClient.Builder()
                                         .addInterceptor(AuthInterceptor(account.accessToken))

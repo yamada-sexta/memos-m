@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_network_permission_title">區域網路存取</string>
+    <string name="local_network_permission_description">允許 MemosM 連線至區域網路中的 Memos 伺服器。</string>
+    <string name="local_network_permission_allowed">已允許區域網路存取。</string>
+    <string name="local_network_permission_denied">若要連線至本機 Memos 伺服器，請在 Android 應用程式設定中允許「附近的裝置」權限。公用伺服器無需此權限即可存取。</string>
+    <string name="local_network_open_settings">開啟設定</string>
+    <string name="local_network_widget_permission">開啟 MemosM 以允許區域網路存取。</string>
+</resources>
