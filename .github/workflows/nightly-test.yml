@@ -23,6 +23,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       # 1. Setup Gradle with Enhanced Caching
       # 'setup-gradle' enables read-only caching for dependencies by default.
