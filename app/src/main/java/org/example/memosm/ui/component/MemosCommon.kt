@@ -321,9 +321,15 @@ fun MemosScaffold(
                         animationSpec = tween(200, easing = exitEasing)
                     )
                 ) {
-                    activeMemoToEdit?.let { memo ->
+                    // Render the newest memo synchronously: memoToEdit updates
+                    // in the same frame the dialog opens, while activeMemoToEdit
+                    // lags one LaunchedEffect behind (kept only for the exit
+                    // animation). Using the fresh value avoids the editor
+                    // initializing with the previously edited memo's content.
+                    val editMemo = memoToEdit ?: activeMemoToEdit
+                    if (editMemo != null) {
                         MemoEditScreen(
-                            memo = memo,
+                            memo = editMemo,
                             onDismiss = { memoToEdit = null },
                             viewModel = viewModel,
                             hostUrl = uiState.session.hostUrl,
@@ -379,8 +385,6 @@ fun MemosScaffold(
             start = 16.dp, top = 88.dp, end = 16.dp, bottom = 80.dp
         ),
         errorTitle: String = stringResource(R.string.common_error_failed_to_load),
-        isOffline: Boolean = false,
-        errorMessage: String? = null,
         onHashtagClick: ((String) -> Unit)? = null
     ) {
         val uiState by viewModel.uiState.collectAsState()
@@ -425,19 +429,6 @@ fun MemosScaffold(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Show offline indicator card at the top when displaying cached data
-                if (isOffline) {
-                    item(key = "offline_indicator") {
-                        NetworkErrorCard(
-                            onRetry = onRefresh,
-                            errorMessage = errorMessage,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp)
-                        )
-                    }
-                }
-
                 header?.invoke(this)
 
                 if (isLoading && memos.isEmpty() && !isRefreshing) {
@@ -460,9 +451,11 @@ fun MemosScaffold(
                     }
                 } else {
                     itemsIndexed(memos, key = { index, it ->
-                        val baseKey = it.name.takeUnless { n -> n.isNullOrBlank() }
-                            ?: "${it.content.hashCode()}_${it.createTime}"
-                        "${baseKey}_$index"
+                        // Stable key by memo name so list updates (cache merge,
+                        // network refresh) reuse existing items instead of
+                        // rebuilding every card and jumping the scroll position.
+                        if (!it.name.isNullOrBlank()) it.name
+                        else "${it.content.hashCode()}_${it.createTime}_$index"
                     }) { index, memo ->
                         Box(
                             modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center

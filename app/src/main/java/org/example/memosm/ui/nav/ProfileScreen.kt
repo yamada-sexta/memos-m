@@ -1,6 +1,7 @@
 package org.example.memosm.ui.nav
 
 import AccountsList
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,12 +72,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import org.example.memosm.R
 import org.example.memosm.model.Account
 import org.example.memosm.model.InstanceProfile
 import org.example.memosm.model.User
 import org.example.memosm.model.UserSnapshot
-import org.example.memosm.model.UserGeneralSetting
 import org.example.memosm.model.toUserSnapshot
 import org.example.memosm.ui.ProfileDetailKey
 import org.example.memosm.ui.component.ArchivedMemosScreen
@@ -85,12 +87,7 @@ import org.example.memosm.ui.component.NotificationsScreen
 import org.example.memosm.ui.component.ProfileHeader
 import org.example.memosm.ui.component.StatsActivityCard
 import org.example.memosm.ui.component.rememberScrollContext
-import org.example.memosm.ui.component.setting.AboutAppCard
 import org.example.memosm.ui.component.setting.AccountEditDialog
-import org.example.memosm.ui.component.setting.AppSettingsCard
-import org.example.memosm.ui.component.setting.SettingsCard
-import org.example.memosm.ui.component.setting.ShortcutsCard
-import org.example.memosm.ui.component.setting.WebhooksCard
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.RefreshSource
 
@@ -104,6 +101,7 @@ fun ProfileScreen(
     isNavBarVisible: Boolean = true
 ) {
     var activeDetail by rememberSaveable { mutableStateOf<ProfileDetailKey?>(null) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     val transitionState = remember { SeekableTransitionState<ProfileDetailKey?>(activeDetail) }
@@ -124,6 +122,11 @@ fun ProfileScreen(
         } catch (e: CancellationException) {
             transitionState.animateTo(activeDetail)
         }
+    }
+
+    // Simple back handling for the settings pane (no shared-element transition)
+    BackHandler(enabled = showSettings && activeDetail == null) {
+        showSettings = false
     }
 
     SharedTransitionLayout {
@@ -166,18 +169,27 @@ fun ProfileScreen(
                     onToggleNavBar = onToggleNavBar
                 )
 
-                null -> ProfileListPane(
-                    viewModel = viewModel,
-                    onLogout = onLogout,
-                    onAddAccount = onAddAccount,
-                    onShowArchived = { activeDetail = ProfileDetailKey.Archived },
-                    onShowNotifications = { activeDetail = ProfileDetailKey.Notifications },
-                    animatedVisibilityScope = this@AnimatedContent,
-                    sharedTransitionScope = this@SharedTransitionLayout,
-                    onToggleNavBar = onToggleNavBar,
-                    isNavBarVisible = isNavBarVisible,
-                    listState = listState
-                )
+                null -> if (showSettings) {
+                    SettingsScreen(
+                        viewModel = viewModel,
+                        onBack = { showSettings = false },
+                        onToggleNavBar = onToggleNavBar
+                    )
+                } else {
+                    ProfileListPane(
+                        viewModel = viewModel,
+                        onLogout = onLogout,
+                        onAddAccount = onAddAccount,
+                        onShowArchived = { activeDetail = ProfileDetailKey.Archived },
+                        onShowNotifications = { activeDetail = ProfileDetailKey.Notifications },
+                        onShowSettings = { showSettings = true },
+                        animatedVisibilityScope = this@AnimatedContent,
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        onToggleNavBar = onToggleNavBar,
+                        isNavBarVisible = isNavBarVisible,
+                        listState = listState
+                    )
+                }
             }
         }
     }
@@ -191,6 +203,7 @@ private fun ProfileListPane(
     onAddAccount: () -> Unit,
     onShowArchived: () -> Unit,
     onShowNotifications: () -> Unit,
+    onShowSettings: () -> Unit,
     animatedVisibilityScope: AnimatedVisibilityScope,
     sharedTransitionScope: SharedTransitionScope,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
@@ -200,10 +213,6 @@ private fun ProfileListPane(
     val uiState by viewModel.uiState.collectAsState()
     val user = uiState.session.currUser
     val stats = uiState.session.userStats
-    val shortcuts = uiState.userMemoList.shortcuts
-    val webhooks = uiState.session.webhooks
-    val instance = uiState.session.instanceProfile
-    val userSettings = uiState.session.userSettings
     val accounts = uiState.accounts
     val networkPermission = LocalNetworkPermission.current
     val scope = rememberCoroutineScope()
@@ -456,77 +465,29 @@ private fun ProfileListPane(
 
                 item {
                     Box(itemModifier) {
-                        SettingsCard(
-                            settings = userSettings ?: UserGeneralSetting(),
-                            onUpdate = { locale, visibility ->
-                                viewModel.userDelegate.updateUserGeneralSetting(locale, visibility)
-                            })
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        ShortcutsCard(
-                            shortcuts = shortcuts,
-                            onCreate = { title, filter, onSuccess, onError ->
-                                viewModel.shortcutDelegate.createShortcut(
-                                    title, filter, onSuccess, onError
-                                )
-                            },
-                            onUpdate = { shortcut, title, filter, onSuccess, onError ->
-                                viewModel.shortcutDelegate.updateShortcut(
-                                    shortcut, title, filter, onSuccess, onError
-                                )
-                            },
-                            onDelete = { shortcut ->
-                                viewModel.shortcutDelegate.deleteShortcut(
-                                    shortcut
-                                )
-                            })
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        WebhooksCard(
-                            webhooks = webhooks,
-                            onCreate = { displayName, url, onSuccess, onError ->
-                                viewModel.webhookDelegate.createWebhook(
-                                    displayName, url, onSuccess, onError
-                                )
-                            },
-                            onUpdate = { webhook, displayName, url, onSuccess, onError ->
-                                viewModel.webhookDelegate.updateWebhook(
-                                    webhook, displayName, url, onSuccess, onError
-                                )
-                            },
-                            onDelete = { webhook -> viewModel.webhookDelegate.deleteWebhook(webhook) })
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        InstanceCard(instance ?: InstanceProfile())
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        AppSettingsCard(
-                            pageSize = uiState.appSettings.pageSize,
-                            onPageSizeChange = { viewModel.appSettingsDelegate.updatePageSize(it) },
-                            headerScale = uiState.appSettings.headerScale,
-                            onHeaderScaleChange = {
-                                viewModel.appSettingsDelegate.updateHeaderScale(
-                                    it
-                                )
-                            })
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        AboutAppCard()
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onShowSettings
+                        ) {
+                            ListItem(
+                                headlineContent = {
+                                    Text(stringResource(R.string.settings_title))
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = null
+                                    )
+                                },
+                                trailingContent = {
+                                    Icon(
+                                        Icons.Outlined.ChevronRight,
+                                        contentDescription = null
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
                     }
                 }
 

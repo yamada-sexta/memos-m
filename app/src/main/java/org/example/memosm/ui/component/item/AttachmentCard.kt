@@ -173,8 +173,11 @@ fun AttachmentCard(
                 value = null
             } else {
                 value = withContext(Dispatchers.IO) {
+                    val localFile = org.example.memosm.MemosApplication.instance
+                        .attachmentCacheManager.getLocalFileByHost(hostUrl, attachment?.name)
                     when {
                         uri != Uri.EMPTY -> uri.toString()
+                        localFile != null -> localFile.toUri().toString()
                         else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
                             !attachment?.content.isNullOrBlank() -> {
                                 try {
@@ -312,10 +315,19 @@ fun AttachmentCard(
                             onDismiss = onDismiss
                         )
                     } else if (isVideo) {
-                        val videoUrl =
-                            if (uri != Uri.EMPTY) uri.toString() else AttachmentManager.getAttachmentUrl(
-                                hostUrl, attachment
-                            )
+                        val videoUrl = produceState<String?>(
+                            initialValue = null, uri, attachment, hostUrl
+                        ) {
+                            value = withContext(Dispatchers.IO) {
+                                val localFile = org.example.memosm.MemosApplication.instance
+                                    .attachmentCacheManager.getLocalFileByHost(hostUrl, attachment?.name)
+                                when {
+                                    uri != Uri.EMPTY -> uri.toString()
+                                    localFile != null -> localFile.toUri().toString()
+                                    else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+                                }
+                            }
+                        }.value
                         if (!videoUrl.isNullOrBlank()) {
                             VideoPlayer(
                                 url = videoUrl,
@@ -594,22 +606,27 @@ fun AttachmentCard(
     }
 
     if (showFullScreenImage && isImage) {
-        val model = remember(uri, attachment, hostUrl) {
-            when {
-                uri != Uri.EMPTY -> uri
-                else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
-                    !attachment?.content.isNullOrBlank() -> {
-                        try {
-                            Base64.decode(attachment.content, Base64.NO_WRAP)
-                        } catch (_: Exception) {
-                            null
+        val model = produceState<Any?>(initialValue = null, uri, attachment, hostUrl) {
+            value = withContext(Dispatchers.IO) {
+                val localFile = org.example.memosm.MemosApplication.instance
+                    .attachmentCacheManager.getLocalFileByHost(hostUrl, attachment?.name)
+                when {
+                    uri != Uri.EMPTY -> uri
+                    localFile != null -> localFile
+                    else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
+                        !attachment?.content.isNullOrBlank() -> {
+                            try {
+                                Base64.decode(attachment.content, Base64.NO_WRAP)
+                            } catch (_: Exception) {
+                                null
+                            }
                         }
-                    }
 
-                    else -> null
+                        else -> null
+                    }
                 }
             }
-        }
+        }.value
 
         if (model != null && !isFullScreen) {
             FullScreenImageViewer(

@@ -78,7 +78,8 @@ fun MemoComposer(
     initialAttachments: List<Attachment> = emptyList(),
     initialUris: List<Uri> = emptyList(),
     initialLocation: Location? = null,
-    onDraftChanged: ((String, Visibility, List<Attachment>, Location?) -> Unit)? = null
+    onDraftChanged: ((String, Visibility, List<Attachment>, Location?) -> Unit)? = null,
+    onDiscardQueuedUpload: (String) -> Unit = {}
 ) {
     // Depending on the Composer Mode there will be different placeholder
     val placeholder = when (mode) {
@@ -89,8 +90,11 @@ fun MemoComposer(
     val context = LocalContext.current
     val fileTooLargeMessage = stringResource(R.string.memo_composer_error_file_too_large)
 
-    // Changed to TextFieldValue for VisualTransformation support
-    var contentState by remember {
+    // Changed to TextFieldValue for VisualTransformation support.
+    // Keyed on initialContent: the same composition slot is reused when the
+    // edit screen opens for a different memo (e.g. right after a conflict
+    // merge), so without the key the editor would keep the previous content.
+    var contentState by remember(initialContent) {
         mutableStateOf(
             androidx.compose.ui.text.input.TextFieldValue(
                 initialContent
@@ -276,8 +280,25 @@ fun MemoComposer(
             onVisibilityChange = { visibility = it },
             onRemoveAttachment = { index ->
                 if (index in draftAttachments.indices) {
+                    val removed = draftAttachments[index].second
                     val updated = draftAttachments.toMutableList().apply { removeAt(index) }
                     draftAttachments = updated
+                    // A removed placeholder (no server name yet) may leave its
+                    // queued upload orphaned: nothing would ever reference the
+                    // attachment once it lands. Discard it unless a draft or a
+                    // queued outbox op still carries the same clientId - an
+                    // orphan on the server beats losing bytes still referenced.
+                    val clientId = removed?.clientId
+                    if (removed != null && removed.name == null && clientId != null) {
+                        scope.launch {
+                            // Fire after the debounced draft save (500ms above)
+                            // has persisted the attachment list without this
+                            // placeholder; checking earlier would always find
+                            // the stale draft still referencing the clientId.
+                            delay(600)
+                            onDiscardQueuedUpload(clientId)
+                        }
+                    }
                 }
             },
             onRecordingFinished = { uri, attachment ->
@@ -343,9 +364,12 @@ fun MemoComposer(
                     // 1. Items that were already valid (non-null attachment with name)
                     // 2. Newly uploaded items are already swapped into draftAttachments by the loop above,
                     //    OR added to uploadedAttachments if we want to be safe, but the loop updates draftAttachments.
-                    // Let's just grab everything from draftAttachments that has a valid server-side attachment (name != null)
+                    // 3. Queued-upload placeholders (name == null but carrying the queue
+                    //    clientId) stay attached; the outbox replay resolves them to the
+                    //    real server attachment once the durable upload lands.
                     val finalAttachments =
-                        draftAttachments.mapNotNull { it.second }.filter { it.name != null }
+                        draftAttachments.mapNotNull { it.second }
+                            .filter { it.name != null || it.clientId != null }
 
                     onPublish(
                         contentState.text, visibility, finalAttachments, location

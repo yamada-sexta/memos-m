@@ -120,6 +120,7 @@
     <string name="memo_composer_fab_new_memo">새 메모</string>
 
     <string name="attachments_none_found">첨부 파일을 찾을 수 없습니다</string>
+    <string name="attachments_offline_empty">오프라인 — 캐시된 첨부 파일이 아직 없습니다. 동기화 후 표시됩니다.</string>
     <string name="attachments_error">오류</string>
     <string name="attachments_error_open_link">링크를 열 수 없습니다</string>
     <string name="attachments_download_started">다운로드 시작됨</string>
@@ -167,6 +168,7 @@
 
     <string name="offline_title">오프라인</string>
     <string name="offline_cached_data_message">캐시된 데이터를 표시 중입니다. 당겨서 새로고침하세요.</string>
+    <string name="notifications_last_updated">마지막 업데이트: %1$s</string>
 
     <string name="memo_input_add_tag">태그 추가</string>
     <string name="memo_search_placeholder">메모 검색...</string>
@@ -215,4 +217,7 @@
     <string name="common_publish">게시</string>
 
     <string name="user_stats_widget_description">사용자 통계를 표시합니다.</string>
+    <string name="user_stats_widget_last_updated">마지막 업데이트: %1$s</string>
+    <string name="sync_queue_delete_title">대기 중인 변경사항을 버리시겠습니까?</string>
+    <string name="sync_queue_delete_message">동기화되지 않은 이 변경사항을 버리시겠습니까? 이 작업은 취소할 수 없습니다.</string>
 </resources>

@@ -120,6 +120,7 @@
     <string name="memo_composer_fab_new_memo">メモを作成</string>
 
     <string name="attachments_none_found">添付ファイルが見つかりません</string>
+    <string name="attachments_offline_empty">オフライン — キャッシュされた添付ファイルがまだありません。同期後に表示されます。</string>
     <string name="attachments_error">エラー</string>
     <string name="attachments_error_open_link">リンクを開けません</string>
     <string name="attachments_download_started">ダウンロードを開始しました</string>
@@ -167,6 +168,7 @@
 
     <string name="offline_title">オフライン</string>
     <string name="offline_cached_data_message">キャッシュされたデータを表示しています。スワイプして更新してください。</string>
+    <string name="notifications_last_updated">最終更新: %1$s</string>
 
     <string name="memo_input_add_tag">タグを追加...</string>
 
@@ -216,4 +218,7 @@
     <string name="common_publish">公開</string>
 
     <string name="user_stats_widget_description">ユーザー統計を表示します。</string>
+    <string name="user_stats_widget_last_updated">最終更新: %1$s</string>
+    <string name="sync_queue_delete_title">未同期の変更を破棄しますか？</string>
+    <string name="sync_queue_delete_message">この未同期の変更を破棄しますか？この操作は取り消せません。</string>
 </resources>

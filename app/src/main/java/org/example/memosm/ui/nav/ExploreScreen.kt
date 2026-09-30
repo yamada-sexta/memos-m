@@ -67,9 +67,7 @@ fun ExploreScreen(
                     start = 16.dp, top = 88.dp, end = 16.dp, bottom = bottomPadding
                 ),
                 userProvider = { memo -> uiState.users[memo.creator] },
-                errorTitle = stringResource(R.string.common_error_failed_to_load_explore),
-                isOffline = uiState.exploreMemoList.list.isOffline,
-                errorMessage = uiState.exploreMemoList.list.errorMessage
+                errorTitle = stringResource(R.string.common_error_failed_to_load_explore)
             )
         },
         overlay = { onMemoClick, showSearchBar, isSearchExpanded, onSearchExpandedChange, isDualPane, isDetailVisible ->

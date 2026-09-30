@@ -5,14 +5,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.example.memosm.api.MemosApi
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.example.memosm.data.DraftManager
 import org.example.memosm.model.Attachment
 import org.example.memosm.model.Draft
 import org.example.memosm.model.Location
-import org.example.memosm.model.Memo
 import org.example.memosm.model.Visibility
 import org.example.memosm.viewmodel.MemosUiState
+import kotlin.coroutines.resume
 
 interface DraftDelegate {
     fun loadDraftsForAccount(accountId: String)
@@ -37,11 +37,9 @@ class DraftDelegateImpl(
     private val scope: CoroutineScope,
     private val uiState: MutableStateFlow<MemosUiState>,
     private val draftManager: DraftManager,
-    private val apiProvider: () -> MemosApi?,
+    private val memoActionDelegateProvider: () -> MemoActionDelegate,
     private val onRefreshUserMemos: () -> Unit
 ) : DraftDelegate {
-
-    private val api: MemosApi? get() = apiProvider()
 
     private fun getActiveAccountId(): String? {
         return uiState.value.accounts.find { it.isActive }?.id
@@ -120,35 +118,50 @@ class DraftDelegateImpl(
 
         scope.launch {
             var published = 0
-            try {
-                uiState.update { it.copy(isPosting = true) }
-                for (draft in drafts) {
-                    if (!draft.hasContent()) continue
-                    try {
-                        val memo = Memo(
-                            content = draft.content,
-                            visibility = draft.visibility,
-                            attachments = draft.attachments.ifEmpty { null },
-                            location = draft.location
-                        )
-                        val created = api?.createMemo(memo)
-                        if (created != null) {
-                            draftManager.deleteDraft(accountId, draft.id)
-                            published++
-                        }
-                    } catch (e: Exception) {
-                        Log.e("MemosViewModel", "Failed to publish draft ${draft.id}", e)
-                    }
+            // Publishing goes through MemoActionDelegate.createMemo, so an
+            // offline publish lands in the outbox (optimistic cache entry +
+            // PendingOp queue) instead of failing silently. A draft that fails
+            // online (server error) is kept and the loop continues with the
+            // next one.
+            // Clear the editing pointer up front: createMemo deletes the
+            // "current editing" draft on success, which must not consume one
+            // of the drafts being published here.
+            setCurrentEditingDraft(null)
+            for (draft in drafts) {
+                if (!draft.hasContent()) continue
+                // Deterministic memoId derived from the draft id so a user
+                // retry after a timeout deduplicates server-side.
+                val memoId = java.util.UUID.nameUUIDFromBytes(
+                    draft.id.toByteArray(Charsets.UTF_8)
+                ).toString()
+                if (publishDraft(draft, memoId)) {
+                    draftManager.deleteDraft(accountId, draft.id)
+                    published++
                 }
-            } finally {
-                uiState.update { it.copy(isPosting = false) }
-                loadDraftsForAccount(accountId)
-                setCurrentEditingDraft(null)
-                onRefreshUserMemos()
-                onResult(published)
             }
+            loadDraftsForAccount(accountId)
+            onRefreshUserMemos()
+            onResult(published)
         }
     }
+
+    /**
+     * Publish a single draft via the outbox path. Returns true when the memo
+     * was created online or queued for sync (offline); false when the server
+     * rejected it and the draft must be kept.
+     */
+    private suspend fun publishDraft(draft: Draft, memoId: String): Boolean =
+        suspendCancellableCoroutine { cont ->
+            memoActionDelegateProvider().createMemo(
+                content = draft.content,
+                visibility = draft.visibility,
+                attachments = draft.attachments.ifEmpty { null },
+                location = draft.location,
+                memoId = memoId,
+                onError = { cont.resume(false) },
+                onSuccess = { cont.resume(true) }
+            )
+        }
 
     override fun setCurrentEditingDraft(draftId: String?) {
         uiState.update {

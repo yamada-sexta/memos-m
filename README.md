@@ -100,6 +100,11 @@ On Android 17 and later, connecting to a local Memos server may require the **Ne
   - [x] Multi language support: English, Japanese, Chinese, Korean, German, Polish
   - [x] Sharing intent support
   - [x] Local cache
+  - [x] Offline-first
+    - [x] Full offline read
+    - [x] Offline writes queued
+    - [x] Offline media store
+    - [x] Auto-sync on reconnect
 
 ## Non-goals
 

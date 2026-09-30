@@ -8,17 +8,36 @@ private const val COMMENT_PAGE_SIZE = 100 // Comments usually loaded all or in l
 
 class CommentListManager(
     scope: CoroutineScope,
-    private val apiProvider: () -> MemosApi?
-) : BaseListManager<Memo>(scope) {
+    private val apiProvider: () -> MemosApi?,
+    cacheCallbacks: CacheCallbacks<Memo>? = null,
+    private val isOnlineProvider: () -> Boolean = { true }
+) : BaseListManager<Memo>(
+    scope,
+    cacheCallbacks = cacheCallbacks,
+    nameProvider = { it.name }
+) {
 
-    private var currentMemoName: String? = null
+    private var _currentMemoName: String? = null
+
+    val currentMemoName: String?
+        get() = _currentMemoName
 
     fun setMemo(memoName: String) {
-        if (currentMemoName != memoName) {
-            currentMemoName = memoName
+        if (_currentMemoName != memoName) {
+            _currentMemoName = memoName
             reset()
-            fetch()
+            // Offline: skip the network round-trip (and its timeout) and serve
+            // the local comment cache directly, mirroring the memo lists.
+            if (isOnlineProvider()) fetch() else loadFromCache()
         }
+    }
+
+    /**
+     * Load comments from the local cache for the currently selected memo.
+     */
+    override fun loadFromCache() {
+        if (currentMemoName == null) return
+        super.loadFromCache()
     }
 
     override suspend fun fetchFromApi(pageToken: String?): Pair<List<Memo>, String?> {

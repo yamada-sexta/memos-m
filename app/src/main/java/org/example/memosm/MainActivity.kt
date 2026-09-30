@@ -32,13 +32,16 @@ import org.example.memosm.ui.component.LoginScreen
 import org.example.memosm.ui.component.LocalNetworkPermission
 import org.example.memosm.ui.component.rememberLocalNetworkPermission
 import org.example.memosm.ui.theme.MemosMTheme
+import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.widget.DraftWidget
 
 import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
     private val dataStoreManager: DataStoreManager by inject()
+    private val viewModel: MemosViewModel by viewModel()
 
     // StateFlow to hold pending share data, observable by Compose
     private val pendingShareDataFlow = MutableStateFlow<ShareIntentData?>(null)
@@ -114,18 +117,28 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 // If no active account, show login
                                 LoginScreen(
-                                    modifier = Modifier.padding(innerPadding),
-                                    onLoginSuccess = { baseUrl, token ->
-                                        scope.launch {
-                                            dataStoreManager.addAccount(baseUrl, token)
-                                        }
-                                    })
+                                modifier = Modifier.padding(innerPadding),
+                                onLoginSuccess = { baseUrl, token ->
+                                    scope.launch {
+                                        dataStoreManager.addAccount(baseUrl, token)
+                                        // Rebind the API/session immediately so the offline
+                                        // cache and sync stack use the newly added account.
+                                        viewModel.userDelegate.updateCurrentAccountInList()
+                                    }
+                                })
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // App is in the foreground again: flush queued offline writes and
+        // top up the local cache.
+        viewModel.onForeground()
     }
 
     /**

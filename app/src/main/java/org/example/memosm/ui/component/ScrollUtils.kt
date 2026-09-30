@@ -21,6 +21,16 @@ fun rememberScrollContext(
         var previousScrollOffset = listState.firstVisibleItemScrollOffset
 
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collect { (currentIndex, currentOffset) ->
+            // Only treat user-initiated scrolling as a direction change.
+            // Programmatic layout shifts - items inserted above (e.g. the
+            // header_section appearing once shortcuts/sync status load) - move
+            // the indices without any scroll gesture, and must not flip the
+            // direction state and hide the search bar / nav bar.
+            if (!listState.isScrollInProgress) {
+                previousIndex = currentIndex
+                previousScrollOffset = currentOffset
+                return@collect
+            }
             if (currentIndex > previousIndex) {
                 scrollContext.isScrollingDown = true
                 onScrollDown()
@@ -54,6 +64,16 @@ fun rememberStaggeredGridScrollContext(
         var previousScrollOffset = listState.firstVisibleItemScrollOffset
 
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collect { (currentIndex, currentOffset) ->
+            // Only treat user-initiated scrolling as a direction change.
+            // Programmatic layout shifts - items inserted above (e.g. the
+            // header_section appearing once shortcuts/sync status load) - move
+            // the indices without any scroll gesture, and must not flip the
+            // direction state and hide the search bar / nav bar.
+            if (!listState.isScrollInProgress) {
+                previousIndex = currentIndex
+                previousScrollOffset = currentOffset
+                return@collect
+            }
             if (currentIndex > previousIndex) {
                 scrollContext.isScrollingDown = true
                 onScrollDown()

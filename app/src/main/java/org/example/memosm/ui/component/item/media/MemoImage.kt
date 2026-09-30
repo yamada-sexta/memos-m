@@ -59,12 +59,16 @@ fun MemoImage(
     onDismiss: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val attachmentCacheManager = org.example.memosm.MemosApplication.instance.attachmentCacheManager
     val imageModels = produceState<Pair<Any?, Any?>>(Pair(null, null), uri, attachment, hostUrl) {
         value = withContext(Dispatchers.IO) {
             when {
                 uri != Uri.EMPTY -> Pair(uri, uri)
                 attachment != null -> {
-                    val original = AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+                    // Prefer the account-scoped offline file. A remote attachment
+                    // still keeps upstream's thumbnail preview and original fallback.
+                    val original = attachmentCacheManager.getLocalFileByHost(hostUrl, attachment.name)
+                        ?: AttachmentManager.getAttachmentUrl(hostUrl, attachment)
                         ?: when {
                             !attachment.content.isNullOrBlank() -> {
                                 try {
@@ -102,12 +106,6 @@ fun MemoImage(
             attachment?.name != null -> "${hostUrl}_${attachment.name}"
             else -> model?.toString()
         }
-    }
-
-    LaunchedEffect(model, token) {
-        android.util.Log.d(
-            "MemosDebug", "MemoImage: model=$model, hasToken=${token != null}, hostUrl=$hostUrl"
-        )
     }
 
     // Use cached ratio if available

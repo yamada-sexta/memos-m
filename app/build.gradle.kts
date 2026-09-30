@@ -14,6 +14,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("kotlin-parcelize")
     id("com.google.devtools.ksp")
+    id("androidx.room") version libs.versions.roomRuntime.get()
 
     alias(libs.plugins.aboutlibraries)
 }
@@ -101,10 +102,11 @@ android {
         compose = true
     }
 
-
-
     sourceSets {
         named("main") {
+        }
+        named("androidTest") {
+            assets.srcDir("$projectDir/schemas")
         }
         named("canary") {
             res.directories.add(("src/canary/res"))
@@ -113,6 +115,10 @@ android {
             res.directories.add(("src/insider/res"))
         }
     }
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 androidComponents {
@@ -204,6 +210,9 @@ dependencies {
     // ROOM
     implementation(libs.androidx.room.runtime)
 
+    // Cross-process durable sync retries
+    implementation(libs.androidx.work.runtime.ktx)
+
     // If this project uses any Kotlin source, use Kotlin Symbol Processing (KSP)
     // See Add the KSP plugin to your project
     ksp(libs.androidx.room.compiler)
@@ -226,6 +235,7 @@ dependencies {
 
     // optional - Test helpers
     testImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.androidx.room.testing)
 
     // optional - Paging 3 Integration
     implementation(libs.androidx.room.paging)

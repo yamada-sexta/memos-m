@@ -84,6 +84,7 @@ import org.example.memosm.model.Memo
 import org.example.memosm.ui.component.item.MemoItem
 import org.example.memosm.viewmodel.MemosUiState
 import org.example.memosm.viewmodel.MemosViewModel
+import org.example.memosm.viewmodel.manager.LocalSearchFilter
 import android.text.format.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -155,7 +156,18 @@ fun MemoSearchBar(
             }
 
             val filterString = if (filters.isEmpty()) null else filters.joinToString(" && ")
-            viewModel.searchMemos(isExplore, filterString, orderBy)
+            viewModel.searchMemos(
+                isExplore, filterString, orderBy,
+                LocalSearchFilter(
+                    query = query,
+                    tags = searchSelectedTags.toList(),
+                    startMillis = startDateMillis ?: 0L,
+                    // End date inclusive: same day-range semantics as the server filter above
+                    endMillis = endDateMillis?.plus(86400000L) ?: 0L,
+                    // Explore-tab offline search must not surface own/private memos
+                    explore = isExplore
+                )
+            )
         }
     }
 
@@ -164,18 +176,18 @@ fun MemoSearchBar(
         containerFocusRequester.requestFocus()
     }
 
+    var showSyncPanel by rememberSaveable { mutableStateOf(false) }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .focusRequester(containerFocusRequester)
             .focusable()
             .zIndex(1f)
     ) {
         SearchBar(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .widthIn(max = 800.dp)
-                .fillMaxWidth(if (expanded) 1f else 0.9f), inputField = {
+            modifier = Modifier.fillMaxWidth(), inputField = {
                 SearchBarDefaults.InputField(
                     query = query,
                     onQueryChange = { query = it },
@@ -188,14 +200,27 @@ fun MemoSearchBar(
                     placeholder = { Text(placeholder) },
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                     trailingIcon = {
-                        if (query.isNotEmpty() || searchSelectedTags.isNotEmpty() || startDateMillis != null || endDateMillis != null) {
-                            IconButton(onClick = {
-                                query = ""
-                                searchSelectedTags = emptySet()
-                                startDateMillis = null
-                                endDateMillis = null
-                            }) {
-                                Icon(Icons.Outlined.Clear, contentDescription = null)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (query.isNotEmpty() || searchSelectedTags.isNotEmpty() || startDateMillis != null || endDateMillis != null) {
+                                IconButton(onClick = {
+                                    query = ""
+                                    searchSelectedTags = emptySet()
+                                    startDateMillis = null
+                                    endDateMillis = null
+                                }) {
+                                    Icon(Icons.Outlined.Clear, contentDescription = null)
+                                }
+                            }
+                            // Sync/cache status icon, hidden while search is expanded.
+                            // Lives inside the search bar's own trailing slot so
+                            // it is always vertically centered with the input.
+                            androidx.compose.animation.AnimatedVisibility(visible = !expanded) {
+                                SyncStatusIconButton(
+                                    uiState = uiState,
+                                    onClick = { showSyncPanel = true }
+                                )
                             }
                         }
                     },
@@ -207,38 +232,51 @@ fun MemoSearchBar(
             // Reset window insets to zero since MemosScaffold already handles status bar padding
             windowInsets = WindowInsets(0, 0, 0, 0)
         ) {
-            SearchResultContent(
-                query = query,
-                selectedTags = searchSelectedTags,
-                startDateMillis = startDateMillis,
-                endDateMillis = endDateMillis,
-                orderBy = orderBy,
-                availableTags = availableTags,
-                filteredMemos = uiState.searchMemoList.list.items,
+                SearchResultContent(
+                    query = query,
+                    selectedTags = searchSelectedTags,
+                    startDateMillis = startDateMillis,
+                    endDateMillis = endDateMillis,
+                    orderBy = orderBy,
+                    availableTags = availableTags,
+                    filteredMemos = uiState.searchMemoList.list.items,
+                    uiState = uiState,
+                    onTagClick = { tag ->
+                        searchSelectedTags = if (tag in searchSelectedTags) {
+                            searchSelectedTags - tag
+                        } else {
+                            searchSelectedTags + tag
+                        }
+                    },
+                    onStartDateSelected = { startDateMillis = it },
+                    onEndDateSelected = { endDateMillis = it },
+                    onOrderByChange = { orderBy = it },
+                    onMemoClick = { memo ->
+                        onMemoClick(memo)
+                    },
+                    onContentUpdate = { memo, newContent ->
+                        viewModel.memoActionDelegate.updateMemo(
+                            memo,
+                            newContent,
+                            memo.visibility,
+                            memo.attachments ?: emptyList(),
+                            memo.location,
+                            null
+                        )
+                    })
+            }
+
+        if (showSyncPanel) {
+            SyncStatusPanel(
                 uiState = uiState,
-                onTagClick = { tag ->
-                    searchSelectedTags = if (tag in searchSelectedTags) {
-                        searchSelectedTags - tag
-                    } else {
-                        searchSelectedTags + tag
-                    }
-                },
-                onStartDateSelected = { startDateMillis = it },
-                onEndDateSelected = { endDateMillis = it },
-                onOrderByChange = { orderBy = it },
-                onMemoClick = { memo ->
-                    onMemoClick(memo)
-                },
-                onContentUpdate = { memo, newContent ->
-                    viewModel.memoActionDelegate.updateMemo(
-                        memo,
-                        newContent,
-                        memo.visibility,
-                        memo.attachments ?: emptyList(),
-                        memo.location,
-                        null
-                    )
-                })
+                onDismiss = { showSyncPanel = false },
+                onSyncNow = { viewModel.syncNow() },
+                onPreDownloadText = { viewModel.preDownloadNow() },
+                onPreDownloadAttachments = { viewModel.preDownloadAllAttachments() },
+                onDeleteOp = { opId -> viewModel.deletePendingOp(opId) },
+                onClearTextCache = { viewModel.clearTextCache() },
+                onClearAttachmentCache = { viewModel.clearAttachmentCache() }
+            )
         }
     }
 }
@@ -520,6 +558,28 @@ private fun SearchResultContent(
             }
         }
 
+        if (uiState.searchMemoList.list.isOffline) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.search_offline_badge),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+
         if (uiState.searchMemoList.list.isLoading) {
             item {
                 Box(
@@ -553,9 +613,10 @@ private fun SearchResultContent(
             }
         } else {
             itemsIndexed(filteredMemos, key = { index, it ->
-                val baseKey = it.name.takeUnless { n -> n.isNullOrBlank() }
-                    ?: "${it.content.hashCode()}_${it.createTime}"
-                "${baseKey}_$index"
+                // Stable key by memo name (consistent with the main list) so
+                // merged/replaced results reuse items instead of rebuilding.
+                if (!it.name.isNullOrBlank()) it.name
+                else "${it.content.hashCode()}_${it.createTime}_$index"
             }) { index, memo ->
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
                     val isOwner = memo.creator == uiState.session.currUser?.name

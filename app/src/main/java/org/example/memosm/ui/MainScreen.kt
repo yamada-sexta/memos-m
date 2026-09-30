@@ -13,6 +13,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -65,6 +66,7 @@ import org.example.memosm.model.Attachment
 import org.example.memosm.model.Location
 import org.example.memosm.model.ShareIntentData
 import org.example.memosm.model.Visibility
+import org.example.memosm.ui.component.ConflictDialog
 import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.LocalNetworkPermission
 import org.example.memosm.ui.component.composer.ComposerMode
@@ -163,16 +165,7 @@ fun MainScreen(
     val configuration = LocalConfiguration.current
     val isMobile = configuration.screenWidthDp < 600
 
-    android.util.Log.d(
-        "MemosScaffoldResize",
-        "MainScreen recomposing: screenWidthDp=${configuration.screenWidthDp} isMobile=$isMobile"
-    )
-
     val adaptiveInfo = androidx.compose.material3.adaptive.currentWindowAdaptiveInfo()
-    android.util.Log.d(
-        "MemosScaffoldResize",
-        "MainScreen adaptiveInfo: windowSizeClass=${adaptiveInfo.windowSizeClass}"
-    )
 
 
     val toggleNavBar: ((Boolean) -> Unit)? = if (isMobile) {
@@ -372,6 +365,17 @@ fun MainScreen(
                 }
             }
         }
+    }
+
+    // Conflict resolution dialog (server version changed while offline)
+    uiState.conflict?.let { conflict ->
+        ConflictDialog(
+            conflict = conflict,
+            onResolve = { resolution, mergedContent ->
+                viewModel.resolveConflict(resolution, mergedContent)
+            },
+            onDismiss = { viewModel.dismissConflict() }
+        )
     }
 
     // Share intent composer screen (full-screen OVERLAY — must be AFTER Surface for correct z-order)

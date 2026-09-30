@@ -25,6 +25,7 @@ aboutlibraries = "15.2.0"
 
 desugarJdkLibs = "2.1.5"
 roomRuntime = "2.8.5"
+workManager = "2.10.1"
 testcontainers = "2.0.5"
 jna = "5.19.1"
 slf4j = "2.0.19"
@@ -44,6 +45,7 @@ androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "
 androidx-room-rxjava2 = { module = "androidx.room:room-rxjava2", version.ref = "roomRuntime" }
 androidx-room-rxjava3 = { module = "androidx.room:room-rxjava3", version.ref = "roomRuntime" }
 androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "roomRuntime" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workManager" }
 highlights = { module = "dev.snipme:highlights", version.ref = "highlights" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koin" }

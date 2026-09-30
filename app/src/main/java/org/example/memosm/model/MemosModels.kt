@@ -69,7 +69,14 @@ data class Attachment(
     val type: String,
     val mimeType: String? = null,
     val size: String? = null,
-    val memo: String? = null
+    val memo: String? = null,
+    // Local-only fields for an attachment whose upload is still sitting in the
+    // durable upload queue (offline compose). Never sent to the server: the
+    // outbox replay strips them after resolving the placeholder against the
+    // queue. clientId matches the AttachmentUpload row (forwarded as the API
+    // attachmentId); localPath points at the staged bytes for local preview.
+    val clientId: String? = null,
+    val localPath: String? = null
 ) {
     val displayType: String
         get() = mimeType ?: type

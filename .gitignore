@@ -34,3 +34,7 @@ google-services.json
 *.salive
 /app/release
 *.klib
+
+# Local development only (not part of the app)
+mock-server/
+AGENTS.md

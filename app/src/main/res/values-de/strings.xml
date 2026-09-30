@@ -120,6 +120,7 @@
     <string name="memo_composer_fab_new_memo">Neues Memo</string>
 
     <string name="attachments_none_found">Keine Anhänge gefunden</string>
+    <string name="attachments_offline_empty">Offline — noch keine zwischengespeicherten Anhänge. Sie erscheinen nach der Synchronisierung.</string>
     <string name="attachments_error">Fehler</string>
     <string name="attachments_error_open_link">Link konnte nicht geöffnet werden</string>
     <string name="attachments_download_started">Download gestartet</string>
@@ -167,6 +168,7 @@
 
     <string name="offline_title">Offline</string>
     <string name="offline_cached_data_message">Zwischengespeicherte Daten werden angezeigt. Zum Aktualisieren ziehen.</string>
+    <string name="notifications_last_updated">Zuletzt aktualisiert: %1$s</string>
 
     <string name="memo_input_add_tag">Tag hinzufügen</string>
     <string name="memo_search_placeholder">Memos durchsuchen...</string>
@@ -215,4 +217,7 @@
     <string name="common_publish">Veröffentlichen</string>
 
     <string name="user_stats_widget_description">Zeigt Benutzerstatistiken an.</string>
+    <string name="user_stats_widget_last_updated">Zuletzt aktualisiert: %1$s</string>
+    <string name="sync_queue_delete_title">Ausstehende Änderung verwerfen?</string>
+    <string name="sync_queue_delete_message">Diese nicht synchronisierte Änderung verwerfen? Dies kann nicht rückgängig gemacht werden.</string>
 </resources>

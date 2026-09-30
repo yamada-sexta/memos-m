@@ -207,6 +207,9 @@ open class MemosApiImpl(
     }
 
     override suspend fun createMemo(memo: Memo, memoId: String?): Memo {
+        // memoId lets the server deduplicate a retried create (client-generated
+        // resource id). v0.26/0.27 reject the parameter, so MemosApiV0260Impl
+        // overrides this to drop it.
         return api.createMemo(memo, memoId)
     }
 

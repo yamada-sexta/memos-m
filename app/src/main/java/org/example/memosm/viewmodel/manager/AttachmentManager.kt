@@ -5,13 +5,18 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import android.webkit.MimeTypeMap
+import android.widget.Toast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import org.example.memosm.MemosApplication
+import org.example.memosm.R
 import org.example.memosm.api.MemosApi
 import org.example.memosm.api.StreamingAttachmentApi
+import org.example.memosm.data.media.AttachmentUploadQueue
 import org.example.memosm.model.Attachment
 
 private const val ATTACHMENT_PAGE_SIZE = 20
@@ -24,11 +29,16 @@ private const val STREAMING_THRESHOLD = 2 * 1024 * 1024L
 private const val TAG = "AttachmentManager"
 
 class AttachmentManager(
-    private val scope: CoroutineScope,
+    scope: CoroutineScope,
     private val apiProvider: () -> MemosApi?,
     private val streamingApiProvider: () -> StreamingAttachmentApi?,
-    initialCellWidth: Float = 120f
-) : BaseListManager<Attachment>(scope) {
+    initialCellWidth: Float = 120f,
+    private val uploadQueueProvider: () -> AttachmentUploadQueue? = { null },
+    private val accountIdProvider: () -> String? = { null },
+    private val draftReferenceChecker: suspend (clientId: String) -> Boolean = { false },
+    private val outboxReferenceChecker: suspend (clientId: String) -> Boolean = { false },
+    cacheCallbacks: CacheCallbacks<Attachment>? = null
+) : BaseListManager<Attachment>(scope, cacheCallbacks = cacheCallbacks, nameProvider = { it.name }) {
 
 
     private val _cellWidth = MutableStateFlow(initialCellWidth)
@@ -55,23 +65,21 @@ class AttachmentManager(
     /**
      * Upload an attachment from a Uri.
      * Uses streaming upload for files > 2MB to prevent OOM.
+     *
+     * When the upload cannot complete (offline, or the request threw), the
+     * bytes are staged app-private and the upload is queued for durable retry;
+     * the user is told it was saved offline rather than left with a silent
+     * failure. Returns the uploaded [Attachment], a placeholder [Attachment]
+     * (no server `name`, carrying the queue clientId + staged localPath) when
+     * the upload was queued, or null when even staging failed.
      */
     suspend fun uploadAttachment(uri: Uri, context: Context): Attachment? {
-        val api = apiProvider() ?: return null
+        val api = apiProvider()
         val streamingApi = streamingApiProvider()
         try {
             Log.d(TAG, "uploadAttachment: starting upload for uri=$uri")
 
-            val contentResolver = context.contentResolver
-            val resolverMimeType = contentResolver.getType(uri)
-            val mimeType =
-                if (resolverMimeType == null || resolverMimeType == "application/octet-stream") {
-                    val ext = MimeTypeMap.getFileExtensionFromUrl(uri.toString()).lowercase()
-                    MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: resolverMimeType
-                    ?: "application/octet-stream"
-                } else {
-                    resolverMimeType
-                }
+            val mimeType = resolveMimeType(uri, context)
             val fileName = getFileName(uri, context) ?: "unknown_file"
 
             // Get file size to determine upload method
@@ -80,6 +88,11 @@ class AttachmentManager(
                 TAG,
                 "uploadAttachment: fileName=$fileName, mimeType=$mimeType, fileSize=$fileSize bytes (threshold=$STREAMING_THRESHOLD)"
             )
+
+            // Offline (or no API yet): queue for later instead of failing.
+            if (api == null) {
+                return enqueueForLater(uri, fileName, mimeType, fileSize)
+            }
 
             val useStreaming = fileSize > STREAMING_THRESHOLD && streamingApi != null
             Log.d(
@@ -107,12 +120,88 @@ class AttachmentManager(
                 Log.e(
                     TAG, "uploadAttachment: FAILED - returned null (used streaming=$useStreaming)"
                 )
+                return enqueueForLater(uri, fileName, mimeType, fileSize)
             }
 
             return attachment
+        } catch (e: CancellationException) {
+            // Cancelled uploads must not be queued for retry: the caller
+            // abandoned them, so skip the durable side effect below.
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Upload failed with exception", e)
-            return null
+            return enqueueForLater(uri, getFileName(uri, context) ?: "unknown_file",
+                resolveMimeType(uri, context), getFileSize(uri, context))
+        }
+    }
+
+    /**
+     * Stage the bytes and persist a durable upload row so the attachment is
+     * retried after connectivity returns (even across process death). Tells the
+     * user it was saved offline and returns a placeholder [Attachment] that
+     * keeps the file linked to the memo being composed: no server `name` yet,
+     * but the queue clientId (which the outbox replay resolves to the real
+     * attachment once the upload lands) plus the staged localPath for local
+     * preview. A staging failure leaves the upload genuinely failed (no toast,
+     * no row, null).
+     */
+    private suspend fun enqueueForLater(
+        uri: Uri,
+        fileName: String,
+        mimeType: String,
+        fileSize: Long
+    ): Attachment? {
+        val queue = uploadQueueProvider() ?: return null
+        val accountId = accountIdProvider() ?: return null
+        val clientId = queue.enqueue(accountId, uri, fileName, mimeType, fileSize) ?: return null
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                MemosApplication.instance,
+                MemosApplication.instance.getString(R.string.offline_saved_message),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+        return Attachment(
+            filename = fileName,
+            type = mimeType,
+            mimeType = mimeType,
+            size = fileSize.takeIf { it > 0 }?.toString(),
+            clientId = clientId,
+            localPath = queue.stagedFile(clientId).absolutePath
+        )
+    }
+
+    /**
+     * Discard the queued upload behind [clientId] when its placeholder was
+     * removed from the composer and nothing else still references it: neither
+     * a persisted draft nor a queued outbox op payload. Keeping the upload on
+     * any doubt is deliberate - a server-side orphan beats losing bytes a
+     * draft or pending memo still points at. No-op when the row is already
+     * gone (uploaded or discarded).
+     */
+    suspend fun discardQueuedUploadIfOrphaned(clientId: String) {
+        val queue = uploadQueueProvider() ?: return
+        val rowExists = queue.get(clientId) != null
+        val referencedElsewhere = try {
+            draftReferenceChecker(clientId) || outboxReferenceChecker(clientId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "discardQueuedUploadIfOrphaned: reference check failed, keeping upload", e)
+            true
+        }
+        if (!shouldDiscardQueuedUpload(rowExists, referencedElsewhere)) return
+        queue.discard(clientId)
+    }
+
+    private fun resolveMimeType(uri: Uri, context: Context): String {
+        val resolverMimeType = context.contentResolver.getType(uri)
+        return if (resolverMimeType == null || resolverMimeType == "application/octet-stream") {
+            val ext = MimeTypeMap.getFileExtensionFromUrl(uri.toString()).lowercase()
+            MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: resolverMimeType
+            ?: "application/octet-stream"
+        } else {
+            resolverMimeType
         }
     }
 
@@ -188,6 +277,14 @@ class AttachmentManager(
     }
 
     companion object {
+        /**
+         * Discard decision for a queued upload whose placeholder was removed:
+         * only when the durable row still exists (something to cancel) AND
+         * nothing else references the clientId. Pure seam for unit tests.
+         */
+        internal fun shouldDiscardQueuedUpload(rowExists: Boolean, referencedElsewhere: Boolean) =
+            rowExists && !referencedElsewhere
+
         fun resolveResourceUrl(hostUrl: String, relativeUrl: String?): String? {
             if (relativeUrl.isNullOrBlank()) return null
             if (relativeUrl.startsWith("http")) return relativeUrl
@@ -195,29 +292,21 @@ class AttachmentManager(
             val cleanHost = hostUrl.trimEnd('/')
             val cleanRelative = relativeUrl.trimStart('/')
 
-            val result = "$cleanHost/$cleanRelative"
-            Log.d(
-                "MemosDebug",
-                "AttachmentManager.resolve: host=$hostUrl, relative=$relativeUrl -> $result"
-            )
-            return result
+            return "$cleanHost/$cleanRelative"
         }
 
         fun getAttachmentUrl(hostUrl: String, attachment: Attachment?): String? {
             if (attachment == null) return null
 
-            val url = if (!attachment.externalLink.isNullOrBlank()) {
+            return if (!attachment.externalLink.isNullOrBlank()) {
                 resolveResourceUrl(hostUrl, attachment.externalLink)
             } else if (!attachment.name.isNullOrBlank()) {
                 resolveResourceUrl(hostUrl, "file/${attachment.name}/${attachment.filename}")
             } else {
-                null
+                // Queued-upload placeholder: render the staged local copy.
+                attachment.localPath?.takeIf { it.isNotBlank() }
+                    ?.let { android.net.Uri.fromFile(java.io.File(it)).toString() }
             }
-            Log.d(
-                "MemosDebug",
-                "AttachmentManager.getUrl: name=${attachment.name}, ext=${attachment.externalLink} -> $url"
-            )
-            return url
         }
 
         /**

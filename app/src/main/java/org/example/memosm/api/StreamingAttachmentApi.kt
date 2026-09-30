@@ -89,7 +89,8 @@ class StreamingAttachmentApi(
      */
     suspend fun createAttachmentFromFile(
         file: File,
-        mimeType: String
+        mimeType: String,
+        attachmentId: String? = null
     ): Attachment? = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting streaming upload for file ${file.name}")
@@ -100,7 +101,14 @@ class StreamingAttachmentApi(
                 file = file
             )
 
-            val url = "${baseUrl.trimEnd('/')}/api/v1/attachments"
+            // Forward the clientId as the API attachmentId so a retried
+            // streaming upload reconciles server-side instead of duplicating.
+            val base = "${baseUrl.trimEnd('/')}/api/v1/attachments"
+            val url = if (attachmentId != null) {
+                "$base?attachmentId=" + java.net.URLEncoder.encode(attachmentId, "UTF-8")
+            } else {
+                base
+            }
             Log.d(TAG, "Upload URL: $url")
 
             val request = Request.Builder()

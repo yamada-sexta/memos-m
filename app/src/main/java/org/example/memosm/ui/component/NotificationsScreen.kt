@@ -2,6 +2,7 @@ package org.example.memosm.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Notifications
@@ -25,6 +27,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -69,6 +72,8 @@ fun NotificationsScreen(
     var notifications by remember { mutableStateOf<List<UserNotification>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var showingCached by remember { mutableStateOf(false) }
+    var cachedSavedAt by remember { mutableStateOf(0L) }
     var hasLoadError by remember { mutableStateOf(false) }
 
     suspend fun loadNotifications(isUserRefresh: Boolean = false) {
@@ -81,10 +86,13 @@ fun NotificationsScreen(
 
         runCatching {
             viewModel.listCurrentUserNotifications()
-        }.onSuccess {
-            notifications = it
+        }.onSuccess { result ->
+            notifications = result.notifications
+            showingCached = result.fromCache
+            cachedSavedAt = result.savedAt
         }.onFailure {
             notifications = emptyList()
+            showingCached = false
             Log.e("NotificationsScreen", "Failed to load notifications", it)
             hasLoadError = true
         }
@@ -165,6 +173,40 @@ fun NotificationsScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Offline: last-known snapshot is shown - badge it as
+                        // stale (mirrors the cached hints of the other screens).
+                        if (showingCached) {
+                            item(key = "cached_hint") {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(
+                                            horizontal = 12.dp,
+                                            vertical = 6.dp
+                                        )
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.offline_cached_data_message),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                        if (cachedSavedAt > 0) {
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.notifications_last_updated,
+                                                    formatEpochMillis(cachedSavedAt)
+                                                ),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         items(notifications, key = { it.name ?: "${it.type}-${it.createTime}" }) {
                             NotificationCard(notification = it)
                         }
@@ -233,4 +275,10 @@ private fun formatNotificationTime(value: String): String {
             DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
         )
     }.getOrDefault(value)
+}
+
+private fun formatEpochMillis(epochMillis: Long): String {
+    return java.text.DateFormat.getDateTimeInstance(
+        java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT
+    ).format(java.util.Date(epochMillis))
 }

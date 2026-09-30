@@ -238,6 +238,26 @@ fun MemoDetailView(
                         }
                     }
 
+                    // Cached comments hint (offline: showing local cache)
+                    if (comments.isOffline && !comments.isLoading) {
+                        item(key = "comments_cached_hint") {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.memo_detail_comments_cached),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+
                     // Loading indicator for comments
                     if (comments.isLoading) {
                         item(key = "loading") {

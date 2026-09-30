@@ -168,7 +168,10 @@ fun MemoComposerScreen(
                             location
                         )
                     }
-                } else null
+                } else null,
+                onDiscardQueuedUpload = { clientId ->
+                    viewModel.memoActionDelegate.discardQueuedUploadIfOrphaned(clientId)
+                }
             )
         }
     }

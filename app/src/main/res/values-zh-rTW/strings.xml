@@ -117,6 +117,7 @@
     <string name="memo_composer_fab_new_memo">新增筆記</string>
 
     <string name="attachments_none_found">暫無資源</string>
+    <string name="attachments_offline_empty">離線狀態 — 暫無快取的資源，同步後將顯示。</string>
     <string name="attachments_error">錯誤</string>
     <string name="attachments_error_open_link">無法開啟連結</string>
     <string name="attachments_download_started">開始下載</string>
@@ -164,6 +165,95 @@
 
     <string name="offline_title">離線</string>
     <string name="offline_cached_data_message">正在顯示快取資料。下拉重新整理。</string>
+    <string name="notifications_last_updated">最後更新：%1$s</string>
+
+    <!-- Offline-First -->
+    <string name="offline_saved_message">已離線儲存，連網後自動同步</string>
+    <string name="offline_banner_title">離線模式 · 正在顯示快取資料</string>
+    <string name="offline_banner_cached">離線 · 使用本機快取</string>
+    <string name="offline_banner_syncing">離線 · 同步中…</string>
+    <string name="offline_banner_pending">%1$d 項變更待同步</string>
+    <string name="offline_conflict_title">同步衝突</string>
+    <string name="offline_conflict_description">此備忘錄在你離線期間被其他裝置修改。請選擇保留哪個版本：</string>
+    <string name="offline_conflict_local">本機版本</string>
+    <string name="offline_conflict_server">伺服器版本</string>
+    <string name="offline_conflict_keep_local">保留本機</string>
+    <string name="offline_conflict_keep_server">保留伺服器</string>
+    <string name="offline_conflict_later">稍後處理</string>
+    <string name="offline_conflict_view_diff">查看差異</string>
+    <string name="offline_conflict_diff_title">差異對比</string>
+    <string name="offline_conflict_diff_hint">紅色的行僅存在於本機（−），綠色的行僅存在於伺服器（+）。</string>
+    <string name="offline_conflict_edit_merged">編輯合併版本</string>
+    <string name="offline_conflict_merge_title">合併版本</string>
+    <string name="offline_conflict_merge_hint">整合兩個版本的內容為最終版本，儲存後將推送到伺服器。</string>
+    <string name="offline_conflict_save_merged">儲存並推送</string>
+    <string name="offline_conflict_back">返回</string>
+    <string name="offline_sync_card_title">同步</string>
+    <string name="offline_sync_status_syncing">同步中…</string>
+    <string name="offline_sync_status_online">線上</string>
+    <string name="offline_sync_status_offline">離線</string>
+    <string name="offline_sync_last_time">最近同步：%1$s</string>
+    <string name="offline_sync_pending_count">%1$d 項變更待同步</string>
+    <string name="offline_sync_now">立即同步</string>
+    <string name="offline_sync_queue_title">待同步變更</string>
+    <string name="offline_sync_delete_op">放棄此變更</string>
+    <string name="offline_predownload_running">預下載中 — %1$s（第 %2$d 頁）</string>
+    <string name="offline_predownload_phase_text">正在取得文字…</string>
+    <string name="offline_predownload_phase_attachments">正在下載附件…</string>
+    <string name="offline_predownload_done">預下載完成：%1$d 條備忘錄，%2$d 個附件</string>
+    <string name="offline_predownload_failed">預下載失敗：%1$s</string>
+    <string name="offline_predownload_text_button">預下載全部文字</string>
+    <string name="offline_predownload_attachments_button">預下載全部附件</string>
+    <string name="offline_attachment_cache_usage">附件快取：%1$s</string>
+    <string name="offline_clear_attachments">清除附件快取</string>
+    <string name="offline_clear_text">清除文字快取</string>
+    <string name="offline_op_create">建立備忘錄</string>
+    <string name="offline_op_update">編輯備忘錄</string>
+    <string name="offline_op_delete">刪除備忘錄</string>
+    <string name="offline_op_comment_create">新增留言</string>
+    <string name="offline_op_reaction_upsert">新增表情</string>
+    <string name="offline_op_reaction_delete">移除表情</string>
+    <string name="offline_settings_title">離線快取</string>
+    <string name="offline_settings_pre_download_text">預下載全部文字</string>
+    <string name="offline_settings_pre_download_attachments">預下載附件</string>
+    <string name="offline_settings_wifi_only">僅 Wi-Fi 下預下載</string>
+    <string name="offline_settings_pre_download_explore">預下載探索頁內容</string>
+    <string name="offline_settings_cache_size">附件快取上限</string>
+    <string name="offline_settings_cache_size_text">文字快取上限</string>
+    <string name="offline_settings_cache_size_theme">媒體快取上限</string>
+    <string name="offline_settings_custom">自訂</string>
+    <string name="offline_settings_cache_size_hint">輸入大小</string>
+    <string name="offline_settings_cache_analysis_title">快取分析</string>
+    <string name="offline_settings_text_count">已快取 %1$d 則備忘錄</string>
+    <string name="offline_settings_media_usage">媒體快取：%1$s</string>
+    <string name="offline_clear_media">清除媒體快取</string>
+    <string name="offline_clear_all">清除全部快取</string>
+    <string name="offline_settings_clear_text">清除文字快取</string>
+    <string name="cache_cleanup_title">清理快取</string>
+    <string name="cache_cleanup_manage">快取管理</string>
+    <string name="cache_cleanup_clear_selected">清理選取項目</string>
+    <string name="cache_cleanup_none_selected">請選擇要清理的快取類型</string>
+    <string name="cache_cleanup_text">文字快取</string>
+    <string name="cache_cleanup_attachments">附件快取</string>
+    <string name="cache_cleanup_media">媒體快取</string>
+    <string name="cache_cleanup_unlimited">無限制</string>
+    <string name="cache_unit_mb">MB</string>
+    <string name="cache_unit_gb">GB</string>
+    <string name="sync_status_syncing">同步中…</string>
+    <string name="sync_status_predownload">預下載中：%1$s</string>
+    <string name="sync_status_phase_text">文字</string>
+    <string name="sync_status_phase_attachments">附件</string>
+    <string name="sync_status_pending">%1$d 項變更待同步</string>
+    <string name="sync_status_offline">離線 · 使用本機快取</string>
+    <string name="sync_status_cached">本機快取 %1$d 條 · 已同步 %2$s</string>
+    <string name="sync_status_idle">已是最新</string>
+    <string name="sync_panel_title">同步與快取</string>
+    <string name="sync_panel_last_sync">最近同步：%1$s</string>
+    <string name="sync_panel_queue">%1$d 項變更待同步</string>
+    <string name="sync_panel_predownload_running">正在預下載%1$s（第 %2$d 頁）…</string>
+    <string name="sync_panel_predownload_idle">目前沒有正在預下載的內容。</string>
+    <string name="search_offline_badge">離線搜尋結果（來自本機快取）</string>
+    <string name="memo_detail_comments_cached">正在顯示快取留言 — 離線</string>
 
     <string name="memo_input_add_tag">新增標籤</string>
 
@@ -203,4 +293,7 @@
     <string name="common_publish">發佈</string>
 
     <string name="user_stats_widget_description">顯示使用者統計資訊。</string>
+    <string name="user_stats_widget_last_updated">最後更新：%1$s</string>
+    <string name="sync_queue_delete_title">放棄待同步的變更？</string>
+    <string name="sync_queue_delete_message">要放棄這項尚未同步的變更嗎？此動作無法復原。</string>
 </resources>

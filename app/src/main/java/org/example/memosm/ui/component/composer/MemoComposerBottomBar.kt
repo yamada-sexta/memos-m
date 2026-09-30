@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Place
@@ -166,6 +167,27 @@ fun MemoComposerBottomBar(
                                             modifier = Modifier.size(24.dp), color = Color.White
                                         )
                                     }
+                                }
+
+                                // Queued for offline upload: the bytes are staged and the
+                                // upload queue will deliver them; badge the thumbnail so the
+                                // pending state is visible instead of looking lost.
+                                val isPendingUpload = !isUploading &&
+                                    attachment?.name == null && attachment?.clientId != null
+                                if (isPendingUpload) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CloudUpload,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(4.dp)
+                                            .size(18.dp)
+                                            .background(
+                                                Color.Black.copy(alpha = 0.5f), CircleShape
+                                            )
+                                            .padding(2.dp)
+                                    )
                                 }
 
                                 IconButton(

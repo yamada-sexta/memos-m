@@ -155,6 +155,8 @@ class DraftManager(private val context: Context) {
             var mimeType: String? = null
             var size: String? = null
             var memo: String? = null
+            var clientId: String? = null
+            var localPath: String? = null
 
             reader.beginObject()
             while (reader.hasNext()) {
@@ -196,13 +198,22 @@ class DraftManager(private val context: Context) {
                         reader.nextNull(); null
                     } else reader.nextString()
 
+                    "clientId" -> clientId = if (reader.peek() == JsonToken.NULL) {
+                        reader.nextNull(); null
+                    } else reader.nextString()
+
+                    "localPath" -> localPath = if (reader.peek() == JsonToken.NULL) {
+                        reader.nextNull(); null
+                    } else reader.nextString()
+
                     else -> reader.skipValue()
                 }
             }
             reader.endObject()
 
             return Attachment(
-                name, createTime, filename, content, externalLink, type, mimeType, size, memo
+                name, createTime, filename, content, externalLink, type, mimeType, size, memo,
+                clientId, localPath
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing attachment", e)
@@ -310,6 +321,25 @@ class DraftManager(private val context: Context) {
             }
         }
     }
+
+    /**
+     * Raw substring check over the persisted draft file: true when any draft
+     * for [accountId] mentions [needle] (e.g. a queued-upload clientId).
+     * Race-tolerant by design - it answers "is this string referenced" without
+     * deserializing, so a concurrent draft save can only widen the match.
+     */
+    suspend fun draftsContain(accountId: String, needle: String): Boolean =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                try {
+                    val file = getDraftsFile(accountId)
+                    file.exists() && file.readText().contains(needle)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error scanning drafts for account $accountId", e)
+                    false
+                }
+            }
+        }
 
     /**
      * Get draft count for an account (for badge display).
@@ -424,6 +454,14 @@ class DraftManager(private val context: Context) {
 
         writer.name("memo")
         if (attachment.memo != null) writer.value(attachment.memo) else writer.nullValue()
+
+        // Local-only queued-upload fields, so a draft restored while the
+        // upload is still queued keeps pointing at the queue row.
+        writer.name("clientId")
+        if (attachment.clientId != null) writer.value(attachment.clientId) else writer.nullValue()
+
+        writer.name("localPath")
+        if (attachment.localPath != null) writer.value(attachment.localPath) else writer.nullValue()
 
         writer.endObject()
     }

@@ -56,10 +56,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
+import org.example.memosm.data.sync.PreDownloadState
 import org.example.memosm.model.Memo
 import org.example.memosm.ui.component.GenericMemosListPane
 import org.example.memosm.ui.component.MemoSearchBar
 import org.example.memosm.ui.component.MemosScaffold
+import org.example.memosm.ui.component.SyncStatusBar
 import org.example.memosm.ui.component.composer.ComposerMode
 import org.example.memosm.ui.component.composer.MemoComposerScreen
 import org.example.memosm.ui.component.item.DraftsCard
@@ -314,19 +316,45 @@ private fun MemosListPane(
         listState = listState,
         contentPadding = contentPadding,
         errorTitle = stringResource(R.string.common_error_failed_to_load_memos),
-        isOffline = uiState.userMemoList.list.isOffline,
-        errorMessage = uiState.userMemoList.list.errorMessage,
         onHashtagClick = onHashtagClick,
         header = {
             val hasShortcuts = uiState.userMemoList.shortcuts.isNotEmpty()
             val selectedHashtag = uiState.userMemoList.selectedHashtag
             val showFilterRow = hasShortcuts || selectedHashtag != null
 
-            if (hasDrafts || showFilterRow) {
+            // Sync status: visible only while an activity is ongoing (syncing,
+            // pre-downloading, pending writes, offline). Once everything settles
+            // it animates away (shrinks) and the compact status icon at the
+            // search bar takes over - the check mark appears there. It lives
+            // inside the header_section item (not its own LazyColumn item) so
+            // the list's 8dp item spacing does not leave a gap after it hides.
+            val syncActive = uiState.isSyncing ||
+                uiState.preDownloadState is PreDownloadState.Running ||
+                uiState.pendingOpsCount > 0 ||
+                !uiState.isOnline
+
+            if (hasDrafts || showFilterRow || syncActive) {
                 item(key = "header_section") {
                     Column(
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = syncActive,
+                            enter = androidx.compose.animation.fadeIn() +
+                                androidx.compose.animation.expandVertically(),
+                            exit = androidx.compose.animation.fadeOut() +
+                                androidx.compose.animation.shrinkVertically()
+                        ) {
+                            SyncStatusBar(
+                                isOnline = uiState.isOnline,
+                                isSyncing = uiState.isSyncing,
+                                pendingOpsCount = uiState.pendingOpsCount,
+                                preDownloadState = uiState.preDownloadState,
+                                cachedCount = uiState.textCacheCount,
+                                lastSyncTime = uiState.lastSyncTime
+                            )
+                        }
+
                         // Drafts Card (shown when drafts exist)
                         AnimatedVisibility(
                             visible = hasDrafts,
