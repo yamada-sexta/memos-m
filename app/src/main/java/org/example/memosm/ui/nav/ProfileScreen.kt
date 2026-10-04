@@ -57,6 +57,7 @@ import org.example.memosm.ui.component.LocalNetworkPermission
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -72,7 +73,6 @@ import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.ProfileHeader
 import org.example.memosm.ui.component.StatsActivityCard
 import org.example.memosm.ui.component.rememberScrollContext
-import org.example.memosm.ui.component.setting.SettingsSurface
 import org.example.memosm.ui.component.setting.AccountEditDialog
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.RefreshSource
@@ -410,32 +410,19 @@ private fun ProfileListPane(
 
 @Composable
 fun InstanceCard(instance: InstanceProfile) {
-    SettingsSurface {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                stringResource(R.string.profile_instance_info),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            val unknown = stringResource(R.string.memo_unknown_user)
-            InfoRow(
-                stringResource(R.string.profile_instance_version), instance.version ?: unknown
-            )
-
-            val modeLabel = if (instance.mode != null) {
-                instance.mode
-            } else if (instance.demo == true) {
-                "demo" // Or a localized string if available, but "demo" is standard
-            } else {
-                "prod" // Default assumption if not demo and no mode
-            }
-
-            InfoRow(
-                stringResource(R.string.profile_instance_mode), modeLabel
-            )
-            InfoRow(
-                stringResource(R.string.profile_instance_url), instance.instanceUrl ?: unknown
+    val unknown = stringResource(R.string.memo_unknown_user)
+    val mode = instance.mode ?: if (instance.demo == true) "demo" else "prod"
+    org.example.memosm.ui.component.setting.SettingsGroup {
+        listOf(
+            stringResource(R.string.profile_instance_version) to (instance.version ?: unknown),
+            stringResource(R.string.profile_instance_mode) to mode,
+            stringResource(R.string.profile_instance_url) to (instance.instanceUrl?.takeIf { it.isNotBlank() } ?: unknown)
+        ).forEach { (label, value) ->
+            ListItem(
+                modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)),
+                headlineContent = { Text(label) },
+                supportingContent = { Text(value) },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             )
         }
     }

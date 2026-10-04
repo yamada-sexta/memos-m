@@ -202,13 +202,13 @@
     <string name="offline_sync_now">立即同步</string>
     <string name="offline_sync_queue_title">待同步更改</string>
     <string name="offline_sync_delete_op">放弃此更改</string>
-    <string name="offline_predownload_running">预下载中 — %1$s（第 %2$d 页）</string>
+    <string name="offline_predownload_running">缓存中 — %1$s（第 %2$d 页）</string>
     <string name="offline_predownload_phase_text">正在获取文本…</string>
     <string name="offline_predownload_phase_attachments">正在下载附件…</string>
-    <string name="offline_predownload_done">预下载完成：%1$d 条备忘录，%2$d 个附件</string>
-    <string name="offline_predownload_failed">预下载失败：%1$s</string>
-    <string name="offline_predownload_text_button">预下载全部文本</string>
-    <string name="offline_predownload_attachments_button">预下载全部附件</string>
+    <string name="offline_predownload_done">缓存完成：%1$d 条备忘录，%2$d 个附件</string>
+    <string name="offline_predownload_failed">缓存失败：%1$s</string>
+    <string name="offline_predownload_text_button">缓存全部文本</string>
+    <string name="offline_predownload_attachments_button">缓存全部附件</string>
     <string name="offline_attachment_cache_usage">附件缓存：%1$s</string>
     <string name="offline_clear_attachments">清除附件缓存</string>
     <string name="offline_clear_text">清除文本缓存</string>
@@ -219,10 +219,10 @@
     <string name="offline_op_reaction_upsert">添加表情</string>
     <string name="offline_op_reaction_delete">移除表情</string>
     <string name="offline_settings_title">离线缓存</string>
-    <string name="offline_settings_pre_download_text">预下载全部文本</string>
-    <string name="offline_settings_pre_download_attachments">预下载附件</string>
-    <string name="offline_settings_wifi_only">仅 Wi-Fi 下预下载</string>
-    <string name="offline_settings_pre_download_explore">预下载探索页内容</string>
+    <string name="offline_settings_pre_download_text">缓存全部文本</string>
+    <string name="offline_settings_pre_download_attachments">缓存附件</string>
+    <string name="offline_settings_wifi_only">仅 Wi-Fi 下缓存</string>
+    <string name="offline_settings_pre_download_explore">缓存探索页内容</string>
     <string name="offline_settings_cache_size">附件缓存上限</string>
     <string name="offline_settings_cache_size_text">文本缓存上限</string>
     <string name="offline_settings_cache_size_theme">媒体缓存上限</string>
@@ -245,7 +245,7 @@
     <string name="cache_unit_mb">MB</string>
     <string name="cache_unit_gb">GB</string>
     <string name="sync_status_syncing">同步中…</string>
-    <string name="sync_status_predownload">预下载中：%1$s</string>
+    <string name="sync_status_predownload">缓存中：%1$s</string>
     <string name="sync_status_phase_text">文本</string>
     <string name="sync_status_phase_attachments">附件</string>
     <string name="sync_status_pending">%1$d 项更改待同步</string>
@@ -266,8 +266,8 @@
     <string name="sync_queue_needs_attention">需要处理——请手动重试或放弃此更改。</string>
     <string name="sync_queue_delete_title">放弃待同步的更改？</string>
     <string name="sync_queue_delete_message">要放弃这条尚未同步的更改吗？此操作无法撤销。</string>
-    <string name="sync_panel_predownload_running">正在预下载%1$s（第 %2$d 页）…</string>
-    <string name="sync_panel_predownload_idle">当前没有正在预下载的内容。</string>
+    <string name="sync_panel_predownload_running">正在缓存%1$s（第 %2$d 页）…</string>
+    <string name="sync_panel_predownload_idle">当前没有正在缓存的内容。</string>
     <string name="search_offline_badge">离线搜索结果（来自本地缓存）</string>
     <string name="memo_detail_comments_cached">正在显示缓存评论 — 离线</string>
 

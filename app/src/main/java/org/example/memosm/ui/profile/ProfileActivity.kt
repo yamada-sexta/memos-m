@@ -145,6 +145,9 @@ class SettingsActivity : ProfileActivity() {
             viewModel = viewModel,
             onBack = onBack,
             section = section,
+            onOpenLicenses = {
+                launcher.launch(Intent(this, OpenSourceLicensesActivity::class.java))
+            },
             onOpenSection = { destination ->
                 launcher.launch(Intent(this, SettingsActivity::class.java).putExtra(EXTRA_SECTION, destination.name))
             }
@@ -153,5 +156,12 @@ class SettingsActivity : ProfileActivity() {
 
     private companion object {
         const val EXTRA_SECTION = "settings_section"
+    }
+}
+
+class OpenSourceLicensesActivity : ProfileActivity() {
+    @Composable
+    override fun Destination(viewModel: MemosViewModel, onBack: () -> Unit) {
+        org.example.memosm.ui.nav.OpenSourceLicensesScreen(onBack)
     }
 }

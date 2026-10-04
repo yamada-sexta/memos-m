@@ -206,13 +206,13 @@
     <string name="offline_sync_now">Sync Now</string>
     <string name="offline_sync_queue_title">Pending changes</string>
     <string name="offline_sync_delete_op">Discard change</string>
-    <string name="offline_predownload_running">Pre-downloading — %1$s (page %2$d)</string>
+    <string name="offline_predownload_running">Caching — %1$s (page %2$d)</string>
     <string name="offline_predownload_phase_text">fetching text…</string>
     <string name="offline_predownload_phase_attachments">downloading attachments…</string>
-    <string name="offline_predownload_done">Pre-download complete: %1$d memo(s), %2$d attachment(s)</string>
-    <string name="offline_predownload_failed">Pre-download failed: %1$s</string>
-    <string name="offline_predownload_text_button">Pre-download All Text</string>
-    <string name="offline_predownload_attachments_button">Pre-download All Attachments</string>
+    <string name="offline_predownload_done">Cache complete: %1$d memo(s), %2$d attachment(s)</string>
+    <string name="offline_predownload_failed">Cache failed: %1$s</string>
+    <string name="offline_predownload_text_button">Cache All Memo Text</string>
+    <string name="offline_predownload_attachments_button">Cache All Attachments</string>
     <string name="offline_attachment_cache_usage">Attachment cache: %1$s</string>
     <string name="offline_clear_attachments">Clear Attachment Cache</string>
     <string name="offline_clear_text">Clear Text Cache</string>
@@ -223,10 +223,10 @@
     <string name="offline_op_reaction_upsert">Add reaction</string>
     <string name="offline_op_reaction_delete">Remove reaction</string>
     <string name="offline_settings_title">Offline Cache</string>
-    <string name="offline_settings_pre_download_text">Pre-download all text</string>
-    <string name="offline_settings_pre_download_attachments">Pre-download attachments</string>
-    <string name="offline_settings_wifi_only">Pre-download on Wi-Fi only</string>
-    <string name="offline_settings_pre_download_explore">Pre-download Explore feed</string>
+    <string name="offline_settings_pre_download_text">Cache memo text</string>
+    <string name="offline_settings_pre_download_attachments">Cache attachments</string>
+    <string name="offline_settings_wifi_only">Cache on Wi-Fi only</string>
+    <string name="offline_settings_pre_download_explore">Cache Explore feed</string>
     <string name="offline_settings_cache_size">Attachment cache limit</string>
     <string name="offline_settings_cache_size_text">Text cache limit</string>
     <string name="offline_settings_cache_size_theme">Media cache limit</string>
@@ -285,7 +285,7 @@
     <string name="settings_group_sync_cache">Sync &amp; cache</string>
     <string name="settings_group_about">Instance &amp; about</string>
     <string name="sync_status_syncing">Syncing…</string>
-    <string name="sync_status_predownload">Pre-downloading: %1$s</string>
+    <string name="sync_status_predownload">Caching: %1$s</string>
     <string name="sync_status_phase_text">text</string>
     <string name="sync_status_phase_attachments">attachments</string>
     <string name="sync_status_pending">%1$d change(s) pending sync</string>
@@ -306,8 +306,8 @@
     <string name="sync_queue_needs_attention">Needs attention — retry manually or discard this change.</string>
     <string name="sync_queue_delete_title">Discard pending change?</string>
     <string name="sync_queue_delete_message">Discard this unsynced change? This cannot be undone.</string>
-    <string name="sync_panel_predownload_running">Pre-downloading %1$s (page %2$d)…</string>
-    <string name="sync_panel_predownload_idle">Nothing pre-downloading right now.</string>
+    <string name="sync_panel_predownload_running">Caching %1$s (page %2$d)…</string>
+    <string name="sync_panel_predownload_idle">No caching in progress.</string>
     <string name="search_offline_badge">Offline results (from local cache)</string>
     <string name="memo_detail_comments_cached">Showing cached comments — offline</string>
     <string name="memo_input_add_tag">Add tag</string>
@@ -365,13 +365,17 @@
     <string name="settings_memos" tools:ignore="MissingTranslation">Memos</string>
     <string name="settings_network" tools:ignore="MissingTranslation">Network</string>
     <string name="settings_summary_general" tools:ignore="MissingTranslation">Language, default visibility, page size</string>
-    <string name="settings_summary_appearance" tools:ignore="MissingTranslation">Memo heading size</string>
-    <string name="settings_summary_memos" tools:ignore="MissingTranslation">Link previews, shortcuts, webhooks</string>
+    <string name="settings_summary_appearance" tools:ignore="MissingTranslation">Link previews, memo heading size</string>
+    <string name="settings_summary_memos" tools:ignore="MissingTranslation">Shortcuts, webhooks</string>
     <string name="settings_summary_network" tools:ignore="MissingTranslation">Local network access</string>
-    <string name="settings_summary_offline" tools:ignore="MissingTranslation">Pre-downloads, storage limits, clear cache</string>
+    <string name="settings_summary_offline" tools:ignore="MissingTranslation">Automatic caching, storage limits, clear cache</string>
     <string name="settings_summary_recovery" tools:ignore="MissingTranslation">Export and restore your data</string>
     <string name="settings_summary_audit" tools:ignore="MissingTranslation">Recent sync activity</string>
     <string name="settings_summary_about" tools:ignore="MissingTranslation">App version, source code, licenses</string>
+    <string name="settings_cache_files_used" tools:ignore="MissingTranslation">Used by cached files</string>
+    <string name="settings_cache_files_limit" tools:ignore="MissingTranslation">%1$s file cache limit</string>
+    <string name="settings_cache_downloads" tools:ignore="MissingTranslation">Automatic caching</string>
+    <string name="settings_cache_limits" tools:ignore="MissingTranslation">Storage limits</string>
     <string name="settings_shortcuts_summary" tools:ignore="MissingTranslation">Manage saved memo filters</string>
     <string name="settings_webhooks_summary" tools:ignore="MissingTranslation">Manage webhook integrations</string>
     <string name="settings_summary_instance" tools:ignore="MissingTranslation">Server version, mode, address</string>

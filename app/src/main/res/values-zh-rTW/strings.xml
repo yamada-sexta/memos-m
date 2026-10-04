@@ -199,13 +199,13 @@
     <string name="offline_sync_now">立即同步</string>
     <string name="offline_sync_queue_title">待同步變更</string>
     <string name="offline_sync_delete_op">放棄此變更</string>
-    <string name="offline_predownload_running">預下載中 — %1$s（第 %2$d 頁）</string>
+    <string name="offline_predownload_running">快取中 — %1$s（第 %2$d 頁）</string>
     <string name="offline_predownload_phase_text">正在取得文字…</string>
     <string name="offline_predownload_phase_attachments">正在下載附件…</string>
-    <string name="offline_predownload_done">預下載完成：%1$d 條備忘錄，%2$d 個附件</string>
-    <string name="offline_predownload_failed">預下載失敗：%1$s</string>
-    <string name="offline_predownload_text_button">預下載全部文字</string>
-    <string name="offline_predownload_attachments_button">預下載全部附件</string>
+    <string name="offline_predownload_done">快取完成：%1$d 條備忘錄，%2$d 個附件</string>
+    <string name="offline_predownload_failed">快取失敗：%1$s</string>
+    <string name="offline_predownload_text_button">快取全部文字</string>
+    <string name="offline_predownload_attachments_button">快取全部附件</string>
     <string name="offline_attachment_cache_usage">附件快取：%1$s</string>
     <string name="offline_clear_attachments">清除附件快取</string>
     <string name="offline_clear_text">清除文字快取</string>
@@ -216,10 +216,10 @@
     <string name="offline_op_reaction_upsert">新增表情</string>
     <string name="offline_op_reaction_delete">移除表情</string>
     <string name="offline_settings_title">離線快取</string>
-    <string name="offline_settings_pre_download_text">預下載全部文字</string>
-    <string name="offline_settings_pre_download_attachments">預下載附件</string>
-    <string name="offline_settings_wifi_only">僅 Wi-Fi 下預下載</string>
-    <string name="offline_settings_pre_download_explore">預下載探索頁內容</string>
+    <string name="offline_settings_pre_download_text">快取全部文字</string>
+    <string name="offline_settings_pre_download_attachments">快取附件</string>
+    <string name="offline_settings_wifi_only">僅 Wi-Fi 下快取</string>
+    <string name="offline_settings_pre_download_explore">快取探索頁內容</string>
     <string name="offline_settings_cache_size">附件快取上限</string>
     <string name="offline_settings_cache_size_text">文字快取上限</string>
     <string name="offline_settings_cache_size_theme">媒體快取上限</string>
@@ -242,7 +242,7 @@
     <string name="cache_unit_mb">MB</string>
     <string name="cache_unit_gb">GB</string>
     <string name="sync_status_syncing">同步中…</string>
-    <string name="sync_status_predownload">預下載中：%1$s</string>
+    <string name="sync_status_predownload">快取中：%1$s</string>
     <string name="sync_status_phase_text">文字</string>
     <string name="sync_status_phase_attachments">附件</string>
     <string name="sync_status_pending">%1$d 項變更待同步</string>
@@ -252,8 +252,8 @@
     <string name="sync_panel_title">同步與快取</string>
     <string name="sync_panel_last_sync">最近同步：%1$s</string>
     <string name="sync_panel_queue">%1$d 項變更待同步</string>
-    <string name="sync_panel_predownload_running">正在預下載%1$s（第 %2$d 頁）…</string>
-    <string name="sync_panel_predownload_idle">目前沒有正在預下載的內容。</string>
+    <string name="sync_panel_predownload_running">正在快取%1$s（第 %2$d 頁）…</string>
+    <string name="sync_panel_predownload_idle">目前沒有正在快取的內容。</string>
     <string name="search_offline_badge">離線搜尋結果（來自本機快取）</string>
     <string name="memo_detail_comments_cached">正在顯示快取留言 — 離線</string>
 

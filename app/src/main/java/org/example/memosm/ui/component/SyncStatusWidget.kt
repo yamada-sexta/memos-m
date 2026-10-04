@@ -320,7 +320,7 @@ fun SyncStatusPanel(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.cache_cleanup_manage))
+                    Text(stringResource(R.string.cache_cleanup_title))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))

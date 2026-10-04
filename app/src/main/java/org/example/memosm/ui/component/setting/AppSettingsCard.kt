@@ -37,7 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
 
-enum class AppSettingsCategory { GENERAL, APPEARANCE, CONTENT, NETWORK }
+enum class AppSettingsCategory { GENERAL, APPEARANCE, NETWORK }
 
 @Composable
 fun AppSettingsCard(
@@ -54,7 +54,7 @@ fun AppSettingsCard(
     val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        if (category == AppSettingsCategory.CONTENT) {
+        if (category == AppSettingsCategory.APPEARANCE) {
             SettingToggleRow(
                 label = stringResource(R.string.profile_app_settings_link_previews),
                 description = stringResource(R.string.profile_app_settings_link_previews_description),

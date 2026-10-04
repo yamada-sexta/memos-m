@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -34,19 +37,29 @@ fun SettingsScreen(
     viewModel: MemosViewModel,
     onBack: () -> Unit,
     onOpenSection: (SettingsSection) -> Unit,
+    onOpenLicenses: () -> Unit,
     section: SettingsSection? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(section?.titleRes ?: R.string.settings_title)) },
-                navigationIcon = { ProfileBackButton(onClick = onBack) }
-            )
+            if (section == SettingsSection.OFFLINE) {
+                LargeTopAppBar(
+                    title = { Text(stringResource(section.titleRes)) },
+                    navigationIcon = { ProfileBackButton(onClick = onBack) },
+                    scrollBehavior = scrollBehavior
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(stringResource(section?.titleRes ?: R.string.settings_title)) },
+                    navigationIcon = { ProfileBackButton(onClick = onBack) }
+                )
+            }
         }
     ) { innerPadding ->
         if (section == null) {
@@ -80,7 +93,6 @@ fun SettingsScreen(
                     SettingsSection.CONTENT -> {
                         settingsItem {
                             SettingsGroup {
-                                AppPreferenceRows(viewModel, AppSettingsCategory.CONTENT)
                                 SettingsNavigationRow(
                                     title = stringResource(R.string.profile_shortcuts),
                                     summary = if (uiState.userMemoList.shortcuts.isEmpty()) {
@@ -174,7 +186,7 @@ fun SettingsScreen(
                     }
                     SettingsSection.RECOVERY -> settingsItem { RecoveryCard() }
                     SettingsSection.AUDIT -> settingsItem { AuditLogCard() }
-                    SettingsSection.ABOUT -> settingsItem { AboutAppCard() }
+                    SettingsSection.ABOUT -> settingsItem { AboutAppCard(onOpenLicenses) }
                     SettingsSection.INSTANCE -> settingsItem {
                         InstanceCard(uiState.session.instanceProfile ?: InstanceProfile())
                     }
