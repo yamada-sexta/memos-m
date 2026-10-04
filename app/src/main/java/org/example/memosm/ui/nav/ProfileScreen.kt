@@ -31,13 +31,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -60,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,6 +70,8 @@ import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.ProfileHeader
 import org.example.memosm.ui.component.StatsActivityCard
 import org.example.memosm.ui.component.rememberScrollContext
+import org.example.memosm.ui.component.setting.SettingsGroup
+import org.example.memosm.ui.component.setting.SettingsNavigationRow
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.RefreshSource
 
@@ -107,6 +105,9 @@ fun ProfileScreen(
             onShowArchived = { archived.launch(Intent(context, ArchivedMemosActivity::class.java)) },
             onShowNotifications = { notifications.launch(Intent(context, NotificationsActivity::class.java)) },
             onShowSettings = { settings.launch(Intent(context, SettingsActivity::class.java)) },
+            onOpenSection = { section ->
+                settings.launch(SettingsActivity.createIntent(context, section))
+            },
             onEditProfile = { editProfile.launch(Intent(context, EditProfileActivity::class.java)) },
             onToggleNavBar = onToggleNavBar,
             isNavBarVisible = isNavBarVisible,
@@ -124,6 +125,7 @@ private fun ProfileListPane(
     onShowArchived: () -> Unit,
     onShowNotifications: () -> Unit,
     onShowSettings: () -> Unit,
+    onOpenSection: (SettingsSection) -> Unit,
     onEditProfile: () -> Unit,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     isNavBarVisible: Boolean = true,
@@ -287,28 +289,31 @@ private fun ProfileListPane(
 
                 item {
                     Box(itemModifier) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            onClick = onShowNotifications
-                        ) {
-                            ListItem(
-                                headlineContent = {
-                                    Text(stringResource(R.string.profile_notifications))
-                                },
-                                leadingContent = {
-                                    Icon(
-                                        Icons.Outlined.Notifications,
-                                        contentDescription = null
+                        SettingsGroup {
+                            SettingsNavigationRow(
+                                title = stringResource(R.string.profile_notifications),
+                                icon = Icons.Outlined.Notifications,
+                                onClick = onShowNotifications
+                            )
+                            listOf(SettingsSection.SHORTCUTS, SettingsSection.WEBHOOKS, SettingsSection.INSTANCE)
+                                .forEach { section ->
+                                    SettingsNavigationRow(
+                                        title = stringResource(section.titleRes),
+                                        icon = section.icon,
+                                        onClick = { onOpenSection(section) }
                                     )
-                                },
-                                trailingContent = {
-                                    Icon(
-                                        Icons.Outlined.ChevronRight,
-                                        contentDescription = null
-                                    )
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                                }
+                        }
+                    }
+                }
+
+                item {
+                    Box(itemModifier) {
+                        SettingsGroup {
+                            SettingsNavigationRow(
+                                title = stringResource(R.string.profile_archived),
+                                icon = Icons.Outlined.Archive,
+                                onClick = onShowArchived
                             )
                         }
                     }
@@ -316,45 +321,16 @@ private fun ProfileListPane(
 
                 item {
                     Box(itemModifier) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            onClick = onShowArchived
-                        ) {
-                            ListItem(
-                                headlineContent = { Text(stringResource(R.string.profile_archived)) },
-                                leadingContent = { Icon(Icons.Outlined.Archive, contentDescription = null) },
-                                trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        SettingsGroup {
+                            SettingsNavigationRow(
+                                title = stringResource(R.string.settings_title),
+                                icon = Icons.Outlined.Settings,
+                                onClick = onShowSettings
                             )
-                        }
-                    }
-                }
-
-                item {
-                    Box(itemModifier) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            onClick = onShowSettings
-                        ) {
-                            ListItem(
-                                headlineContent = {
-                                    Text(stringResource(R.string.settings_title))
-                                },
-                                leadingContent = {
-                                    Icon(
-                                        Icons.Outlined.Settings,
-                                        contentDescription = null
-                                    )
-                                },
-                                trailingContent = {
-                                    Icon(
-                                        Icons.Outlined.ChevronRight,
-                                        contentDescription = null
-                                    )
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            SettingsNavigationRow(
+                                title = stringResource(SettingsSection.ABOUT.titleRes),
+                                icon = SettingsSection.ABOUT.icon,
+                                onClick = { onOpenSection(SettingsSection.ABOUT) }
                             )
                         }
                     }

@@ -21,16 +21,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.outlined.Attachment
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -80,7 +79,7 @@ import org.example.memosm.ui.component.item.markdown.LocalLinkPreviews
 import org.example.memosm.ui.component.item.markdown.LinkPreviewEnvironment
 import org.example.memosm.ui.component.resolveResourceUrl
 import org.example.memosm.ui.nav.AttachmentsScreen
-import org.example.memosm.ui.nav.ExploreScreen
+import org.example.memosm.ui.nav.MemoFeed
 import org.example.memosm.ui.nav.MemosScreen
 import org.example.memosm.ui.nav.ProfileScreen
 import org.example.memosm.viewmodel.MemosViewModel
@@ -90,7 +89,7 @@ import androidx.compose.runtime.MutableState
 enum class MainDestination(
     val labelRes: Int
 ) {
-    MEMOS(R.string.nav_memos), EXPLORE(R.string.nav_explore), ATTACHMENTS(R.string.nav_attachments), PROFILE(
+    MEMOS(R.string.nav_memos), ATTACHMENTS(R.string.nav_attachments), PROFILE(
         R.string.nav_profile
     )
 }
@@ -139,6 +138,7 @@ private fun MainScreenContent(
     onComposerOpened: () -> Unit
 ) {
     var currentDestination by destination
+    val feedPagerState = rememberPagerState(pageCount = { MemoFeed.entries.size })
     var lastTapTime by remember { mutableLongStateOf(0L) }
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -172,6 +172,7 @@ private fun MainScreenContent(
     // Switch to Memos tab if widget triggered composer
     LaunchedEffect(shouldOpenComposer) {
         if (shouldOpenComposer) {
+            feedPagerState.scrollToPage(MemoFeed.MEMOS.ordinal)
             currentDestination = MainDestination.MEMOS
         }
     }
@@ -237,12 +238,6 @@ private fun MainScreenContent(
                 modifier = modifier
             )
 
-            MainDestination.EXPLORE -> Icon(
-                if (isSelected) Icons.Default.Public else Icons.Outlined.Public,
-                contentDescription = null,
-                modifier = modifier
-            )
-
             MainDestination.ATTACHMENTS -> Icon(
                 if (isSelected) Icons.Default.Attachment else Icons.Outlined.Attachment,
                 contentDescription = null,
@@ -285,8 +280,10 @@ private fun MainScreenContent(
         val currentTime = System.currentTimeMillis()
         if (currentDestination == destination && currentTime - lastTapTime < 500) {
             when (destination) {
-                MainDestination.MEMOS -> viewModel.fetchUserMemos(refresh = true)
-                MainDestination.EXPLORE -> viewModel.fetchExploreMemos(refresh = true)
+                MainDestination.MEMOS -> when (MemoFeed.entries[feedPagerState.currentPage]) {
+                    MemoFeed.MEMOS -> viewModel.fetchUserMemos(refresh = true)
+                    MemoFeed.EXPLORE -> viewModel.fetchExploreMemos(refresh = true)
+                }
                 MainDestination.ATTACHMENTS -> viewModel.fetchAttachments(refresh = true)
                 else -> {}
             }
@@ -345,16 +342,11 @@ private fun MainScreenContent(
                             when (targetDestination) {
                                 MainDestination.MEMOS -> MemosScreen(
                                     viewModel = viewModel,
+                                    pagerState = feedPagerState,
                                     onToggleNavBar = toggleNavBar,
                                     isNavBarVisible = isNavBarVisible,
                                     openComposer = shouldOpenComposer,
                                     onComposerOpened = onComposerOpened
-                                )
-
-                                MainDestination.EXPLORE -> ExploreScreen(
-                                    viewModel = viewModel,
-                                    onToggleNavBar = toggleNavBar,
-                                    isNavBarVisible = isNavBarVisible
                                 )
 
                                 MainDestination.ATTACHMENTS -> AttachmentsScreen(

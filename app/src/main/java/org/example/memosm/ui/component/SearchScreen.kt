@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
@@ -76,6 +77,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -114,6 +116,9 @@ fun MemoSearchBar(
     val focusManager = LocalFocusManager.current
     val containerFocusRequester = remember { FocusRequester() }
 
+    // Report restored expansion too, so the feed header and navigation stay in sync.
+    LaunchedEffect(expanded) { onExpandedChange(expanded) }
+
     // Maintain a set of selected tags for AND filtering within the search context
     var searchSelectedTags by rememberSaveable { mutableStateOf(setOf<String>()) }
     var startDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -139,7 +144,7 @@ fun MemoSearchBar(
         }
 
     // Effect to trigger server-side search whenever filters change
-    LaunchedEffect(query, searchSelectedTags, startDateMillis, endDateMillis, orderBy, expanded) {
+    LaunchedEffect(query, searchSelectedTags, startDateMillis, endDateMillis, orderBy, expanded, isExplore) {
         if (expanded) {
             // Debounce the search to prevent excessive API calls while typing
             delay(300)
@@ -189,14 +194,14 @@ fun MemoSearchBar(
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .then(if (expanded) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
+            .padding(horizontal = if (expanded) 0.dp else 16.dp)
             .focusRequester(containerFocusRequester)
             .focusable()
             .zIndex(1f)
     ) {
         SearchBar(
-            modifier = Modifier.fillMaxWidth(), inputField = {
+            modifier = Modifier.fillMaxWidth().testTag("memo_search_bar"), inputField = {
                 SearchBarDefaults.InputField(
                     query = query,
                     onQueryChange = { query = it },
@@ -207,7 +212,20 @@ fun MemoSearchBar(
                         onExpandedChange(it)
                     },
                     placeholder = { Text(placeholder) },
-                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    leadingIcon = {
+                        if (expanded) {
+                            IconButton(onClick = {
+                                expanded = false
+                                onExpandedChange(false)
+                                focusManager.clearFocus()
+                            }) {
+                                Icon(Icons.AutoMirrored.Outlined.ArrowBack,
+                                    contentDescription = stringResource(R.string.memo_detail_back))
+                            }
+                        } else {
+                            Icon(Icons.Outlined.Search, contentDescription = null)
+                        }
+                    },
                     trailingIcon = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically

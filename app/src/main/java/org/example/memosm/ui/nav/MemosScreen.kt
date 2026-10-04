@@ -11,6 +11,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Shortcut
@@ -41,12 +44,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -67,17 +74,30 @@ import org.example.memosm.ui.component.composer.MemoComposerScreen
 import org.example.memosm.ui.component.item.DraftsCard
 import org.example.memosm.ui.component.rememberScrollContext
 import org.example.memosm.viewmodel.MemosViewModel
+import org.example.memosm.viewmodel.RefreshSource
 
 @Composable
 fun MemosScreen(
     viewModel: MemosViewModel,
+    pagerState: PagerState,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     isNavBarVisible: Boolean = true,
     openComposer: Boolean = false,
     onComposerOpened: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
+    val memosListState = rememberLazyListState()
+    val exploreListState = rememberLazyListState()
+    val activeFeed = MemoFeed.entries[pagerState.currentPage]
+    val listState = if (activeFeed == MemoFeed.MEMOS) memosListState else exploreListState
+    val activeMemos = if (activeFeed == MemoFeed.MEMOS) {
+        uiState.userMemoList.list.items
+    } else {
+        uiState.exploreMemoList.list.items
+    }
+    var isSearchExpanded by remember(activeFeed) { mutableStateOf(false) }
+    val density = LocalDensity.current
+    var feedHeaderHeight by remember { mutableStateOf(48.dp) }
     var showComposerDialog by remember { mutableStateOf(false) }
     var showDraftsScreen by remember { mutableStateOf(false) }
     var showDraftPrompt by remember { mutableStateOf(false) }
@@ -87,16 +107,10 @@ fun MemosScreen(
     var startFresh by remember { mutableStateOf(false) }
 
     // FAB expansion based on scroll direction
-    val scrollContext = rememberScrollContext(listState = listState, onScrollDown = {
-        onToggleNavBar?.invoke(false)
-        isFabExpanded = false
-    }, onScrollUp = {
-        onToggleNavBar?.invoke(true)
-        isFabExpanded = true
-    })
+    val scrollContext = rememberScrollContext(listState = listState)
 
     // Explicitly handle initial state or non-scroll updates if needed
-    LaunchedEffect(scrollContext.isScrollingDown) {
+    LaunchedEffect(listState, scrollContext.isScrollingDown) {
         isFabExpanded = !scrollContext.isScrollingDown
     }
 
@@ -120,11 +134,14 @@ fun MemosScreen(
     }
 
     // Double tap refresh logic: scroll to top
-
-    // Double tap refresh logic: scroll to top
     var lastProcessedTrigger by remember { mutableLongStateOf(uiState.refreshTrigger) }
     LaunchedEffect(uiState.refreshTrigger) {
-        if (uiState.refreshTrigger > lastProcessedTrigger) {
+        val activeRefreshSource = if (activeFeed == MemoFeed.MEMOS) {
+            RefreshSource.USerMemos
+        } else {
+            RefreshSource.ExploreMemos
+        }
+        if (uiState.refreshTrigger > lastProcessedTrigger && uiState.refreshSource == activeRefreshSource) {
             listState.animateScrollToItem(0)
         }
         lastProcessedTrigger = uiState.refreshTrigger
@@ -132,40 +149,90 @@ fun MemosScreen(
 
     MemosScaffold(
         viewModel = viewModel,
-        memos = uiState.userMemoList.list.items,
+        memos = activeMemos,
         listState = listState,
         onToggleNavBar = { onToggleNavBar?.invoke(it) },
         isNavBarVisible = isNavBarVisible,
-        listPane = { onMemoClick ->
-            MemosListPane(
-                viewModel = viewModel,
-                listState = listState,
-                onMemoClick = onMemoClick,
-                contentPadding = PaddingValues(
-                    start = 16.dp, top = 88.dp, end = 16.dp, bottom = bottomPadding
-                ),
-                onDraftsCardClick = { showDraftsScreen = true },
-                onHashtagClick = { tag -> viewModel.shortcutDelegate.toggleHashtagFilter(tag) }
-            )
-        },
-        overlay = { onMemoClick, showSearchBar, isSearchExpanded, onSearchExpandedChange, isDualPane, isDetailVisible ->
+        navigationKey = activeFeed,
+        listHeader = { showSearchBar, searchExpanded ->
             AnimatedVisibility(
-                visible = showSearchBar && (!isSearchExpanded || isDualPane || !isDetailVisible),
+                visible = showSearchBar && !searchExpanded,
+                enter = slideInVertically { -it } + expandVertically() + fadeIn(),
+                exit = slideOutVertically { -it } + shrinkVertically() + fadeOut()
+            ) {
+                MemoFeedTabs(pagerState, Modifier.testTag("memo_feed_tabs").onSizeChanged {
+                    feedHeaderHeight = with(density) { it.height.toDp() }
+                })
+            }
+        },
+        listPane = { onMemoClick ->
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize().testTag("memo_feed_pager"),
+                userScrollEnabled = !isSearchExpanded && !showComposerDialog && !showDraftsScreen && !showDraftPrompt,
+                key = { MemoFeed.entries[it] }
+            ) { page ->
+                val feed = MemoFeed.entries[page]
+                val contentPadding = PaddingValues(
+                    start = 16.dp, top = 88.dp + feedHeaderHeight, end = 16.dp, bottom = bottomPadding
+                )
+                when (feed) {
+                    MemoFeed.MEMOS -> MemosListPane(
+                        viewModel = viewModel,
+                        listState = memosListState,
+                        onMemoClick = onMemoClick,
+                        contentPadding = contentPadding,
+                        onDraftsCardClick = { showDraftsScreen = true },
+                        onHashtagClick = { tag -> viewModel.shortcutDelegate.toggleHashtagFilter(tag) },
+                        isActive = activeFeed == feed
+                    )
+                    MemoFeed.EXPLORE -> GenericMemosListPane(
+                        viewModel = viewModel,
+                        modifier = Modifier.testTag("memo_feed_explore"),
+                        memos = uiState.exploreMemoList.list.items,
+                        isLoading = uiState.exploreMemoList.list.isLoading,
+                        isRefreshing = uiState.isRefreshing && uiState.refreshSource == RefreshSource.ExploreMemos,
+                        nextPageToken = uiState.exploreMemoList.list.nextPageToken,
+                        onLoadMore = { viewModel.loadMoreExploreMemos() },
+                        onRefresh = { viewModel.fetchExploreMemos(refresh = true) },
+                        onMemoClick = onMemoClick,
+                        listState = exploreListState,
+                        contentPadding = contentPadding,
+                        userProvider = { memo -> uiState.users[memo.creator] },
+                        errorTitle = stringResource(R.string.common_error_failed_to_load_explore),
+                        isActive = activeFeed == feed
+                    )
+                }
+            }
+        },
+        overlay = { onMemoClick, showSearchBar, searchExpanded, onSearchExpandedChange, isDualPane, isDetailVisible ->
+            AnimatedVisibility(
+                visible = (showSearchBar || searchExpanded) && (!searchExpanded || isDualPane || !isDetailVisible),
                 enter = slideInVertically { -it } + fadeIn(),
                 exit = slideOutVertically { -it } + fadeOut(),
                 modifier = Modifier.align(Alignment.TopCenter)) {
-                MemoSearchBar(
-                    viewModel = viewModel,
-                    onMemoClick = onMemoClick,
-                    onExpandedChange = onSearchExpandedChange
-                )
+                key(activeFeed) {
+                    MemoSearchBar(
+                        viewModel = viewModel,
+                        isExplore = activeFeed == MemoFeed.EXPLORE,
+                        placeholder = stringResource(
+                            if (activeFeed == MemoFeed.EXPLORE) R.string.memo_search_explore_placeholder
+                            else R.string.memo_search_placeholder
+                        ),
+                        onMemoClick = onMemoClick,
+                        onExpandedChange = {
+                            isSearchExpanded = it
+                            onSearchExpandedChange(it)
+                        }
+                    )
+                }
             }
 
             // FAB for creating new memo
-            if (uiState.session.currUser != null && !isSearchExpanded) {
+            if (uiState.session.currUser != null && !searchExpanded) {
                 // Animate FAB position only if nav bar can be toggled (onToggleNavBar provided)
                 val fabBottomPadding by animateDpAsState(
-                    targetValue = if (onToggleNavBar != null && isFabExpanded) 96.dp else 16.dp,
+                    targetValue = if (onToggleNavBar != null && isNavBarVisible) 96.dp else 16.dp,
                     label = "fabBottomPadding"
                 )
 
@@ -297,7 +364,8 @@ private fun MemosListPane(
     onMemoClick: (Memo) -> Unit,
     contentPadding: PaddingValues,
     onDraftsCardClick: () -> Unit,
-    onHashtagClick: (String) -> Unit
+    onHashtagClick: (String) -> Unit,
+    isActive: Boolean
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val hasDrafts = uiState.draft.drafts.isNotEmpty()
@@ -306,9 +374,10 @@ private fun MemosListPane(
 
     GenericMemosListPane(
         viewModel = viewModel,
+        modifier = Modifier.testTag("memo_feed_memos"),
         memos = uiState.userMemoList.list.items,
         isLoading = uiState.userMemoList.list.isLoading,
-        isRefreshing = uiState.isRefreshing,
+        isRefreshing = uiState.isRefreshing && uiState.refreshSource == RefreshSource.USerMemos,
         nextPageToken = uiState.userMemoList.list.nextPageToken,
         onLoadMore = { viewModel.loadMoreUserMemos() },
         onRefresh = { viewModel.fetchUserMemos(refresh = true) },
@@ -317,6 +386,7 @@ private fun MemosListPane(
         contentPadding = contentPadding,
         errorTitle = stringResource(R.string.common_error_failed_to_load_memos),
         onHashtagClick = onHashtagClick,
+        isActive = isActive,
         header = {
             val hasShortcuts = uiState.userMemoList.shortcuts.isNotEmpty()
             val selectedHashtag = uiState.userMemoList.selectedHashtag

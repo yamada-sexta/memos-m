@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
@@ -39,25 +38,27 @@ import androidx.compose.ui.draw.clip
 import org.example.memosm.R
 import org.example.memosm.ui.component.setting.SettingsGroup
 
-enum class SettingsSection(@StringRes val titleRes: Int, @StringRes val summaryRes: Int?, val icon: ImageVector) {
-    GENERAL(R.string.settings_group_general, R.string.settings_summary_general, Icons.Outlined.Settings),
-    APPEARANCE(R.string.settings_appearance, R.string.settings_summary_appearance, Icons.Outlined.Palette),
-    CONTENT(R.string.settings_memos, R.string.settings_summary_memos, Icons.Outlined.Description),
-    SHORTCUTS(R.string.profile_shortcuts, R.string.profile_shortcuts_none, Icons.Outlined.Bookmarks),
-    WEBHOOKS(R.string.profile_webhooks, R.string.profile_webhooks_none, Icons.Outlined.Link),
-    OFFLINE(R.string.offline_settings_title, R.string.settings_summary_offline, Icons.Outlined.CloudDownload),
-    RECOVERY(R.string.recovery_title, R.string.settings_summary_recovery, Icons.Outlined.ImportExport),
-    AUDIT(R.string.audit_log_title, null, Icons.Outlined.History),
-    ABOUT(R.string.profile_about, R.string.settings_summary_about, Icons.Outlined.Info),
-    INSTANCE(R.string.profile_instance_info, R.string.settings_summary_instance, Icons.Outlined.Dns)
+enum class SettingsSection(
+    @StringRes val titleRes: Int,
+    val icon: ImageVector,
+    @StringRes val summaryRes: Int? = null
+) {
+    GENERAL(R.string.settings_group_general, Icons.Outlined.Settings, R.string.settings_summary_general),
+    APPEARANCE(R.string.settings_appearance, Icons.Outlined.Palette, R.string.settings_summary_appearance),
+    SHORTCUTS(R.string.profile_shortcuts, Icons.Outlined.Bookmarks),
+    WEBHOOKS(R.string.profile_webhooks, Icons.Outlined.Link),
+    OFFLINE(R.string.offline_settings_title, Icons.Outlined.CloudDownload, R.string.settings_summary_offline),
+    RECOVERY(R.string.recovery_title, Icons.Outlined.ImportExport, R.string.settings_summary_recovery),
+    AUDIT(R.string.audit_log_title, Icons.Outlined.History),
+    ABOUT(R.string.profile_about, Icons.Outlined.Info),
+    INSTANCE(R.string.profile_instance_info, Icons.Outlined.Dns)
 }
 
 @Composable
 internal fun SettingsOverview(onOpenSection: (SettingsSection) -> Unit, modifier: Modifier = Modifier) {
     val groups = listOf(
-        listOf(SettingsSection.GENERAL, SettingsSection.APPEARANCE, SettingsSection.CONTENT),
-        listOf(SettingsSection.OFFLINE, SettingsSection.RECOVERY),
-        listOf(SettingsSection.ABOUT, SettingsSection.INSTANCE)
+        listOf(SettingsSection.GENERAL, SettingsSection.APPEARANCE),
+        listOf(SettingsSection.OFFLINE, SettingsSection.RECOVERY)
     )
     LazyColumn(
         modifier = modifier.fillMaxSize(),

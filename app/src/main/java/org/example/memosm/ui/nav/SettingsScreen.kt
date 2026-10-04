@@ -89,26 +89,6 @@ fun SettingsScreen(
                         }
                     }
                     SettingsSection.APPEARANCE -> Unit
-                    SettingsSection.CONTENT -> {
-                        settingsItem {
-                            SettingsGroup {
-                                SettingsNavigationRow(
-                                    title = stringResource(R.string.profile_shortcuts),
-                                    summary = if (uiState.userMemoList.shortcuts.isEmpty()) {
-                                        stringResource(R.string.profile_shortcuts_none)
-                                    } else stringResource(R.string.settings_shortcuts_summary),
-                                    onClick = { onOpenSection(SettingsSection.SHORTCUTS) }
-                                )
-                                SettingsNavigationRow(
-                                    title = stringResource(R.string.profile_webhooks),
-                                    summary = if (uiState.session.webhooks.isEmpty()) {
-                                        stringResource(R.string.profile_webhooks_none)
-                                    } else stringResource(R.string.settings_webhooks_summary),
-                                    onClick = { onOpenSection(SettingsSection.WEBHOOKS) }
-                                )
-                            }
-                        }
-                    }
                     SettingsSection.SHORTCUTS -> {
                         settingsItem {
                             ShortcutsCard(

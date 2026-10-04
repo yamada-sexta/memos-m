@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -88,7 +90,9 @@ fun MemosScaffold(
     topBar: @Composable (isDetailVisible: Boolean, isDualPane: Boolean) -> Unit = { _, _ -> },
     overlay: @Composable BoxScope.(onMemoClick: (Memo) -> Unit, showSearchBar: Boolean, isSearchExpanded: Boolean, onSearchExpandedChange: (Boolean) -> Unit, isDualPane: Boolean, isDetailVisible: Boolean) -> Unit = { _, _, _, _, _, _ -> },
     onToggleNavBar: (Boolean) -> Unit = {},
-    isNavBarVisible: Boolean = true
+    isNavBarVisible: Boolean = true,
+    navigationKey: Any? = null,
+    listHeader: @Composable (showSearchBar: Boolean, isSearchExpanded: Boolean) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
@@ -97,13 +101,14 @@ fun MemosScaffold(
         defaultPanePreferredWidth = 600.dp
     )
 
-    val navigator = rememberListDetailPaneScaffoldNavigator<MemoKey>(
-        scaffoldDirective = scaffoldDirective
-    )
+    // Each feed starts with a fresh detail back stack when the user switches tabs.
+    val navigator = key(navigationKey) {
+        rememberListDetailPaneScaffoldNavigator<MemoKey>(scaffoldDirective = scaffoldDirective)
+    }
 
     // Workaround for Compose Material 3 Adaptive Navigator not automatically updating the inner state
     // when scaffoldValue changes (e.g. on window resize).
-    LaunchedEffect(scaffoldDirective) {
+    LaunchedEffect(navigator, scaffoldDirective) {
         (navigator.scaffoldState as? androidx.compose.material3.adaptive.layout.MutableThreePaneScaffoldState)?.snapTo(navigator.scaffoldValue)
     }
 
@@ -115,7 +120,7 @@ fun MemosScaffold(
         focusRequester.requestFocus()
     }
 
-    LaunchedEffect(navigator.currentDestination) {
+    LaunchedEffect(navigator, navigator.currentDestination) {
         focusManager.clearFocus()
     }
 
@@ -132,7 +137,7 @@ fun MemosScaffold(
 
     // Sync selected memo with navigator
     // We add memos and search items as dependencies to ensure selectedMemo is updated if the items in the list change (e.g. after an edit)
-    LaunchedEffect(navigator.currentDestination, memos, uiState.searchMemoList.list.items) {
+    LaunchedEffect(navigator, navigator.currentDestination, memos, uiState.searchMemoList.list.items) {
         val currentMemoKey = navigator.currentDestination?.contentKey
         if (currentMemoKey != null) {
             val selectedId =
@@ -152,13 +157,13 @@ fun MemosScaffold(
         }
     }
 
-    var isSearchExpanded by remember { mutableStateOf(false) }
+    var isSearchExpanded by remember(navigationKey) { mutableStateOf(false) }
 
-    val showNavBarByScroll by remember {
+    val showNavBarByScroll by remember(listState, scrollContext) {
         derivedStateOf { !scrollContext.isScrollingDown || listState.firstVisibleItemIndex == 0 }
     }
 
-    LaunchedEffect(showNavBarByScroll, isDetailVisible, isDualPane, isSearchExpanded) {
+    LaunchedEffect(listState, showNavBarByScroll, isDetailVisible, isDualPane, isSearchExpanded) {
         if ((isDetailVisible || isSearchExpanded) && !isDualPane) {
             // Hide navbar when viewing detail or searching on single-pane (mobile)
             onToggleNavBar(false)
@@ -168,9 +173,7 @@ fun MemosScaffold(
         }
     }
 
-    val showSearchBar by remember {
-        derivedStateOf { showNavBarByScroll }
-    }
+    val showSearchBar = showNavBarByScroll
 
     var memoToEdit by remember { mutableStateOf<Memo?>(null) }
     var memoToComment by remember { mutableStateOf<Memo?>(null) }
@@ -217,23 +220,30 @@ fun MemosScaffold(
                                     }
                                 }
 
-                                overlay(
-                                    { memo ->
-                                        focusManager.clearFocus()
-                                        scope.launch {
-                                            val id = memo.name ?: memo.content.hashCode().toString()
-                                            navigator.navigateTo(
-                                                ListDetailPaneScaffoldRole.Detail,
-                                                MemoKey(id, fromSearch = true)
-                                            )
-                                        }
-                                    },
-                                    showSearchBar,
-                                    isSearchExpanded,
-                                    { isSearchExpanded = it },
-                                    isDualPane,
-                                    isDetailVisible
-                                )
+                                // Keep the header above the list without changing the list's
+                                // constraints as the header hides or search expands.
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    listHeader(showSearchBar, isSearchExpanded)
+                                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                        overlay(
+                                            { memo ->
+                                                focusManager.clearFocus()
+                                                scope.launch {
+                                                    val id = memo.name ?: memo.content.hashCode().toString()
+                                                    navigator.navigateTo(
+                                                        ListDetailPaneScaffoldRole.Detail,
+                                                        MemoKey(id, fromSearch = true)
+                                                    )
+                                                }
+                                            },
+                                            showSearchBar,
+                                            isSearchExpanded,
+                                            { isSearchExpanded = it },
+                                            isDualPane,
+                                            isDetailVisible
+                                        )
+                                    }
+                                }
                             }
                         }
                     },
@@ -385,7 +395,8 @@ fun MemosScaffold(
             start = 16.dp, top = 88.dp, end = 16.dp, bottom = 80.dp
         ),
         errorTitle: String = stringResource(R.string.common_error_failed_to_load),
-        onHashtagClick: ((String) -> Unit)? = null
+        onHashtagClick: ((String) -> Unit)? = null,
+        isActive: Boolean = true
     ) {
         val uiState by viewModel.uiState.collectAsState()
         val focusManager = LocalFocusManager.current
@@ -393,7 +404,8 @@ fun MemosScaffold(
         val onEditMemo = LocalMemoEditor.current
         var memoToDelete by remember { mutableStateOf<Memo?>(null) }
 
-        LaunchedEffect(listState, isLoading, nextPageToken) {
+        LaunchedEffect(listState, isLoading, nextPageToken, isActive) {
+            if (!isActive) return@LaunchedEffect
             snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }.collect { lastIndex ->
                 if (lastIndex != null && !isLoading && nextPageToken != null && lastIndex >= listState.layoutInfo.totalItemsCount - 5) {
                     onLoadMore()
@@ -404,7 +416,7 @@ fun MemosScaffold(
         val pullToRefreshState = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = onRefresh,
+            onRefresh = { if (isActive) onRefresh() },
             state = pullToRefreshState,
             modifier = modifier
                 .fillMaxSize()

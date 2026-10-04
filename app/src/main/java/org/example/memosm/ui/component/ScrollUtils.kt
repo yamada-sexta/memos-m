@@ -14,7 +14,7 @@ import androidx.compose.runtime.snapshotFlow
 fun rememberScrollContext(
     listState: LazyListState, onScrollDown: () -> Unit = {}, onScrollUp: () -> Unit = {}
 ): ScrollContext {
-    val scrollContext = remember { ScrollContext() }
+    val scrollContext = remember(listState) { ScrollContext() }
 
     LaunchedEffect(listState) {
         var previousIndex = listState.firstVisibleItemIndex
