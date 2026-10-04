@@ -1,5 +1,6 @@
 package org.example.memosm.api
 
+import org.example.memosm.model.LinkMetadata
 import org.example.memosm.model.Activity
 import org.example.memosm.model.Attachment
 import org.example.memosm.model.CreatePersonalAccessTokenRequest
@@ -83,6 +84,8 @@ fun MemosApi.resolveMemoOrderBy(orderBy: MemoOrderBy?): String? {
 }
 
 interface MemosApi {
+
+    suspend fun getLinkMetadata(url: String): LinkMetadata
 
     val constants: ApiConstants
 

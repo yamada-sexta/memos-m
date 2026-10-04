@@ -152,7 +152,19 @@ fun NativeMarkdownNode(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NativeMarkdownNodeRecursive(node: ASTNode) {
+fun NativeMarkdownNodeRecursive(node: ASTNode, allowPreview: Boolean = false) {
+    val previews = LocalLinkPreviews.current
+    val previewContent = LocalMarkdownContent.current
+    val previewReferences = LocalMarkdownReferences.current
+    val previewUrl = if (previews != null && allowPreview) {
+        remember(node, previewContent, previewReferences) {
+            standalonePreviewUrl(node, previewContent, previewReferences)
+        }
+    } else null
+    if (previewUrl != null && previews != null) {
+        NativeLinkPreview(previewUrl, previews.repository, previews.isOnline)
+        return
+    }
     val content = LocalMarkdownContent.current
     val onContentChange = LocalOnContentChange.current
     val onHashtagClick = LocalOnHashtagClick.current
@@ -174,7 +186,7 @@ fun NativeMarkdownNodeRecursive(node: ASTNode) {
         MarkdownElementTypes.MARKDOWN_FILE -> {
             // Render all children
             node.children.forEach { child ->
-                NativeMarkdownNodeRecursive(child)
+                NativeMarkdownNodeRecursive(child, allowPreview = true)
             }
         }
 

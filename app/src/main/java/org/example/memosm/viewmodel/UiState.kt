@@ -79,6 +79,7 @@ data class DetailPaneState(
 // --- App Settings (local) ---
 
 data class AppSettings(
+    val linkPreviewEnabled: Boolean = true,
     val pageSize: Int = 10,
     val headerScale: Float = 1.0f,
     // --- Offline / pre-download settings ---

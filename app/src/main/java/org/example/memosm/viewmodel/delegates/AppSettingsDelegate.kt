@@ -12,6 +12,8 @@ interface AppSettingsDelegate {
     fun loadHeaderScale()
     fun updatePageSize(size: Int)
     fun updateHeaderScale(scale: Float)
+    fun loadLinkPreviewEnabled()
+    fun updateLinkPreviewEnabled(enabled: Boolean)
 
     // Offline / pre-download settings
     fun loadOfflineSettings()
@@ -46,6 +48,19 @@ class AppSettingsDelegateImpl(
                 uiState.update { it.copy(appSettings = it.appSettings.copy(headerScale = scale)) }
             }
         }
+    }
+
+    override fun loadLinkPreviewEnabled() {
+        scope.launch {
+            dataStoreManager.linkPreviewEnabled.collect { enabled ->
+                uiState.update { it.copy(appSettings = it.appSettings.copy(linkPreviewEnabled = enabled)) }
+            }
+        }
+    }
+
+    override fun updateLinkPreviewEnabled(enabled: Boolean) {
+        uiState.update { it.copy(appSettings = it.appSettings.copy(linkPreviewEnabled = enabled)) }
+        scope.launch { dataStoreManager.saveLinkPreviewEnabled(enabled) }
     }
 
     override fun updatePageSize(size: Int) {

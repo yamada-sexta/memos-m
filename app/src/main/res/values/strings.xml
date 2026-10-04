@@ -36,6 +36,8 @@
     <string name="profile_app_settings">App Settings</string>
     <string name="profile_app_settings_page_size">Pagination Size</string>
     <string name="profile_app_settings_page_size_hint">Items per page</string>
+    <string name="profile_app_settings_link_previews">Link previews</string>
+    <string name="profile_app_settings_link_previews_description">Show preview cards for standalone webpage links</string>
     <string name="profile_app_settings_header_scale">Header Scale</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
     <string tools:ignore="MissingTranslation" name="profile_notifications">Notifications</string>

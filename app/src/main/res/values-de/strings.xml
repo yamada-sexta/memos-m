@@ -34,6 +34,8 @@
     <string name="profile_app_settings">App-Einstellungen</string>
     <string name="profile_app_settings_page_size">Seitengröße</string>
     <string name="profile_app_settings_page_size_hint">Einträge pro Seite</string>
+    <string name="profile_app_settings_link_previews">Link-Vorschauen</string>
+    <string name="profile_app_settings_link_previews_description">Vorschaukarten für alleinstehende Webseitenlinks anzeigen</string>
     <string name="profile_app_settings_header_scale">Kopfzeilenskalierung</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
     <string name="profile_archived">Archiviert</string>

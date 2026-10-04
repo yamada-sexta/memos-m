@@ -34,6 +34,8 @@
     <string name="profile_app_settings">アプリ設定</string>
     <string name="profile_app_settings_page_size">ページネーションサイズ</string>
     <string name="profile_app_settings_page_size_hint">1ページあたりの項目数</string>
+    <string name="profile_app_settings_link_previews">リンクプレビュー</string>
+    <string name="profile_app_settings_link_previews_description">単独のウェブページリンクをプレビューカードで表示</string>
     <string name="profile_app_settings_header_scale">ヘッダースケール</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
     <string name="profile_archived">アーカイブ</string>

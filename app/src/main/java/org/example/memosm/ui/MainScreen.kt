@@ -76,6 +76,8 @@ import org.example.memosm.ui.component.LocalNetworkPermission
 import org.example.memosm.ui.component.composer.ComposerMode
 import org.example.memosm.ui.component.composer.MemoComposerScreen
 import org.example.memosm.ui.component.item.media.MemoImage
+import org.example.memosm.ui.component.item.markdown.LocalLinkPreviews
+import org.example.memosm.ui.component.item.markdown.LinkPreviewEnvironment
 import org.example.memosm.ui.component.resolveResourceUrl
 import org.example.memosm.ui.nav.AttachmentsScreen
 import org.example.memosm.ui.nav.ExploreScreen
@@ -105,10 +107,18 @@ fun MainScreen(
     val destination = rememberSaveable { mutableStateOf(MainDestination.MEMOS) }
     val viewModel: MemosViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val previewRepository by viewModel.linkPreviews.collectAsState()
+    val linkPreviews = remember(previewRepository, uiState.appSettings.linkPreviewEnabled, uiState.isOnline) {
+        previewRepository?.takeIf { uiState.appSettings.linkPreviewEnabled }
+            ?.let { LinkPreviewEnvironment(it, uiState.isOnline) }
+    }
     val mediaIdentity = uiState.accounts.firstOrNull { it.isActive }?.let {
         AccountMediaIdentity(it.id, uiState.accountGeneration)
     }
-    CompositionLocalProvider(LocalAccountMediaIdentity provides mediaIdentity) {
+    CompositionLocalProvider(
+        LocalAccountMediaIdentity provides mediaIdentity,
+        LocalLinkPreviews provides linkPreviews
+    ) {
         key(uiState.accountGeneration) {
             MainScreenContent(viewModel, uiState, destination, onLogout, modifier,
                 shareIntentData, onShareIntentConsumed, shouldOpenComposer, onComposerOpened)

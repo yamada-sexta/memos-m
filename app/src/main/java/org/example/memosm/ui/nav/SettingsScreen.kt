@@ -121,6 +121,8 @@ fun SettingsScreen(
                         pageSize = uiState.appSettings.pageSize,
                         onPageSizeChange = { viewModel.appSettingsDelegate.updatePageSize(it) },
                         headerScale = uiState.appSettings.headerScale,
+                        linkPreviewEnabled = uiState.appSettings.linkPreviewEnabled,
+                        onLinkPreviewEnabledChange = viewModel.appSettingsDelegate::updateLinkPreviewEnabled,
                         onHeaderScaleChange = {
                             viewModel.appSettingsDelegate.updateHeaderScale(it)
                         })

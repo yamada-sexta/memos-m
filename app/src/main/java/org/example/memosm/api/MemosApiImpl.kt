@@ -1,6 +1,7 @@
 package org.example.memosm.api
 
 import android.util.Log
+import org.example.memosm.model.LinkMetadata
 import org.example.memosm.model.Activity
 import org.example.memosm.model.Attachment
 import org.example.memosm.model.CreatePersonalAccessTokenRequest
@@ -44,6 +45,9 @@ import org.example.memosm.model.toUserSnapshot
 open class MemosApiImpl(
     protected val api: MemosApiV0353
 ) : MemosApi {
+
+    override suspend fun getLinkMetadata(url: String): LinkMetadata =
+        api.getLinkMetadata(url)
 
     override val constants: ApiConstants = ApiConstants(
         userSettingGeneralKey = "GENERAL",

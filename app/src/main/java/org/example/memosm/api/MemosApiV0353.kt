@@ -1,5 +1,6 @@
 package org.example.memosm.api
 
+import org.example.memosm.model.LinkMetadata
 import org.example.memosm.model.Activity
 import org.example.memosm.model.Attachment
 import org.example.memosm.model.CreatePersonalAccessTokenRequest
@@ -50,6 +51,9 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface MemosApiV0353 {
+
+    @GET("api/v1/memos/-/linkMetadata")
+    suspend fun getLinkMetadata(@Query("url") url: String): LinkMetadata
 
     // --- ActivityService ---
     @GET("api/v1/activities")

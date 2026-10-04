@@ -34,6 +34,8 @@
     <string name="profile_app_settings">應用程式設定</string>
     <string name="profile_app_settings_page_size">分頁大小</string>
     <string name="profile_app_settings_page_size_hint">每頁項目數</string>
+    <string name="profile_app_settings_link_previews">連結預覽</string>
+    <string name="profile_app_settings_link_previews_description">為獨立的網頁連結顯示預覽卡片</string>
     <string name="profile_app_settings_header_scale">標題列縮放</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
     <string name="profile_archived">歸檔</string>

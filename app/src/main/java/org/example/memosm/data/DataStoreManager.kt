@@ -26,6 +26,8 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
         const val DEFAULT_PAGE_SIZE = 10
         val HEADER_SCALE = androidx.datastore.preferences.core.floatPreferencesKey("header_scale")
         const val DEFAULT_HEADER_SCALE = 1.0f
+        val LINK_PREVIEW_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("link_preview_enabled")
+        const val DEFAULT_LINK_PREVIEW_ENABLED = true
 
         // --- Offline / pre-download settings ---
         val PRE_DOWNLOAD_TEXT = androidx.datastore.preferences.core.booleanPreferencesKey("pre_download_text")
@@ -228,6 +230,14 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
     }
 
     // --- Offline / pre-download settings ---
+
+    val linkPreviewEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[LINK_PREVIEW_ENABLED] ?: DEFAULT_LINK_PREVIEW_ENABLED
+    }
+
+    suspend fun saveLinkPreviewEnabled(enabled: Boolean) {
+        dataStore.edit { it[LINK_PREVIEW_ENABLED] = enabled }
+    }
 
     val preDownloadText: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[PRE_DOWNLOAD_TEXT] ?: DEFAULT_PRE_DOWNLOAD_TEXT

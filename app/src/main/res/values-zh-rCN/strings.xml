@@ -34,6 +34,8 @@
     <string name="profile_app_settings">应用设置</string>
     <string name="profile_app_settings_page_size">分页大小</string>
     <string name="profile_app_settings_page_size_hint">每页项目数</string>
+    <string name="profile_app_settings_link_previews">链接预览</string>
+    <string name="profile_app_settings_link_previews_description">为独立的网页链接显示预览卡片</string>
     <string name="profile_app_settings_header_scale">标题栏缩放</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
     <string name="profile_archived">归档</string>

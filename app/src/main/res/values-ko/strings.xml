@@ -34,6 +34,8 @@
     <string name="profile_app_settings">앱 설정</string>
     <string name="profile_app_settings_page_size">페이지 크기</string>
     <string name="profile_app_settings_page_size_hint">페이지당 항목 수</string>
+    <string name="profile_app_settings_link_previews">링크 미리보기</string>
+    <string name="profile_app_settings_link_previews_description">독립된 웹페이지 링크를 미리보기 카드로 표시</string>
     <string name="profile_app_settings_header_scale">헤더 스케일</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
     <string name="profile_archived">보관됨</string>

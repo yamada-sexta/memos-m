@@ -35,6 +35,8 @@
     <string name="profile_app_settings">Ustawienia aplikacji</string>
     <string name="profile_app_settings_page_size">Liczba elementów na stronę</string>
     <string name="profile_app_settings_page_size_hint">Elementy na stronę</string>
+    <string name="profile_app_settings_link_previews">Podgląd linków</string>
+    <string name="profile_app_settings_link_previews_description">Pokazuj karty podglądu dla samodzielnych linków do stron</string>
     <string name="profile_app_settings_header_scale">Skala nagłówków</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
     <string name="profile_notifications">Powiadomienia</string>

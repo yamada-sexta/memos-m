@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ import org.example.memosm.api.MemosApiFactory
 import org.example.memosm.api.MemoOrderBy
 import org.example.memosm.data.DataStoreManager
 import org.example.memosm.data.DraftManager
+import org.example.memosm.data.linkpreview.LinkPreviewRepository
 import org.example.memosm.data.audit.SyncAuditLogger
 import org.example.memosm.data.cache.CacheListType
 import org.example.memosm.data.cache.MemoCacheRepository
@@ -84,6 +86,9 @@ class MemosViewModel(
 
     private val _uiState = MutableStateFlow(MemosUiState())
     val uiState: StateFlow<MemosUiState> = _uiState.asStateFlow()
+
+    private val _linkPreviews = MutableStateFlow<LinkPreviewRepository?>(null)
+    val linkPreviews = _linkPreviews.asStateFlow()
 
     private val accountSession = AccountSession(viewModelScope)
 
@@ -460,6 +465,7 @@ class MemosViewModel(
         userDelegate.updateCurrentAccountInList()
         appSettingsDelegate.loadPageSize()
         appSettingsDelegate.loadHeaderScale()
+        appSettingsDelegate.loadLinkPreviewEnabled()
         appSettingsDelegate.loadOfflineSettings()
 
         startStateCollection()
@@ -486,6 +492,7 @@ class MemosViewModel(
 
     // Keep this one as it's used by the delegate directly above
     private suspend fun switchAccountInternal(account: Account?) {
+        _linkPreviews.value = null
         accountSession.clear()
         syncManager.cancelSync()
         preDownloadManager.cancel()
@@ -514,6 +521,11 @@ class MemosViewModel(
         accountSession.readScope.launch {
             val detectedApi = MemosApiFactory.create(account.hostUrl, client)
             if (!accountSession.completeConnection(provisional, detectedApi)) return@launch
+            _linkPreviews.value = LinkPreviewRepository(
+                scope = CoroutineScope(accountSession.readScope.coroutineContext),
+                fetch = detectedApi::getLinkMetadata,
+                canFetch = { _uiState.value.isOnline && _uiState.value.appSettings.linkPreviewEnabled }
+            )
             val context = provisional
             fetchCurrentUser()
             reachabilityMonitor.checkNow {

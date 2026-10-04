@@ -17,6 +17,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,7 +42,9 @@ fun AppSettingsCard(
     pageSize: Int,
     onPageSizeChange: (Int) -> Unit,
     headerScale: Float,
-    onHeaderScaleChange: (Float) -> Unit
+    onHeaderScaleChange: (Float) -> Unit,
+    linkPreviewEnabled: Boolean,
+    onLinkPreviewEnabledChange: (Boolean) -> Unit
 ) {
     var showPageSizeDialog by remember { mutableStateOf(false) }
     val networkPermission = LocalNetworkPermission.current
@@ -56,6 +59,15 @@ fun AppSettingsCard(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.profile_app_settings_link_previews)) },
+                supportingContent = { Text(stringResource(R.string.profile_app_settings_link_previews_description)) },
+                trailingContent = {
+                    Switch(checked = linkPreviewEnabled, onCheckedChange = onLinkPreviewEnabledChange)
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
 
             if (Build.VERSION.SDK_INT >= 37) {
                 ListItem(
