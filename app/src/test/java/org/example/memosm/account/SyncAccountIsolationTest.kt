@@ -18,6 +18,63 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SyncAccountIsolationTest {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test fun `two activity sync managers replay a shared queued delete only once`() = runTest {
+        val op = PendingOp.new("shared-account", PendingOpType.DELETE, "memos/1")
+        var queued: PendingOp? = op
+        var deletes = 0
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val api = stub<MemosApi> { name, _ ->
+            check(name == "deleteMemo") { name }
+            deletes++
+            started.complete(Unit)
+            release.await()
+            Unit
+        }
+        val repository = SyncRepository(stub<PendingOpDao> { name, _ ->
+            when (name) {
+                "getOps" -> listOfNotNull(queued)
+                "getOp" -> queued
+                "deleteOp" -> { queued = null; Unit }
+                else -> error(name)
+            }
+        })
+        val preferences = DataStoreManager(MemoryPreferences())
+        fun manager(): SyncManager {
+            val session = AccountSession(backgroundScope)
+            session.activate(Account(id = op.accountId), api, OkHttpClient())
+            return SyncManager(
+                scope = backgroundScope,
+                repository = repository,
+                memoCacheRepository = MemoCacheRepository(stub<MemoDao> { _, _ -> Unit }),
+                dataStoreManager = preferences,
+                workScheduler = object : SyncWorkScheduler {
+                    override fun schedule(accountId: String) {}
+                    override fun cancel(accountId: String) {}
+                },
+                auditLogger = SyncAuditLogger(stub<SyncAuditDao> { _, _ -> Unit }),
+                accountSession = session,
+                currentUserProvider = { null }, isOnlineProvider = { true },
+                onMemoSynced = { _, _ -> }, onMemoDeleted = {},
+                onCommentsRefresh = {}, onConflict = {}
+            )
+        }
+        val first = manager()
+        val second = manager()
+        first.syncNow()
+        started.await()
+        second.syncNow()
+        runCurrent()
+        assertEquals(1, deletes)
+        release.complete(Unit)
+        runCurrent()
+        assertEquals(1, deletes)
+        assertNull(queued)
+        assertFalse(first.isSyncing.value)
+        assertFalse(second.isSyncing.value)
+    }
+
     @Test fun `all conflict resolutions reject another accounts operation without touching storage or API`() = runTest {
         val sessions = AccountSession(backgroundScope)
         val api = stub<MemosApi> { name, _ -> error("Foreign API call: $name") }

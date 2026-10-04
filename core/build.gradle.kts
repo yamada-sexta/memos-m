@@ -12,7 +12,7 @@ kotlin {
     androidLibrary {
         namespace = "com.example.memosm.core"
         compileSdk {
-            version = release(37)
+            version = release(37) { minorApiLevel = 1 }
         }
         minSdk = 24
 

@@ -4,25 +4,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -59,19 +53,12 @@ import java.time.format.FormatStyle
 fun NotificationsScreen(
     viewModel: MemosViewModel,
     onBack: () -> Unit,
-    onToggleNavBar: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val generation = uiState.accountGeneration
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-
-    rememberScrollContext(
-        listState = listState,
-        onScrollDown = { onToggleNavBar?.invoke(false) },
-        onScrollUp = { onToggleNavBar?.invoke(true) }
-    )
 
     var notifications by remember(generation) { mutableStateOf<List<UserNotification>>(emptyList()) }
     var isLoading by remember(generation) { mutableStateOf(true) }
@@ -106,8 +93,13 @@ fun NotificationsScreen(
         isRefreshing = false
     }
 
-    LaunchedEffect(generation) {
-        loadNotifications()
+    LaunchedEffect(generation, uiState.session.currUser?.name, uiState.connectionState) {
+        if (uiState.session.currUser?.name != null) {
+            loadNotifications()
+        } else if (uiState.connectionState != org.example.memosm.viewmodel.ConnectionState.CHECKING) {
+            isLoading = false
+            hasLoadError = true
+        }
     }
 
     Scaffold(
@@ -116,9 +108,7 @@ fun NotificationsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.profile_notifications)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.memo_detail_back))
-                    }
+                    ProfileBackButton(onClick = onBack)
                 }
             )
         }
@@ -170,11 +160,9 @@ fun NotificationsScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
                             start = 16.dp,
-                            top = 16.dp + WindowInsets.statusBars.asPaddingValues()
-                                .calculateTopPadding(),
+                            top = 16.dp,
                             end = 16.dp,
-                            bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues()
-                                .calculateBottomPadding()
+                            bottom = 16.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {

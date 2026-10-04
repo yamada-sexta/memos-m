@@ -3,12 +3,16 @@ package org.example.memosm.ui.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 private val DarkColorScheme = darkColorScheme(
     primary = Blue80,
@@ -52,6 +56,30 @@ fun MemosMTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        content = content
+    )
+}
+
+/** Expressive styling is local to Profile and its activities. */
+@Composable
+fun ProfileTheme(content: @Composable () -> Unit) {
+    val base = MaterialTheme.colorScheme
+    // Android Settings uses a raised neutral background even with dynamic accent colors.
+    val colors = if (base.surface.luminance() < 0.5f) {
+        base.copy(
+            surface = Color(0xFF191A20),
+            background = Color(0xFF191A20),
+            surfaceContainerLow = Color(0xFF22242B),
+            surfaceContainer = Color(0xFF23252C),
+            surfaceContainerHigh = Color(0xFF282A32),
+            surfaceContainerHighest = Color(0xFF30323A)
+        )
+    } else {
+        base.copy(surface = base.surfaceContainerLow, background = base.surfaceContainerLow)
+    }
+    MaterialExpressiveTheme(
+        colorScheme = colors,
+        motionScheme = MotionScheme.expressive(),
         content = content
     )
 }

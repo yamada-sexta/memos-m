@@ -87,6 +87,9 @@ class MemosViewModel(
     private val _uiState = MutableStateFlow(MemosUiState())
     val uiState: StateFlow<MemosUiState> = _uiState.asStateFlow()
 
+    private val _sessionReady = MutableStateFlow(false)
+    val sessionReady: StateFlow<Boolean> = _sessionReady.asStateFlow()
+
     private val _linkPreviews = MutableStateFlow<LinkPreviewRepository?>(null)
     val linkPreviews = _linkPreviews.asStateFlow()
 
@@ -492,6 +495,7 @@ class MemosViewModel(
 
     // Keep this one as it's used by the delegate directly above
     private suspend fun switchAccountInternal(account: Account?) {
+        _sessionReady.value = false
         _linkPreviews.value = null
         accountSession.clear()
         syncManager.cancelSync()
@@ -514,7 +518,8 @@ class MemosViewModel(
         // Local reads never wait for network version discovery or server reachability.
         userMemoManager.loadFromCache()
         exploreMemoManager.loadFromCache()
-        userDelegate.restoreCachedSession()
+        userDelegate.restoreCachedSessionNow()
+        _sessionReady.value = true
         draftDelegate.loadDraftsForAccount(account.id)
         refreshTextCacheCount()
         accountSession.readScope.launch { attachmentCacheManager.refreshUsage(account.id) }
@@ -810,6 +815,26 @@ class MemosViewModel(
         if (!_uiState.value.isOnline) return
         syncManager.syncNow()
         preDownloadManager.maybeAutoDownload()
+    }
+
+    /** Reconcile activity-owned changes without emitting a scroll-to-top refresh trigger. */
+    fun refreshAfterProfileDetails() {
+        viewModelScope.launch {
+            userDelegate.reconcileAccount()
+            userDelegate.restoreCachedSessionNow(replace = true)
+            refreshTextCacheCount()
+            refreshAttachmentCacheUsage()
+            if (_uiState.value.isOnline) {
+                fetchCurrentUser()
+                userMemoManager.fetch(refresh = true)
+                exploreMemoManager.fetch(refresh = true)
+                archivedMemoManager.fetch(refresh = true)
+            } else {
+                userMemoManager.loadFromCache()
+                exploreMemoManager.loadFromCache()
+                archivedMemoManager.loadFromCache()
+            }
+        }
     }
 
     /**

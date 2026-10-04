@@ -360,4 +360,19 @@
 
     <string name="user_stats_widget_description">Displays user statistics.</string>
     <string name="user_stats_widget_last_updated">Last updated: %1$s</string>
+    <!-- New category descriptions intentionally fall back to English until translated. -->
+    <string name="settings_appearance" tools:ignore="MissingTranslation">Appearance</string>
+    <string name="settings_memos" tools:ignore="MissingTranslation">Memos</string>
+    <string name="settings_network" tools:ignore="MissingTranslation">Network</string>
+    <string name="settings_summary_general" tools:ignore="MissingTranslation">Language, default visibility, page size</string>
+    <string name="settings_summary_appearance" tools:ignore="MissingTranslation">Memo heading size</string>
+    <string name="settings_summary_memos" tools:ignore="MissingTranslation">Link previews, shortcuts, webhooks</string>
+    <string name="settings_summary_network" tools:ignore="MissingTranslation">Local network access</string>
+    <string name="settings_summary_offline" tools:ignore="MissingTranslation">Pre-downloads, storage limits, clear cache</string>
+    <string name="settings_summary_recovery" tools:ignore="MissingTranslation">Export and restore your data</string>
+    <string name="settings_summary_audit" tools:ignore="MissingTranslation">Recent sync activity</string>
+    <string name="settings_summary_about" tools:ignore="MissingTranslation">App version, source code, licenses</string>
+    <string name="settings_shortcuts_summary" tools:ignore="MissingTranslation">Manage saved memo filters</string>
+    <string name="settings_webhooks_summary" tools:ignore="MissingTranslation">Manage webhook integrations</string>
+    <string name="settings_summary_instance" tools:ignore="MissingTranslation">Server version, mode, address</string>
 </resources>

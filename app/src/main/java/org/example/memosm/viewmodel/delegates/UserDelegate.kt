@@ -26,6 +26,8 @@ import org.example.memosm.viewmodel.MemosUiState
 import org.example.memosm.viewmodel.UiMessage
 
 interface UserDelegate {
+    suspend fun restoreCachedSessionNow(replace: Boolean = false)
+    suspend fun reconcileAccount()
     fun restoreCachedSession()
     suspend fun fetchUsers(names: List<String>)
     fun fetchCurrentUser(
@@ -106,34 +108,43 @@ class UserDelegateImpl(
     }
 
     private fun restoreSessionSnapshot(context: AccountContext) {
-        val accountId = context.account.id
-        accountSession.readScope.launch {
-            // Snapshots are keyed per account: an offline account switch must
-            // never surface the previous account's stats/settings.
-            val snap = runCatching { sessionCacheStore.get(accountId) }
-                .getOrNull() ?: return@launch
-            accountSession.update(uiState, context) { state ->
-                val cur = state.session
-                state.copy(
-                    session = cur.copy(
-                        currUser = cur.currUser ?: snap.currUser,
-                        userStats = cur.userStats ?: snap.userStats,
-                        userSettings = cur.userSettings ?: snap.userSettings,
-                        webhooks = cur.webhooks.ifEmpty { snap.webhooks },
-                        instanceProfile = cur.instanceProfile ?: snap.instanceProfile,
-                        instanceSettings = cur.instanceSettings ?: snap.instanceSettings,
-                        activities = cur.activities.ifEmpty { snap.activities }
-                    ),
-                    userMemoList = state.userMemoList.let { list ->
-                        if (list.shortcuts.isEmpty()) {
-                            list.copy(shortcuts = snap.shortcuts)
-                        } else {
-                            list
-                        }
-                    }
-                )
-            }
+        accountSession.readScope.launch { readSessionSnapshot(context) }
+    }
+
+    private suspend fun readSessionSnapshot(context: AccountContext, replace: Boolean = false) {
+        val snap = try {
+            sessionCacheStore.get(context.account.id)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        } ?: return
+        accountSession.update(uiState, context) { state ->
+            val cur = state.session
+            state.copy(
+                session = cur.copy(
+                    currUser = if (replace) snap.currUser ?: cur.currUser else cur.currUser ?: snap.currUser,
+                    userStats = if (replace) snap.userStats else cur.userStats ?: snap.userStats,
+                    userSettings = if (replace) snap.userSettings else cur.userSettings ?: snap.userSettings,
+                    webhooks = if (replace) snap.webhooks else cur.webhooks.ifEmpty { snap.webhooks },
+                    instanceProfile = if (replace) snap.instanceProfile else cur.instanceProfile ?: snap.instanceProfile,
+                    instanceSettings = if (replace) snap.instanceSettings else cur.instanceSettings ?: snap.instanceSettings,
+                    activities = if (replace) snap.activities else cur.activities.ifEmpty { snap.activities }
+                ),
+                userMemoList = state.userMemoList.let { list ->
+                    if (replace || list.shortcuts.isEmpty()) list.copy(shortcuts = snap.shortcuts) else list
+                }
+            )
         }
+    }
+
+    override suspend fun restoreCachedSessionNow(replace: Boolean) {
+        val context = accountSession.current ?: return
+        readSessionSnapshot(context, replace)
+    }
+
+    override suspend fun reconcileAccount() {
+        accountMutex.withLock { refreshAccountsLocked() }
     }
 
     override fun restoreCachedSession() {

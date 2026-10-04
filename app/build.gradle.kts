@@ -22,6 +22,7 @@ plugins {
 android {
     namespace = "org.example.memosm"
     compileSdk = 37
+    compileSdkMinor = 1
     
     defaultConfig {
         applicationId = "org.example.memosm"

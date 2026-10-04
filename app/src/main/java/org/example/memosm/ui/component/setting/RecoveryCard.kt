@@ -200,7 +200,7 @@ fun RecoveryCard() {
 
     LaunchedEffect(activeAccountId) { refreshArchives() }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SettingsSurface {
         Column(modifier = Modifier.padding(vertical = 16.dp)) {
             Text(
                 stringResource(R.string.recovery_title),

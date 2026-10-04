@@ -1,25 +1,27 @@
 package org.example.memosm.ui.component.setting
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
+import androidx.compose.material3.SliderState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,12 +32,12 @@ import kotlinx.coroutines.launch
 import org.example.memosm.ui.component.LocalNetworkPermission
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
+
+enum class AppSettingsCategory { GENERAL, APPEARANCE, CONTENT, NETWORK }
 
 @Composable
 fun AppSettingsCard(
@@ -44,32 +46,25 @@ fun AppSettingsCard(
     headerScale: Float,
     onHeaderScaleChange: (Float) -> Unit,
     linkPreviewEnabled: Boolean,
-    onLinkPreviewEnabledChange: (Boolean) -> Unit
+    onLinkPreviewEnabledChange: (Boolean) -> Unit,
+    category: AppSettingsCategory
 ) {
-    var showPageSizeDialog by remember { mutableStateOf(false) }
+    var showPageSizeDialog by rememberSaveable { mutableStateOf(false) }
     val networkPermission = LocalNetworkPermission.current
     val scope = rememberCoroutineScope()
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            Text(
-                stringResource(R.string.profile_app_settings),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.profile_app_settings_link_previews)) },
-                supportingContent = { Text(stringResource(R.string.profile_app_settings_link_previews_description)) },
-                trailingContent = {
-                    Switch(checked = linkPreviewEnabled, onCheckedChange = onLinkPreviewEnabledChange)
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        if (category == AppSettingsCategory.CONTENT) {
+            SettingToggleRow(
+                label = stringResource(R.string.profile_app_settings_link_previews),
+                description = stringResource(R.string.profile_app_settings_link_previews_description),
+                checked = linkPreviewEnabled,
+                onCheckedChange = onLinkPreviewEnabledChange
             )
 
-            if (Build.VERSION.SDK_INT >= 37) {
+        }
+
+        if (category == AppSettingsCategory.NETWORK && Build.VERSION.SDK_INT >= 37) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.local_network_permission_title)) },
                     supportingContent = {
@@ -79,29 +74,34 @@ fun AppSettingsCard(
                         ))
                     },
                     trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
-                    modifier = Modifier.clickable {
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable {
                         if (networkPermission.granted) networkPermission.openSettings()
                         else scope.launch { networkPermission.requestAccess() }
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 )
             }
 
+        if (category == AppSettingsCategory.GENERAL) {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.profile_app_settings_page_size)) },
                 supportingContent = {
                     Text(
                         text = pageSize.toString(),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
-                modifier = Modifier.clickable { showPageSizeDialog = true },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { showPageSizeDialog = true },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             )
 
+        }
+
+        if (category == AppSettingsCategory.APPEARANCE) {
             ListItem(
+                modifier = Modifier.clip(RoundedCornerShape(4.dp)),
                 headlineContent = { Text(stringResource(R.string.profile_app_settings_header_scale)) },
                 supportingContent = {
                     Column {
@@ -110,25 +110,22 @@ fun AppSettingsCard(
                                 stringResource(R.string.profile_app_settings_header_scale_format),
                                 headerScale
                             ),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Slider(
-                            value = headerScale,
-                            onValueChange = onHeaderScaleChange,
-                            valueRange = 0.5f..2.0f,
-                            steps = 14
-                        )
+                        val sliderState = remember { SliderState(value = headerScale, steps = 14, trackRange = 0.5f..2.0f) }
+                        LaunchedEffect(headerScale) { sliderState.value = headerScale }
+                        Slider(state = sliderState, onValueChange = onHeaderScaleChange)
                     }
                 },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             )
         }
     }
 
     if (showPageSizeDialog) {
-        var textValue by remember { mutableStateOf(pageSize.toString()) }
-        var isError by remember { mutableStateOf(false) }
+        var textValue by rememberSaveable { mutableStateOf(pageSize.toString()) }
+        var isError by rememberSaveable { mutableStateOf(false) }
 
         AlertDialog(
             onDismissRequest = { showPageSizeDialog = false },

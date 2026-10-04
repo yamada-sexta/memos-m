@@ -1,24 +1,15 @@
 package org.example.memosm.ui.nav
 
 import AccountsList
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.SeekableTransitionState
-import androidx.compose.animation.core.Spring
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import org.example.memosm.ui.profile.ArchivedMemosActivity
+import org.example.memosm.ui.profile.NotificationsActivity
+import org.example.memosm.ui.profile.SettingsActivity
+import org.example.memosm.ui.theme.ProfileTheme
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.rememberTransition
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,27 +62,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
 import org.example.memosm.R
 import org.example.memosm.model.Account
 import org.example.memosm.model.InstanceProfile
-import org.example.memosm.model.User
 import org.example.memosm.model.UserSnapshot
 import org.example.memosm.model.toUserSnapshot
-import org.example.memosm.ui.ProfileDetailKey
-import org.example.memosm.ui.component.ArchivedMemosScreen
 import org.example.memosm.ui.component.ErrorView
 import org.example.memosm.ui.component.LoginDialog
-import org.example.memosm.ui.component.NotificationsScreen
 import org.example.memosm.ui.component.ProfileHeader
 import org.example.memosm.ui.component.StatsActivityCard
 import org.example.memosm.ui.component.rememberScrollContext
+import org.example.memosm.ui.component.setting.SettingsSurface
 import org.example.memosm.ui.component.setting.AccountEditDialog
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.RefreshSource
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ProfileScreen(
     viewModel: MemosViewModel,
@@ -100,102 +85,33 @@ fun ProfileScreen(
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     isNavBarVisible: Boolean = true
 ) {
-    var activeDetail by rememberSaveable { mutableStateOf<ProfileDetailKey?>(null) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val archived = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.refreshAfterProfileDetails()
+    }
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.refreshAfterProfileDetails()
+    }
+    val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.refreshAfterProfileDetails()
+    }
     val listState = rememberLazyListState()
-
-    val transitionState = remember { SeekableTransitionState<ProfileDetailKey?>(activeDetail) }
-
-    LaunchedEffect(activeDetail) {
-        if (activeDetail != transitionState.targetState) {
-            transitionState.animateTo(activeDetail)
-        }
-    }
-
-    PredictiveBackHandler(enabled = activeDetail != null) { progress ->
-        try {
-            progress.collect { backEvent ->
-                transitionState.seekTo(backEvent.progress, targetState = null)
-            }
-            transitionState.animateTo(null)
-            activeDetail = null
-        } catch (e: CancellationException) {
-            transitionState.animateTo(activeDetail)
-        }
-    }
-
-    // Simple back handling for the settings pane (no shared-element transition)
-    BackHandler(enabled = showSettings && activeDetail == null) {
-        showSettings = false
-    }
-
-    SharedTransitionLayout {
-        val transition = rememberTransition(transitionState, label = "ProfileArchiveTransition")
-        transition.AnimatedContent(
-            transitionSpec = {
-                if (targetState != null) {
-                    (fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(
-                        initialScale = 0.97f, animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioLowBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    )).togetherWith(fadeOut(spring(stiffness = Spring.StiffnessMediumLow)))
-                } else {
-                    fadeIn(spring(stiffness = Spring.StiffnessMediumLow)).togetherWith(
-                        fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) + scaleOut(
-                            targetScale = 0.97f,
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                        )
-                    )
-                }
-            }) { detail ->
-            when (detail) {
-                ProfileDetailKey.Archived -> ArchivedMemosScreen(
-                    viewModel = viewModel,
-                    onBack = { activeDetail = null },
-                    onToggleNavBar = onToggleNavBar,
-                    animatedVisibilityScope = this@AnimatedContent,
-                    modifier = Modifier.sharedBounds(
-                        rememberSharedContentState(key = "archived_container"),
-                        animatedVisibilityScope = this@AnimatedContent,
-                        boundsTransform = { _, _ ->
-                            spring(dampingRatio = 0.8f, stiffness = 380f)
-                        })
-                )
-
-                ProfileDetailKey.Notifications -> NotificationsScreen(
-                    viewModel = viewModel,
-                    onBack = { activeDetail = null },
-                    onToggleNavBar = onToggleNavBar
-                )
-
-                null -> if (showSettings) {
-                    SettingsScreen(
-                        viewModel = viewModel,
-                        onBack = { showSettings = false },
-                        onToggleNavBar = onToggleNavBar
-                    )
-                } else {
-                    ProfileListPane(
-                        viewModel = viewModel,
-                        onLogout = onLogout,
-                        onAddAccount = onAddAccount,
-                        onShowArchived = { activeDetail = ProfileDetailKey.Archived },
-                        onShowNotifications = { activeDetail = ProfileDetailKey.Notifications },
-                        onShowSettings = { showSettings = true },
-                        animatedVisibilityScope = this@AnimatedContent,
-                        sharedTransitionScope = this@SharedTransitionLayout,
-                        onToggleNavBar = onToggleNavBar,
-                        isNavBarVisible = isNavBarVisible,
-                        listState = listState
-                    )
-                }
-            }
-        }
+    ProfileTheme {
+        ProfileListPane(
+            viewModel = viewModel,
+            onLogout = onLogout,
+            onAddAccount = onAddAccount,
+            onShowArchived = { archived.launch(Intent(context, ArchivedMemosActivity::class.java)) },
+            onShowNotifications = { notifications.launch(Intent(context, NotificationsActivity::class.java)) },
+            onShowSettings = { settings.launch(Intent(context, SettingsActivity::class.java)) },
+            onToggleNavBar = onToggleNavBar,
+            isNavBarVisible = isNavBarVisible,
+            listState = listState
+        )
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileListPane(
     viewModel: MemosViewModel,
@@ -204,8 +120,6 @@ private fun ProfileListPane(
     onShowArchived: () -> Unit,
     onShowNotifications: () -> Unit,
     onShowSettings: () -> Unit,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-    sharedTransitionScope: SharedTransitionScope,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     isNavBarVisible: Boolean = true,
     listState: LazyListState
@@ -423,42 +337,16 @@ private fun ProfileListPane(
 
                 item {
                     Box(itemModifier) {
-                        with(sharedTransitionScope) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .sharedBounds(
-                                        rememberSharedContentState(key = "archived_container"),
-                                        animatedVisibilityScope = animatedVisibilityScope,
-                                        boundsTransform = { _, _ ->
-                                            spring(dampingRatio = 0.8f, stiffness = 380f)
-                                        }), onClick = onShowArchived
-                            ) {
-                                ListItem(
-                                    headlineContent = {
-                                        Text(
-                                            stringResource(R.string.profile_archived),
-                                            modifier = Modifier.sharedBounds(
-                                                rememberSharedContentState(key = "archive_text"),
-                                                animatedVisibilityScope = animatedVisibilityScope,
-                                                boundsTransform = { _, _ ->
-                                                    tween(durationMillis = 300)
-                                                })
-                                        )
-                                    },
-                                    leadingContent = {
-                                        Icon(
-                                            Icons.Outlined.Archive, contentDescription = null
-                                        )
-                                    },
-                                    trailingContent = {
-                                        Icon(
-                                            Icons.Outlined.ChevronRight, contentDescription = null
-                                        )
-                                    },
-                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                                )
-                            }
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onShowArchived
+                        ) {
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.profile_archived)) },
+                                leadingContent = { Icon(Icons.Outlined.Archive, contentDescription = null) },
+                                trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
                         }
                     }
                 }
@@ -522,7 +410,7 @@ private fun ProfileListPane(
 
 @Composable
 fun InstanceCard(instance: InstanceProfile) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SettingsSurface {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 stringResource(R.string.profile_instance_info),

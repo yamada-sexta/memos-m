@@ -15,18 +15,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,38 +75,22 @@ private val LANGUAGE_NAMES = mapOf(
 
 @Composable
 fun SettingsCard(settings: UserGeneralSetting, onUpdate: (String?, Visibility?) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            Text(
-                stringResource(R.string.profile_settings_general),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Locale
+        SettingsSelectionItem(
+            label = stringResource(R.string.profile_settings_locale),
+            currentValue = settings.locale ?: "en",
+            options = LANGUAGE_NAMES.keys.toList(),
+            labelProvider = { LANGUAGE_NAMES[it] ?: it },
+            onSelect = { onUpdate(it, null) })
 
-            // Locale
-            SettingsSelectionItem(
-                label = stringResource(R.string.profile_settings_locale),
-                currentValue = settings.locale ?: "en",
-                options = LANGUAGE_NAMES.keys.toList(),
-                labelProvider = { LANGUAGE_NAMES[it] ?: it },
-                onSelect = { onUpdate(it, null) })
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-
-            // Memo Visibility
-            SettingsSelectionItem(
-                label = stringResource(R.string.profile_settings_visibility),
-                currentValue = if (settings.memoVisibility == null) "PRIVATE" else settings.memoVisibility.toString(),
-                options = listOf("PRIVATE", "PROTECTED", "PUBLIC"),
-                labelProvider = { getVisibilityLabel(visibility = Visibility.valueOf(it)) },
-                onSelect = { onUpdate(null, Visibility.valueOf(it)) })
-        }
+        // Memo Visibility
+        SettingsSelectionItem(
+            label = stringResource(R.string.profile_settings_visibility),
+            currentValue = if (settings.memoVisibility == null) "PRIVATE" else settings.memoVisibility.toString(),
+            options = listOf("PRIVATE", "PROTECTED", "PUBLIC"),
+            labelProvider = { getVisibilityLabel(visibility = Visibility.valueOf(it)) },
+            onSelect = { onUpdate(null, Visibility.valueOf(it)) })
     }
 }
 
@@ -120,20 +102,20 @@ private fun SettingsSelectionItem(
     onSelect: (String) -> Unit,
     labelProvider: @Composable (String) -> String = { it }
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialog by rememberSaveable { mutableStateOf(false) }
 
     ListItem(
         headlineContent = { Text(label) },
         supportingContent = {
             Text(
                 text = labelProvider(currentValue),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         trailingContent = { Icon(Icons.Outlined.ChevronRight, contentDescription = null) },
-        modifier = Modifier.clickable { showDialog = true },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { showDialog = true },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     )
 
     if (showDialog) {

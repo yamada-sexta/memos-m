@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -150,7 +151,9 @@ fun AudioPlayer(
                             }
                         })
                     Column(modifier = Modifier.weight(1f)) {
-                        Slider(value = progress, onValueChange = {
+                        val sliderState = remember { SliderState(value = progress) }
+                        LaunchedEffect(progress) { sliderState.value = progress }
+                        Slider(state = sliderState, onValueChange = {
                             if (isPrepared) {
                                 progress = it; exoPlayer.seekTo((it * duration).toLong())
                             }

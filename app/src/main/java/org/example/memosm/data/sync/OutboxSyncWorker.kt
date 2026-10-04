@@ -7,6 +7,7 @@ import android.util.Log
 import kotlinx.coroutines.CancellationException
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,10 +39,14 @@ class OutboxSyncWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val accountId = inputData.getString(ACCOUNT_ID) ?: return@withContext Result.failure()
+        syncAccount(accountId)
+    }
+
+    private suspend fun syncAccount(accountId: String): Result = coroutineScope {
         val koin = org.koin.core.context.GlobalContext.get()
         val dataStore = koin.get<DataStoreManager>()
         val account = dataStore.getAccounts().firstOrNull { it.id == accountId }
-            ?: return@withContext Result.success()
+            ?: return@coroutineScope Result.success()
         val database = MemoCacheDatabase.getInstance(applicationContext)
         val repository = SyncRepository(database.pendingOpDao())
         val audit = SyncAuditLogger(AuditDatabase.getInstance(applicationContext).syncAuditDao())
@@ -63,58 +68,61 @@ class OutboxSyncWorker(
         )
 
         try {
-            var ops = repository.getOps(accountId)
-            var index = 0
-            while (index < ops.size) {
-                if (isStopped) return@withContext Result.retry()
-                // Reload after each acknowledgement so temporary-name remaps
-                // and rebased follow-ups are used immediately.
-                val op = repository.getOp(ops[index].id) ?: run {
-                    ops = repository.getOps(accountId)
-                    index++
-                    continue
-                }
-                // Ops the server rejected with a 4xx will never succeed by
-                // retrying - leave them queued (visible in the UI) until the
-                // user discards or force-syncs.
-                if (op.permanentlyFailed) {
-                    index++
-                    continue
-                }
-                try {
-                    val success = executor.replay(op)
-                    if (success) {
-                        repository.deleteOp(op.id)
-                        audit.record(accountId, "SYNC", "SUCCESS", op.type, op.memoName)
+            AccountSyncCoordinator.withAccountLock(accountId) {
+                var ops = repository.getOps(accountId)
+                var index = 0
+                while (index < ops.size) {
+                    if (isStopped) return@withAccountLock Result.retry()
+                    // Reload after each acknowledgement so temporary-name remaps
+                    // and rebased follow-ups are used immediately.
+                    val op = repository.getOp(ops[index].id) ?: run {
                         ops = repository.getOps(accountId)
+                        index++
                         continue
                     }
-                    index++
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (error: Exception) {
-                    // 4xx means the server deterministically rejected the op -
-                    // retrying is pointless, mark it permanent. 5xx and
-                    // transport errors are transient and retried by WorkManager.
-                    // 408/429 are transient too (timeout / rate limit).
-                    val permanent = error is HttpException &&
-                        error.code() in 400..499 && error.code() !in setOf(408, 429)
-                    repository.markFailed(
-                        op.id, op.attemptCount + 1, error.message,
-                        System.currentTimeMillis(), permanent
-                    )
-                    audit.record(
-                        accountId, "SYNC",
-                        if (permanent) "REJECTED" else "RETRY",
-                        op.type, op.memoName, errorCode(error)
-                    )
-                    if (!permanent) return@withContext Result.retry()
-                    index++
+                    // Ops the server rejected with a 4xx will never succeed by
+                    // retrying - leave them queued (visible in the UI) until the
+                    // user discards or force-syncs.
+                    if (op.permanentlyFailed) {
+                        index++
+                        continue
+                    }
+                    try {
+                        val success = executor.replay(op)
+                        if (success) {
+                            repository.deleteOp(op.id)
+                            audit.record(accountId, "SYNC", "SUCCESS", op.type, op.memoName)
+                            ops = repository.getOps(accountId)
+                            continue
+                        }
+                        index++
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        // 4xx means the server deterministically rejected the op -
+                        // retrying is pointless, mark it permanent. 5xx and
+                        // transport errors are transient and retried by WorkManager.
+                        // 408/429 are transient too (timeout / rate limit).
+                        val permanent = error is HttpException &&
+                            error.code() in 400..499 && error.code() !in setOf(408, 429)
+                        repository.markFailed(
+                            op.id, op.attemptCount + 1, error.message,
+                            System.currentTimeMillis(), permanent
+                        )
+                        audit.record(
+                            accountId, "SYNC",
+                            if (permanent) "REJECTED" else "RETRY",
+                            op.type, op.memoName, errorCode(error)
+                        )
+                        if (!permanent) return@withAccountLock Result.retry()
+                        index++
+                    }
                 }
+                dataStore.saveLastSyncTime(accountId, System.currentTimeMillis())
+                Result.success()
+            }.also { result ->
+                if (result == Result.success()) runPreDownload(account, api, this)
             }
-            dataStore.saveLastSyncTime(accountId, System.currentTimeMillis())
-            runPreDownload(account, api, this)
-            Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {

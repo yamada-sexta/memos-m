@@ -61,7 +61,7 @@ fun AuditLogCard() {
     var selectedCategory by remember { mutableStateOf(LogCategory.ALL) }
     val filteredEntries = entries.filter { selectedCategory.matches(it) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SettingsSurface {
         Column(modifier = Modifier.padding(vertical = 16.dp)) {
             Text(
                 stringResource(R.string.audit_log_title),

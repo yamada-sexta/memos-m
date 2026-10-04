@@ -17,6 +17,24 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserAccountIsolationTest {
+    @Test fun `returning from settings reloads another activitys cached preferences offline`() = runTest {
+        val manager = DataStoreManager(MemoryPreferences())
+        val account = Account(id = "settings-account", isActive = true)
+        manager.saveAccounts(listOf(account))
+        val sessions = AccountSession(backgroundScope)
+        sessions.activate(account, stub<MemosApi> { name, _ -> error("Unexpected network call: $name") }, OkHttpClient())
+        val oldSettings = UserGeneralSetting(locale = "en", memoVisibility = Visibility.PRIVATE)
+        val newSettings = UserGeneralSetting(locale = "ja", memoVisibility = Visibility.PUBLIC)
+        val state = MutableStateFlow(MemosUiState(session = SessionState(userSettings = oldSettings)))
+        val cache = SessionCacheStore(DataStoreSnapshotStore(manager, "session", SessionSnapshotData::class.java))
+        cache.save(account.id, SessionSnapshotData(userSettings = newSettings))
+        val delegate = UserDelegateImpl(backgroundScope, state, manager, cache, sessions, {})
+        delegate.restoreCachedSessionNow()
+        assertEquals(oldSettings, state.value.session.userSettings)
+        delegate.restoreCachedSessionNow(replace = true)
+        assertEquals(newSettings, state.value.session.userSettings)
+    }
+
     @Test fun `late profile response never updates another account or its snapshot`() = runTest {
         val release = CompletableDeferred<Unit>()
         val api = stub<MemosApi> { name, _ ->

@@ -17,8 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.example.memosm.api.GsonProvider
 import org.example.memosm.api.MemosApi
 import org.example.memosm.data.DataStoreManager
@@ -76,13 +74,6 @@ class SyncManager(
     private var syncJob: Job? = null
     private var retryJob: Job? = null
 
-    /**
-     * Serializes op processing: a background sync and a user conflict decision
-     * must never touch the same op concurrently (double push, or a re-triggered
-     * conflict for an op that was just resolved).
-     */
-    private val opMutex = Mutex()
-
     @OptIn(ExperimentalCoroutinesApi::class)
     fun startObserving(accountIdFlow: Flow<String?>) {
         scope.launch {
@@ -133,8 +124,8 @@ class SyncManager(
             if (!accountSession.isCurrent(context)) return@launch
             _isSyncing.value = true
             try {
-                opMutex.withLock {
-                    if (!accountSession.isCurrent(context)) return@withLock
+                AccountSyncCoordinator.withAccountLock(accountId) {
+                    if (!accountSession.isCurrent(context)) return@withAccountLock
                     var ops = repository.getOps(accountId)
                     val executor = newExecutor(context, user)
                     if (ops.isNotEmpty()) {
@@ -143,7 +134,7 @@ class SyncManager(
                     val now = System.currentTimeMillis()
                     var index = 0
                     while (index < ops.size) {
-                        if (!accountSession.isCurrent(context)) return@withLock
+                        if (!accountSession.isCurrent(context)) return@withAccountLock
                         // Reload after each acknowledgement so temporary-name
                         // remaps and rebased follow-ups are used immediately.
                         val opId = ops[index].id
@@ -252,16 +243,16 @@ class SyncManager(
         val api = context.api
         val user = currentUserProvider()
         scope.launch {
-            opMutex.withLock {
-                if (!accountSession.isCurrent(context)) return@withLock
-                val ownedOp = repository.getOp(item.opId) ?: return@withLock
-                if (ownedOp.accountId != accountId || ownedOp.memoName != item.memoName) return@withLock
+            AccountSyncCoordinator.withAccountLock(accountId) {
+                if (!accountSession.isCurrent(context)) return@withAccountLock
+                val ownedOp = repository.getOp(item.opId) ?: return@withAccountLock
+                if (ownedOp.accountId != accountId || ownedOp.memoName != item.memoName) return@withAccountLock
                 val executor = newExecutor(context, user)
                 when (resolution) {
                     ConflictResolution.KEEP_LOCAL -> {
-                        val op = repository.getOp(item.opId) ?: return@withLock
+                        val op = repository.getOp(item.opId) ?: return@withAccountLock
                         val local = gson.fromJson(op.payloadJson, Memo::class.java)
-                            ?: return@withLock
+                            ?: return@withAccountLock
                         try {
                             val updated = api.updateMemo(
                                 item.memoName, local, op.updateMask ?: "content"
@@ -286,16 +277,16 @@ class SyncManager(
                     }
 
                     ConflictResolution.MERGE -> {
-                        val op = repository.getOp(item.opId) ?: return@withLock
+                        val op = repository.getOp(item.opId) ?: return@withAccountLock
                         val local = gson.fromJson(op.payloadJson, Memo::class.java)
-                            ?: return@withLock
+                            ?: return@withAccountLock
                         if (mergedContent == null) {
                             // MERGE without a merged version would silently
                             // overwrite the server version with the local one;
                             // refuse and re-surface the conflict instead.
                             Log.e(TAG, "MERGE resolution without mergedContent for ${item.memoName}")
                             if (accountSession.isCurrent(context)) onConflict(item)
-                            return@withLock
+                            return@withAccountLock
                         }
                         val merged = local.copy(content = mergedContent)
                         try {
@@ -317,7 +308,7 @@ class SyncManager(
                     }
 
                     ConflictResolution.KEEP_SERVER -> {
-                        val op = repository.getOp(item.opId) ?: return@withLock
+                        val op = repository.getOp(item.opId) ?: return@withAccountLock
                         repository.deleteOp(item.opId)
                         // Re-anchor follow-up edits (queued while offline, based
                         // on the discarded local version) to the adopted server

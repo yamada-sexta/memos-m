@@ -69,6 +69,10 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".ui.profile.NotificationsActivity" android:exported="false" />
+        <activity android:name=".ui.profile.ArchivedMemosActivity" android:exported="false" />
+        <activity android:name=".ui.profile.SettingsActivity" android:exported="false" />
+
         <receiver
             android:name=".widget.DraftWidgetReceiver"
             android:exported="true">
