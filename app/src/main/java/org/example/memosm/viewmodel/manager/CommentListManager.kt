@@ -22,6 +22,11 @@ class CommentListManager(
     val currentMemoName: String?
         get() = _currentMemoName
 
+    fun clearParent() {
+        _currentMemoName = null
+        reset()
+    }
+
     fun setMemo(memoName: String) {
         if (_currentMemoName != memoName) {
             _currentMemoName = memoName

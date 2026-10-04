@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +20,6 @@ import org.example.memosm.api.AuthInterceptor
 import org.example.memosm.api.MemosApi
 import org.example.memosm.api.MemosApiFactory
 import org.example.memosm.api.MemoOrderBy
-import org.example.memosm.api.StreamingAttachmentApi
 import org.example.memosm.data.DataStoreManager
 import org.example.memosm.data.DraftManager
 import org.example.memosm.data.audit.SyncAuditLogger
@@ -85,15 +85,15 @@ class MemosViewModel(
     private val _uiState = MutableStateFlow(MemosUiState())
     val uiState: StateFlow<MemosUiState> = _uiState.asStateFlow()
 
-    private var api: MemosApi? = null
-    private var currentHttpClient: OkHttpClient? = null
-    private var currentBaseUrl: String? = null
+    private val accountSession = AccountSession(viewModelScope)
 
-    private fun activeAccountId(): String? = _uiState.value.accounts.find { it.isActive }?.id
+    private val api: MemosApi? get() = accountSession.current?.takeIf { it.networkReady }?.api
+
+    private fun activeAccountId(): String? = accountSession.current?.account?.id
 
     // Managers
     private val userMemoManager: UserMemoListManager = UserMemoListManager(
-        scope = viewModelScope,
+        scope = accountSession.readScope,
         apiProvider = { api },
         filterProvider = {
             val user = _uiState.value.session.currUser
@@ -117,10 +117,12 @@ class MemosViewModel(
         },
         pageSizeProvider = { _uiState.value.appSettings.pageSize },
         cacheCallbacks = CacheCallbacks(onFetchSuccess = { memos ->
-            val accountId = activeAccountId() ?: return@CacheCallbacks
+            val context = accountSession.current ?: return@CacheCallbacks
+            val accountId = context.account.id
             // Merge (never replace) so a page-1 refresh cannot wipe the
             // full-history text cache built by the pre-downloader.
             memoCacheRepository.cacheMemos(accountId, CacheListType.USER, memos, replace = false)
+            if (!accountSession.isCurrent(context)) return@CacheCallbacks
             refreshTextCacheCount()
             // Pre-download attachments of what is now visible, for offline viewing.
             preDownloadManager.preloadVisibleAttachments(memos)
@@ -144,15 +146,16 @@ class MemosViewModel(
 
     private val exploreMemoManager: ExploreMemoListManager =
         ExploreMemoListManager(
-            scope = viewModelScope,
+            scope = accountSession.readScope,
             apiProvider = { api },
             pageSizeProvider = { _uiState.value.appSettings.pageSize },
             cacheCallbacks = CacheCallbacks(onFetchSuccess = { memos ->
-                val accountId =
-                    activeAccountId() ?: return@CacheCallbacks
+                val context = accountSession.current ?: return@CacheCallbacks
+                val accountId = context.account.id
                 memoCacheRepository.cacheMemos(
                     accountId, CacheListType.EXPLORE, memos, replace = false
                 )
+                if (!accountSession.isCurrent(context)) return@CacheCallbacks
                 refreshTextCacheCount()
                 preDownloadManager.preloadVisibleAttachments(memos)
             }, getCachedData = { limit ->
@@ -166,16 +169,17 @@ class MemosViewModel(
 
     private val archivedMemoManager: ArchivedMemoListManager =
         ArchivedMemoListManager(
-            scope = viewModelScope,
+            scope = accountSession.readScope,
             apiProvider = { api },
             currentUserProvider = { _uiState.value.session.currUser },
             pageSizeProvider = { _uiState.value.appSettings.pageSize },
             cacheCallbacks = CacheCallbacks(onFetchSuccess = { memos ->
-                val accountId =
-                    activeAccountId() ?: return@CacheCallbacks
+                val context = accountSession.current ?: return@CacheCallbacks
+                val accountId = context.account.id
                 memoCacheRepository.cacheMemos(
                     accountId, CacheListType.ARCHIVED, memos, replace = false
                 )
+                if (!accountSession.isCurrent(context)) return@CacheCallbacks
                 refreshTextCacheCount()
                 preDownloadManager.preloadVisibleAttachments(memos)
             }, getCachedData = { limit ->
@@ -188,7 +192,7 @@ class MemosViewModel(
         )
 
     private val searchMemoManager: SearchMemoListManager = SearchMemoListManager(
-        viewModelScope,
+        accountSession.readScope,
         { api },
         pageSizeProvider = { _uiState.value.appSettings.pageSize },
         // Search results are not persisted to the cache: offline search already
@@ -214,10 +218,11 @@ class MemosViewModel(
         })
 
     private val commentManager: CommentListManager = CommentListManager(
-        viewModelScope,
+        accountSession.readScope,
         { api },
         cacheCallbacks = CacheCallbacks(onFetchSuccess = { comments ->
-            val accountId = activeAccountId() ?: return@CacheCallbacks
+            val context = accountSession.current ?: return@CacheCallbacks
+            val accountId = context.account.id
             val parent = commentManager.currentMemoName
             if (parent != null) {
                 memoCacheRepository.cacheMemos(
@@ -225,7 +230,8 @@ class MemosViewModel(
                 )
             }
         }, getCachedData = { _ ->
-            val accountId = activeAccountId() ?: return@CacheCallbacks emptyList()
+            val context = accountSession.current ?: return@CacheCallbacks emptyList()
+            val accountId = context.account.id
             val parent = commentManager.currentMemoName
             if (parent == null) emptyList()
             else memoCacheRepository.getCachedMemos(
@@ -237,13 +243,9 @@ class MemosViewModel(
 
     private val attachmentManager: AttachmentManager =
         AttachmentManager(
-            scope = viewModelScope, apiProvider = { api }, streamingApiProvider = {
-            currentHttpClient?.let {
-                StreamingAttachmentApi(it, currentBaseUrl ?: "")
-            }
-        }, initialCellWidth = _uiState.value.attachmentList.cellWidth,
+            scope = accountSession.readScope, accountSession = accountSession, apiProvider = { api },
+            initialCellWidth = _uiState.value.attachmentList.cellWidth,
             uploadQueueProvider = { attachmentUploadQueue },
-            accountIdProvider = { activeAccountId() },
             draftReferenceChecker = { clientId ->
                 val accountId = activeAccountId() ?: return@AttachmentManager false
                 draftManager.draftsContain(accountId, clientId)
@@ -253,7 +255,8 @@ class MemosViewModel(
                 syncRepository.getOps(accountId).any { it.payloadJson?.contains(clientId) == true }
             },
             cacheCallbacks = CacheCallbacks(onFetchSuccess = { attachments ->
-                val accountId = activeAccountId() ?: return@CacheCallbacks
+                val context = accountSession.current ?: return@CacheCallbacks
+                val accountId = context.account.id
                 attachmentCacheStore.cacheMeta(accountId, attachments)
             }, getCachedData = { limit ->
                 val accountId = activeAccountId()
@@ -279,12 +282,11 @@ class MemosViewModel(
     private val syncManager = SyncManager(
         scope = viewModelScope,
         repository = syncRepository,
+        accountSession = accountSession,
         memoCacheRepository = memoCacheRepository,
         dataStoreManager = dataStoreManager,
         workScheduler = syncWorkScheduler,
         auditLogger = syncAuditLogger,
-        apiProvider = { api },
-        accountIdProvider = { activeAccountId() },
         currentUserProvider = { _uiState.value.session.currUser },
         // Use the UI state's isOnline (which reflects server reachability)
         // rather than the raw connectivity observer: the observer requires
@@ -297,7 +299,6 @@ class MemosViewModel(
             if (tempName != null) {
                 // A queued create just landed: swap the temporary local memo for the real one.
                 memoListUpdater.removeMemoFromLists(tempName)
-                activeAccountId()?.let { memoCacheRepository.removeCachedMemo(it, tempName) }
                 memoListUpdater.insertMemoIntoUserList(memo)
             } else {
                 memoListUpdater.updateMemoInLists(memo)
@@ -334,28 +335,24 @@ class MemosViewModel(
 
     // Delegates
     val userDelegate: UserDelegate = UserDelegateImpl(
-        viewModelScope, _uiState, { api }, dataStoreManager, sessionCacheStore,
+        viewModelScope, _uiState, dataStoreManager, sessionCacheStore, accountSession,
         onAccountSwitched = { account ->
             switchAccountInternal(account)
         },
         onAccountRemoved = { account ->
             viewModelScope.launch {
+                syncWorkScheduler.cancel(account.id)
                 memoCacheRepository.clearCache(account.id)
                 syncManager.clearForAccount(account.id)
-                // Stop both the one-time and the periodic outbox replay, and
-                // drop the account's durable attachment uploads (staged files
-                // and rows) so nothing lingers for a deleted account.
-                syncWorkScheduler.cancel(account.id)
+                // Drop the deleted account's staged uploads and durable queue.
                 attachmentUploadQueue.clearForAccount(account.id)
                 attachmentCacheManager.clearAccount(account.id)
                 attachmentCacheStore.clearMeta(account.id)
                 notificationCacheStore.clear(account.id)
-                // Drop per-account leftovers: prefs keys and the in-memory
-                // hostUrl mapping (Coil's global image cache is bounded by its
-                // own cap and cannot be cleared per-account, so it is left as-is).
+                // Drop the deleted account's snapshots and download metadata.
                 sessionCacheStore.clear(account.id)
                 dataStoreManager.removeLastSyncTime(account.id)
-                attachmentCacheManager.forgetHost(account.hostUrl)
+                dataStoreManager.removeDownloadState(account.id)
             }
         }
     )
@@ -363,8 +360,8 @@ class MemosViewModel(
     val shortcutDelegate: ShortcutDelegate = ShortcutDelegateImpl(
         viewModelScope,
         _uiState,
-        { api },
         sessionCacheStore,
+        accountSession,
         {
             // Filter changes: the cached prefill/merge is unfiltered, so clear
             // the cached-merge flag before refetching - the server-filtered
@@ -375,8 +372,8 @@ class MemosViewModel(
         })
 
     val webhookDelegate: WebhookDelegate = WebhookDelegateImpl(
-        viewModelScope, _uiState
-    ) { api }
+        viewModelScope, _uiState, accountSession
+    )
 
 
     val appSettingsDelegate: AppSettingsDelegate = AppSettingsDelegateImpl(
@@ -391,7 +388,7 @@ class MemosViewModel(
     )
 
     val draftDelegate: DraftDelegate = DraftDelegateImpl(
-        viewModelScope, _uiState, draftManager, { memoActionDelegate }) { userMemoManager.fetch(refresh = true) }
+        viewModelScope, _uiState, draftManager, accountSession, { memoActionDelegate }) { userMemoManager.fetch(refresh = true) }
 
     private val memoListUpdater = object : MemoListUpdater {
         override fun updateMemoInLists(memo: Memo) {
@@ -449,15 +446,14 @@ class MemosViewModel(
     val memoActionDelegate: MemoActionDelegate = MemoActionDelegateImpl(
         viewModelScope,
         _uiState,
-        { api },
         memoListUpdater,
         draftDelegate,
         { attachmentManager },
         { commentManager },
         syncManager,
         memoCacheRepository,
-        { activeAccountId() },
-        { _uiState.value.session.currUser },
+        accountSession,
+        draftManager,
         { _uiState.value.isOnline })
 
     init {
@@ -468,18 +464,15 @@ class MemosViewModel(
 
         startStateCollection()
         startOfflineStateCollection()
-        syncManager.startObserving(dataStoreManager.account.map { it?.id })
+        syncManager.startObserving(accountSession.contexts.map { it?.account?.id })
     }
 
-    private suspend fun createApi(
-        baseUrl: String, token: String
-    ): MemosApi {
-        val authInterceptor = AuthInterceptor(token)
-
-        currentHttpClient = okHttpClient.newBuilder().addInterceptor(authInterceptor).build()
-        currentBaseUrl = baseUrl
-
-        return MemosApiFactory.create(baseUrl, currentHttpClient!!)
+    fun retryAccountConnection() {
+        val context = accountSession.current ?: return
+        viewModelScope.launch {
+            val saved = dataStoreManager.getAccounts().firstOrNull { it.id == context.account.id && it.isActive }
+            if (saved != null && accountSession.isCurrent(context)) switchAccountInternal(saved)
+        }
     }
 
     private fun runRecoverySequence() {
@@ -492,51 +485,45 @@ class MemosViewModel(
     }
 
     // Keep this one as it's used by the delegate directly above
-    private fun switchAccountInternal(account: Account) {
-        // Re-create Api and Managers
-        viewModelScope.launch {
-            api = createApi(account.hostUrl, account.accessToken)
-
-            // Reset all lists: cached items and merge flags from the previous
-            // account must not leak into the new account's list.
-            userMemoManager.reset()
-            exploreMemoManager.reset()
-            archivedMemoManager.reset()
-            searchMemoManager.reset()
-            commentManager.reset()
-
+    private suspend fun switchAccountInternal(account: Account?) {
+        accountSession.clear()
+        syncManager.cancelSync()
+        preDownloadManager.cancel()
+        reachabilityMonitor.cancelProbe()
+        userMemoManager.reset()
+        exploreMemoManager.reset()
+        archivedMemoManager.reset()
+        searchMemoManager.reset()
+        commentManager.clearParent()
+        attachmentManager.reset()
+        _attachmentAspectRatios.value = emptyMap()
+        _uiState.update { it.forAccount(account) }
+        if (account == null) return
+        val client = okHttpClient.newBuilder()
+            .addInterceptor(AuthInterceptor(account.accessToken)).build()
+        val provisional = accountSession.activate(
+            account, MemosApiFactory.createLatest(account.hostUrl, client), client, networkReady = false
+        )
+        // Local reads never wait for network version discovery or server reachability.
+        userMemoManager.loadFromCache()
+        exploreMemoManager.loadFromCache()
+        userDelegate.restoreCachedSession()
+        draftDelegate.loadDraftsForAccount(account.id)
+        refreshTextCacheCount()
+        accountSession.readScope.launch { attachmentCacheManager.refreshUsage(account.id) }
+        accountSession.readScope.launch {
+            val detectedApi = MemosApiFactory.create(account.hostUrl, client)
+            if (!accountSession.completeConnection(provisional, detectedApi)) return@launch
+            val context = provisional
             fetchCurrentUser()
-            // Always probe server reachability on account switch: the system
-            // connectivity observer may report offline (e.g. emulator with adb
-            // reverse, or an unvalidated captive portal) while the server is
-            // actually reachable. If the probe succeeds, the recovery sequence
-            // fetches lists and replays the outbox; if it fails, the offline
-            // cache is served instead.
-            if (_uiState.value.isOnline) {
-                reachabilityMonitor.checkNow {
-                    exploreMemoManager.fetch()
-                    userMemoManager.fetch()
-                    runRecoverySequence()
-                }
-            } else {
-                // Optimistically serve from cache first, then probe: if the
-                // server turns out to be reachable, the recovery sequence
-                // will refresh the lists on top of the cached data.
-                exploreMemoManager.loadFromCache()
-                userMemoManager.loadFromCache()
-                reachabilityMonitor.checkNow {
-                    exploreMemoManager.fetch()
-                    userMemoManager.fetch()
+            reachabilityMonitor.checkNow {
+                if (accountSession.isCurrent(context)) {
+                    userMemoManager.fetch(refresh = true)
+                    exploreMemoManager.fetch(refresh = true)
                     runRecoverySequence()
                 }
             }
-            draftDelegate.loadDraftsForAccount(account.id)
-
-            // Entering the app: sync queued writes and pre-download.
-            syncManager.syncNow()
-            preDownloadManager.maybeAutoDownload()
-            attachmentCacheManager.refreshUsage(account.id)
-            refreshTextCacheCount()
+            accountSession.readScope.launch { attachmentCacheManager.refreshUsage(account.id) }
         }
     }
 
@@ -633,8 +620,10 @@ class MemosViewModel(
             // StateFlow collectors always see the latest value (StateFlow is
             // conflated by design); the queue may change per operation during
             // sync bursts, but only the newest snapshot reaches the UI state.
-            syncManager.pendingOps.collect { ops ->
-                _uiState.update { it.copy(pendingOps = ops, pendingOpsCount = ops.size) }
+            syncManager.currentPendingOps.collect { (context, ops) ->
+                accountSession.update(_uiState, context) {
+                    it.copy(pendingOps = ops, pendingOpsCount = ops.size)
+                }
             }
         }
         viewModelScope.launch {
@@ -647,24 +636,33 @@ class MemosViewModel(
             // so a pre-download burst cannot storm the UI state with
             // intermediate progress updates.
             preDownloadManager.state.collect { state ->
-                _uiState.update { it.copy(preDownloadState = state) }
+                _uiState.update { if (state is PreDownloadState.Running && state.accountId != activeAccountId() ||
+                        state is PreDownloadState.Done && state.accountId != activeAccountId() ||
+                        state is PreDownloadState.Failed && state.accountId != activeAccountId()) it
+                    else it.copy(preDownloadState = state) }
                 // A finished pre-download changes the cached text count; refresh
                 // it so the status bar / panel show up-to-date numbers.
                 if (state is PreDownloadState.Done) refreshTextCacheCount()
             }
         }
         viewModelScope.launch {
-            attachmentCacheManager.usage.collect { usage ->
-                _uiState.update { it.copy(attachmentCacheUsage = usage) }
+            combine(accountSession.contexts, attachmentCacheManager.usage) { context, usage ->
+                context to usage
+            }.collect { (context, snapshot) ->
+                if (context != null && snapshot.accountId == context.account.id) {
+                    accountSession.update(_uiState, context) { it.copy(attachmentCacheUsage = snapshot.usage) }
+                }
             }
         }
         viewModelScope.launch {
             // Per-account key: switching accounts must show that account's own
             // last-sync time, not the previous one's.
-            dataStoreManager.account.flatMapLatest { account ->
-                dataStoreManager.lastSyncTime(account?.id)
-            }.conflate().collect { timestamp ->
-                _uiState.update { it.copy(lastSyncTime = timestamp) }
+            accountSession.contexts.flatMapLatest { context ->
+                dataStoreManager.lastSyncTime(context?.account?.id).map { context to it }
+            }.conflate().collect { (context, timestamp) ->
+                if (context != null) accountSession.update(_uiState, context) {
+                    it.copy(lastSyncTime = timestamp)
+                }
             }
         }
         // Surface the most recent connection/sync error so the UI can show a
@@ -675,12 +673,12 @@ class MemosViewModel(
                 userMemoManager.listState.map { it.errorMessage },
                 exploreMemoManager.listState.map { it.errorMessage },
                 archivedMemoManager.listState.map { it.errorMessage },
-                syncManager.pendingOps
-            ) { userErr, exploreErr, archivedErr, ops ->
-                listOfNotNull(userErr, exploreErr, archivedErr).firstOrNull()
-                    ?: ops.asReversed().firstNotNullOfOrNull { it.lastError }
-            }.distinctUntilChanged().conflate().collect { err ->
-                _uiState.update { it.copy(syncError = err) }
+                syncManager.currentPendingOps
+            ) { userErr, exploreErr, archivedErr, snapshot ->
+                snapshot.context to (listOfNotNull(userErr, exploreErr, archivedErr).firstOrNull()
+                    ?: snapshot.ops.asReversed().firstNotNullOfOrNull { it.lastError })
+            }.distinctUntilChanged().conflate().collect { (context, err) ->
+                accountSession.update(_uiState, context) { it.copy(syncError = err) }
             }
         }
     }
@@ -689,11 +687,13 @@ class MemosViewModel(
 
     // Exposed for delegation only
     private fun fetchCurrentUser() {
+        val context = accountSession.current ?: return
         userDelegate.fetchCurrentUser { user ->
+            if (!accountSession.isCurrent(context)) return@fetchCurrentUser
             // User fetched, now fetch related data that requires user name
             val name = user.name ?: return@fetchCurrentUser
-            viewModelScope.launch { shortcutDelegate.fetchShortcuts(name) }
-            viewModelScope.launch { webhookDelegate.fetchWebhooks(name) }
+            accountSession.readScope.launch { shortcutDelegate.fetchShortcuts(name) }
+            accountSession.readScope.launch { webhookDelegate.fetchWebhooks(name) }
 
             // Full-text pre-download needs the user identity to build the
             // creator filter - at account-switch time it was still null, so
@@ -812,7 +812,9 @@ class MemosViewModel(
      * Remove a single queued offline write (user abandons it).
      */
     fun deletePendingOp(opId: String) {
+        val context = accountSession.current ?: return
         viewModelScope.launch {
+            if (syncRepository.getOp(opId)?.accountId != context.account.id) return@launch
             syncManager.deleteOp(opId)
         }
     }
@@ -826,9 +828,11 @@ class MemosViewModel(
     }
 
     fun clearTextCache() {
-        val accountId = activeAccountId() ?: return
+        val context = accountSession.current ?: return
+        val accountId = context.account.id
         viewModelScope.launch {
             preDownloadManager.clearTextCache(accountId)
+            if (!accountSession.isCurrent(context)) return@launch
             // The in-memory list still shows the wiped cache; reset it so the
             // UI reflects the empty local state (re-fetch/pre-download fills it).
             userMemoManager.reset()
@@ -850,10 +854,12 @@ class MemosViewModel(
      * (offline_media files) for the active account.
      */
     fun clearAllCaches() {
-        val accountId = activeAccountId() ?: return
+        val context = accountSession.current ?: return
+        val accountId = context.account.id
         viewModelScope.launch {
             preDownloadManager.clearTextCache(accountId)
             preDownloadManager.clearAttachmentCache(accountId)
+            if (!accountSession.isCurrent(context)) return@launch
             refreshTextCacheCount()
             attachmentCacheManager.refreshUsage(accountId)
         }
@@ -863,10 +869,11 @@ class MemosViewModel(
      * Refresh the number of locally cached memos shown in the cache analysis UI.
      */
     fun refreshTextCacheCount() {
-        val accountId = activeAccountId() ?: return
+        val context = accountSession.current ?: return
+        val accountId = context.account.id
         viewModelScope.launch {
             val count = memoCacheRepository.getCachedCount(accountId)
-            _uiState.update { it.copy(textCacheCount = count) }
+            accountSession.update(_uiState, context) { it.copy(textCacheCount = count) }
         }
     }
 
@@ -931,10 +938,8 @@ class MemosViewModel(
     }
 
     suspend fun listCurrentUserNotifications(maxItems: Int = 100): NotificationsResult {
-        val currentApi = api ?: run {
-            Log.e("MemosViewModel", "Cannot load notifications: API is unavailable")
-            throw IllegalStateException("Unable to access notifications.")
-        }
+        val context = accountSession.current ?: return NotificationsResult(emptyList())
+        val currentApi = context.api
         val userName = _uiState.value.session.currUser?.name
             ?: run {
                 Log.e("MemosViewModel", "Cannot load notifications: current user is unavailable")
@@ -955,6 +960,7 @@ class MemosViewModel(
                     pageSize = remaining,
                     pageToken = nextPageToken
                 )
+                if (!accountSession.isCurrent(context)) throw CancellationException("Account switched")
                 val pageNotifications = response.notifications.orEmpty()
                 notifications += pageNotifications
                 nextPageToken = response.nextPageToken?.takeIf { it.isNotBlank() }
@@ -965,7 +971,7 @@ class MemosViewModel(
                 // overwrites a good snapshot.
                 if (isFirstPage) {
                     isFirstPage = false
-                    activeAccountId()?.let { accountId ->
+                    context.account.id.let { accountId ->
                         runCatching {
                             notificationCacheStore.save(
                                 accountId,
@@ -983,16 +989,17 @@ class MemosViewModel(
                 }
             }
 
+            if (!accountSession.isCurrent(context)) throw CancellationException("Account switched")
             return NotificationsResult(notifications)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (!accountSession.isCurrent(context)) throw CancellationException("Account switched")
             // Offline/failure: serve the last successful first page; the UI
             // badges it as cached instead of showing the error view.
-            val accountId = activeAccountId()
-            val snapshot = if (accountId != null) {
-                runCatching { notificationCacheStore.get(accountId) }.getOrNull()
-            } else {
-                null
-            }
+            val accountId = context.account.id
+            val snapshot = runCatching { notificationCacheStore.get(accountId) }.getOrNull()
+            if (!accountSession.isCurrent(context)) throw CancellationException("Account switched")
             if (snapshot != null && snapshot.notifications.isNotEmpty()) {
                 return NotificationsResult(
                     notifications = snapshot.notifications,

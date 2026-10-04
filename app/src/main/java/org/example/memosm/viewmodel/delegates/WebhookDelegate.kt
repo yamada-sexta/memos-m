@@ -4,6 +4,9 @@ import org.example.memosm.R
 import android.util.Log
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import org.example.memosm.viewmodel.AccountContext
+import org.example.memosm.viewmodel.AccountSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -31,16 +34,19 @@ interface WebhookDelegate {
 class WebhookDelegateImpl(
     private val scope: CoroutineScope,
     private val uiState: MutableStateFlow<MemosUiState>,
-    private val apiProvider: () -> MemosApi?
+    private val accountSession: AccountSession
 ) : WebhookDelegate {
 
-    private val api: MemosApi? get() = apiProvider()
 
     override suspend fun fetchWebhooks(userResourceName: String) {
+        val context = accountSession.current ?: return
+        val api = context.api
         try {
-            val response = api?.listUserWebhooks(userResourceName)
+            val response = api.listUserWebhooks(userResourceName)
             val hooks = response?.webhooks ?: emptyList()
-            uiState.update { it.copy(session = it.session.copy(webhooks = hooks)) }
+            accountSession.update(uiState, context) { it.copy(session = it.session.copy(webhooks = hooks)) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("MemosViewModel", "Error fetching webhooks", e)
         }
@@ -49,15 +55,19 @@ class WebhookDelegateImpl(
     override fun createWebhook(
         displayName: String, url: String, onSuccess: () -> Unit, onError: (Int) -> Unit
     ) {
+        val context = accountSession.current ?: return
+        val api = context.api
+        val user = uiState.value.session.currUser ?: return
         scope.launch {
             try {
-                val user = uiState.value.session.currUser ?: return@launch
                 val webhook = UserWebhook(displayName = displayName, url = url)
-                api?.createUserWebhook(user.name!!, webhook)
-                fetchWebhooks(user.name!!)
-                onSuccess()
+                api.createUserWebhook(user.name!!, webhook)
+                if (accountSession.isCurrent(context)) fetchWebhooks(user.name!!)
+                if (accountSession.isCurrent(context)) onSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                onError(getErrorResponse(e))
+                if (accountSession.isCurrent(context)) onError(getErrorResponse(e))
             }
         }
     }
@@ -69,11 +79,13 @@ class WebhookDelegateImpl(
         onSuccess: () -> Unit,
         onError: (Int) -> Unit
     ) {
+        val context = accountSession.current ?: return
+        val api = context.api
+        val user = uiState.value.session.currUser ?: return
         scope.launch {
             try {
-                val user = uiState.value.session.currUser ?: return@launch
                 val userName = user.name ?: return@launch
-                val currentApi = api ?: return@launch
+                val currentApi = api
                 val update = webhook.copy(displayName = displayName, url = url)
                 val webhookId = webhook.name?.substringAfterLast("/") ?: ""
 
@@ -84,21 +96,27 @@ class WebhookDelegateImpl(
                     update,
                     "${constants.webhookMaskDisplayName},${constants.webhookMaskUrl}"
                 )
-                fetchWebhooks(userName)
-                onSuccess()
+                if (accountSession.isCurrent(context)) fetchWebhooks(userName)
+                if (accountSession.isCurrent(context)) onSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                onError(getErrorResponse(e))
+                if (accountSession.isCurrent(context)) onError(getErrorResponse(e))
             }
         }
     }
 
     override fun deleteWebhook(webhook: UserWebhook) {
+        val context = accountSession.current ?: return
+        val api = context.api
+        val user = uiState.value.session.currUser ?: return
         scope.launch {
             try {
-                val user = uiState.value.session.currUser ?: return@launch
                 val webhookId = webhook.name?.substringAfterLast("/") ?: ""
-                api?.deleteUserWebhook(user.name!!, webhookId)
-                fetchWebhooks(user.name!!)
+                api.deleteUserWebhook(user.name!!, webhookId)
+                if (accountSession.isCurrent(context)) fetchWebhooks(user.name!!)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
             }
         }

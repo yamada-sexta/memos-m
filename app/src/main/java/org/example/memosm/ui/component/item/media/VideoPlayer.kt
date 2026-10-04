@@ -56,6 +56,8 @@ fun VideoPlayer(
     onDismiss: (() -> Unit)? = null,
     onRatioAvailable: (Float) -> Unit = {}
 ) {
+    val accountIdentity = LocalAccountMediaIdentity.current
+    val accountId = accountIdentity?.id
     val context = LocalContext.current
     var isFullscreen by remember { mutableStateOf(false) }
     var isReady by remember { mutableStateOf(false) }
@@ -68,8 +70,8 @@ fun VideoPlayer(
         }
     }
 
-    val exoPlayer = remember(url, token) {
-        val dataSourceFactory = MediaCache.createDataSourceFactory(context, token)
+    val exoPlayer = remember(url, token, accountIdentity) {
+        val dataSourceFactory = MediaCache.createDataSourceFactory(context, token, accountId)
         ExoPlayer.Builder(context).setMediaSourceFactory(
             DefaultMediaSourceFactory(dataSourceFactory)
         ).build().apply {

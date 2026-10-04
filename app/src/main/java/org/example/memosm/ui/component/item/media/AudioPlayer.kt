@@ -71,9 +71,11 @@ fun AudioPlayer(
     showContainer: Boolean = true,
     onPlayingStateChanged: (Boolean) -> Unit = {}
 ) {
+    val accountIdentity = LocalAccountMediaIdentity.current
+    val accountId = accountIdentity?.id
     val context = LocalContext.current
-    val exoPlayer = remember(url, token) {
-        val dataSourceFactory = MediaCache.createDataSourceFactory(context, token)
+    val exoPlayer = remember(url, token, accountIdentity) {
+        val dataSourceFactory = MediaCache.createDataSourceFactory(context, token, accountId)
         ExoPlayer.Builder(context).setMediaSourceFactory(
             DefaultMediaSourceFactory(dataSourceFactory)
         ).build()

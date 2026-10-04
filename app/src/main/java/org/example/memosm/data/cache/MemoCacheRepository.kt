@@ -34,13 +34,7 @@ class MemoCacheRepository(private val memoDao: MemoDao) {
                     CachedMemo.fromMemo(memo, accountId, listType, index, parentName)
                 }
 
-            if (replace) {
-                // Atomic delete+insert in one transaction: a concurrent writer
-                // never observes (or gets wiped by) the intermediate empty state.
-                memoDao.replaceMemos(accountId, listType.name, cachedMemos)
-            } else if (cachedMemos.isNotEmpty()) {
-                memoDao.insertMemos(cachedMemos)
-            }
+            memoDao.cacheRemoteMemos(accountId, listType.name, cachedMemos, replace)
             Log.d(TAG, "Cached ${cachedMemos.size} memos for $listType (replace=$replace)")
         } catch (e: CancellationException) {
             throw e

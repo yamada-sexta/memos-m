@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.example.memosm.MemosApplication
 import org.example.memosm.R
+import org.example.memosm.viewmodel.AccountSession
+import org.example.memosm.viewmodel.AccountContext
 import org.example.memosm.api.MemosApi
 import org.example.memosm.api.StreamingAttachmentApi
 import org.example.memosm.data.media.AttachmentUploadQueue
@@ -30,11 +32,10 @@ private const val TAG = "AttachmentManager"
 
 class AttachmentManager(
     scope: CoroutineScope,
+    private val accountSession: AccountSession,
     private val apiProvider: () -> MemosApi?,
-    private val streamingApiProvider: () -> StreamingAttachmentApi?,
     initialCellWidth: Float = 120f,
     private val uploadQueueProvider: () -> AttachmentUploadQueue? = { null },
-    private val accountIdProvider: () -> String? = { null },
     private val draftReferenceChecker: suspend (clientId: String) -> Boolean = { false },
     private val outboxReferenceChecker: suspend (clientId: String) -> Boolean = { false },
     cacheCallbacks: CacheCallbacks<Attachment>? = null
@@ -74,8 +75,10 @@ class AttachmentManager(
      * the upload was queued, or null when even staging failed.
      */
     suspend fun uploadAttachment(uri: Uri, context: Context): Attachment? {
-        val api = apiProvider()
-        val streamingApi = streamingApiProvider()
+        val account = accountSession.current ?: return null
+        val connection = account.connection
+        val api = connection.api
+        val streamingApi = StreamingAttachmentApi(account.httpClient, account.account.hostUrl)
         try {
             Log.d(TAG, "uploadAttachment: starting upload for uri=$uri")
 
@@ -90,14 +93,14 @@ class AttachmentManager(
             )
 
             // Offline (or no API yet): queue for later instead of failing.
-            if (api == null) {
-                return enqueueForLater(uri, fileName, mimeType, fileSize)
+            if (!connection.networkReady) {
+                return enqueueForLater(account, uri, fileName, mimeType, fileSize)
             }
 
-            val useStreaming = fileSize > STREAMING_THRESHOLD && streamingApi != null
+            val useStreaming = fileSize > STREAMING_THRESHOLD
             Log.d(
                 TAG,
-                "uploadAttachment: useStreaming=$useStreaming (hasStreamingApi=${streamingApi != null})"
+                "uploadAttachment: useStreaming=$useStreaming "
             )
 
             val attachment = if (useStreaming) {
@@ -113,14 +116,14 @@ class AttachmentManager(
             if (attachment != null) {
                 Log.d(TAG, "uploadAttachment: SUCCESS, id=${attachment.name}")
                 // Prepend to list locally
-                updateState { state ->
+                if (accountSession.isCurrent(account)) updateState { state ->
                     state.copy(items = listOf(attachment) + state.items)
                 }
             } else {
                 Log.e(
                     TAG, "uploadAttachment: FAILED - returned null (used streaming=$useStreaming)"
                 )
-                return enqueueForLater(uri, fileName, mimeType, fileSize)
+                return enqueueForLater(account, uri, fileName, mimeType, fileSize)
             }
 
             return attachment
@@ -130,7 +133,7 @@ class AttachmentManager(
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Upload failed with exception", e)
-            return enqueueForLater(uri, getFileName(uri, context) ?: "unknown_file",
+            return enqueueForLater(account, uri, getFileName(uri, context) ?: "unknown_file",
                 resolveMimeType(uri, context), getFileSize(uri, context))
         }
     }
@@ -146,16 +149,17 @@ class AttachmentManager(
      * no row, null).
      */
     private suspend fun enqueueForLater(
+        account: AccountContext,
         uri: Uri,
         fileName: String,
         mimeType: String,
         fileSize: Long
     ): Attachment? {
         val queue = uploadQueueProvider() ?: return null
-        val accountId = accountIdProvider() ?: return null
+        val accountId = account.account.id
         val clientId = queue.enqueue(accountId, uri, fileName, mimeType, fileSize) ?: return null
         withContext(Dispatchers.Main) {
-            Toast.makeText(
+            if (accountSession.isCurrent(account)) Toast.makeText(
                 MemosApplication.instance,
                 MemosApplication.instance.getString(R.string.offline_saved_message),
                 Toast.LENGTH_SHORT
@@ -181,7 +185,10 @@ class AttachmentManager(
      */
     suspend fun discardQueuedUploadIfOrphaned(clientId: String) {
         val queue = uploadQueueProvider() ?: return
-        val rowExists = queue.get(clientId) != null
+        val account = accountSession.current ?: return
+        val row = queue.get(clientId) ?: return
+        if (row.accountId != account.account.id) return
+        val rowExists = true
         val referencedElsewhere = try {
             draftReferenceChecker(clientId) || outboxReferenceChecker(clientId)
         } catch (e: CancellationException) {
@@ -190,7 +197,7 @@ class AttachmentManager(
             Log.w(TAG, "discardQueuedUploadIfOrphaned: reference check failed, keeping upload", e)
             true
         }
-        if (!shouldDiscardQueuedUpload(rowExists, referencedElsewhere)) return
+        if (!accountSession.isCurrent(account) || !shouldDiscardQueuedUpload(rowExists, referencedElsewhere)) return
         queue.discard(clientId)
     }
 

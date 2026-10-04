@@ -82,10 +82,22 @@ interface MemoDao {
      * Used to enforce the per-tier text cache size limit.
      */
     @Query(
-        "DELETE FROM cached_memos WHERE accountId = :accountId AND listType = :listType AND name NOT IN " +
+        "DELETE FROM cached_memos WHERE accountId = :accountId AND listType = :listType AND name NOT IN (SELECT memoName FROM pending_ops WHERE accountId = :accountId AND memoName IS NOT NULL) AND name NOT IN " +
             "(SELECT name FROM cached_memos WHERE accountId = :accountId AND listType = :listType ORDER BY createTime DESC LIMIT :keep)"
     )
     suspend fun trimListType(accountId: String, listType: String, keep: Int)
+
+    @Query("SELECT DISTINCT memoName FROM pending_ops WHERE accountId = :accountId AND memoName IS NOT NULL")
+    suspend fun protectedMemoNames(accountId: String): List<String>
+
+    /** Server refreshes must not erase or overwrite unsent optimistic changes. */
+    @Transaction
+    suspend fun cacheRemoteMemos(accountId: String, listType: String, memos: List<CachedMemo>, replace: Boolean) {
+        val protected = protectedMemoNames(accountId).toSet()
+        val local = if (replace) getMemos(accountId, listType).filter { it.name in protected } else emptyList()
+        if (replace) deleteMemos(accountId, listType)
+        insertMemos(memos.filterNot { it.name in protected } + local)
+    }
 
     /**
      * Atomically replace a list type's cache: delete + insert in one

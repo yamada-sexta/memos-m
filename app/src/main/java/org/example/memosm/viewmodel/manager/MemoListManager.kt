@@ -2,6 +2,9 @@ package org.example.memosm.viewmodel.manager
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -209,6 +212,13 @@ class SearchMemoListManager(
     private var currentOrderBy: MemoOrderBy? = null
     private var currentLocalFilter: LocalSearchFilter = LocalSearchFilter()
 
+    override fun reset() {
+        super.reset()
+        currentFilter = null
+        currentOrderBy = null
+        currentLocalFilter = LocalSearchFilter()
+    }
+
     fun updateFilter(filter: String?, orderBy: MemoOrderBy?) {
         currentFilter = filter
         currentOrderBy = orderBy
@@ -222,9 +232,11 @@ class SearchMemoListManager(
      * Run the search against the local cache only (used when offline).
      */
     fun searchLocal() {
-        scope.launch {
+        launchRequest { checkCurrent ->
             try {
                 val items = localSearchProvider(currentLocalFilter)
+                coroutineContext.ensureActive()
+                checkCurrent()
                 _listState.update {
                     it.copy(
                         items = items,
@@ -234,7 +246,10 @@ class SearchMemoListManager(
                         errorMessage = null
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                checkCurrent()
                 android.util.Log.e("SearchMemoListManager", "searchLocal failed", e)
                 _listState.update {
                     it.copy(

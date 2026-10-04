@@ -113,6 +113,7 @@ data class MemosUiState(
     val appSettings: AppSettings = AppSettings(),
 
     val accounts: List<Account> = emptyList(),
+    val accountGeneration: Long = 0L,
     val users: Map<String, User> = emptyMap(),
 
     val isPosting: Boolean = false,

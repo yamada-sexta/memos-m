@@ -147,6 +147,7 @@ class ServerReachabilityMonitor(
     /** Cancel any in-flight one-shot probe (e.g. on connectivity loss). */
     fun cancelProbe() {
         probeJob?.cancel()
+        _state.value = ReachabilityState()
     }
 
     /** Stop both the one-shot probe and the periodic scheduler. */

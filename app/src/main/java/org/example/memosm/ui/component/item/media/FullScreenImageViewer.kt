@@ -52,6 +52,8 @@ import kotlin.math.abs
 fun FullScreenImageViewer(
     model: Any, filename: String, token: String?, onDismiss: () -> Unit
 ) {
+    val accountIdentity = LocalAccountMediaIdentity.current
+    val accountId = accountIdentity?.id
     val context = LocalContext.current
     Dialog(
         onDismissRequest = onDismiss, properties = DialogProperties(
@@ -204,8 +206,10 @@ fun FullScreenImageViewer(
                         builder.build()
                     }
 
-                    val fullImageRequest = remember(model, token) {
-                        ImageRequest.Builder(context).data(model).httpHeaders(headers).build()
+                    val fullImageRequest = remember(model, token, accountIdentity) {
+                        ImageRequest.Builder(context).data(model).httpHeaders(headers)
+            .memoryCacheKey(accountMediaCacheKey(accountId, model.toString()))
+            .diskCacheKey(accountMediaCacheKey(accountId, model.toString())).build()
                     }
 
                     AsyncImage(

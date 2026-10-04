@@ -41,6 +41,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
+import org.example.memosm.ui.component.item.media.AccountMediaIdentity
+import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -78,6 +82,8 @@ import org.example.memosm.ui.nav.ExploreScreen
 import org.example.memosm.ui.nav.MemosScreen
 import org.example.memosm.ui.nav.ProfileScreen
 import org.example.memosm.viewmodel.MemosViewModel
+import org.example.memosm.viewmodel.MemosUiState
+import androidx.compose.runtime.MutableState
 
 enum class MainDestination(
     val labelRes: Int
@@ -96,17 +102,41 @@ fun MainScreen(
     shouldOpenComposer: Boolean = false,
     onComposerOpened: () -> Unit = {}
 ) {
-    var currentDestination by rememberSaveable { mutableStateOf(MainDestination.MEMOS) }
-    var lastTapTime by remember { mutableLongStateOf(0L) }
+    val destination = rememberSaveable { mutableStateOf(MainDestination.MEMOS) }
     val viewModel: MemosViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val mediaIdentity = uiState.accounts.firstOrNull { it.isActive }?.let {
+        AccountMediaIdentity(it.id, uiState.accountGeneration)
+    }
+    CompositionLocalProvider(LocalAccountMediaIdentity provides mediaIdentity) {
+        key(uiState.accountGeneration) {
+            MainScreenContent(viewModel, uiState, destination, onLogout, modifier,
+                shareIntentData, onShareIntentConsumed, shouldOpenComposer, onComposerOpened)
+        }
+    }
+}
+
+@Composable
+private fun MainScreenContent(
+    viewModel: MemosViewModel,
+    uiState: MemosUiState,
+    destination: MutableState<MainDestination>,
+    onLogout: () -> Unit,
+    modifier: Modifier,
+    shareIntentData: ShareIntentData?,
+    onShareIntentConsumed: () -> Unit,
+    shouldOpenComposer: Boolean,
+    onComposerOpened: () -> Unit
+) {
+    var currentDestination by destination
+    var lastTapTime by remember { mutableLongStateOf(0L) }
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val networkPermission = LocalNetworkPermission.current
     var previouslyGranted by remember { mutableStateOf(networkPermission.granted) }
     LaunchedEffect(networkPermission.granted) {
         if (networkPermission.granted && !previouslyGranted) {
-            viewModel.userDelegate.updateCurrentAccountInList()
+            viewModel.retryAccountConnection()
         }
         previouslyGranted = networkPermission.granted
     }
@@ -177,7 +207,6 @@ fun MainScreen(
         LoginDialog(onLoginSuccess = { newBaseUrl, newToken ->
             scope.launch {
                 viewModel.userDelegate.addAccount(newBaseUrl, newToken)
-                viewModel.userDelegate.updateCurrentAccountInList()
                 isAddingAccount = false
             }
         }, onDismiss = { isAddingAccount = false })

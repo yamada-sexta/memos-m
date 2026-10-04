@@ -2,6 +2,9 @@ package org.example.memosm.viewmodel.manager
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,6 +72,24 @@ abstract class BaseListManager<T>(
     protected val _listState = MutableStateFlow(initialState)
     override val listState: StateFlow<PaginatedListState<T>> = _listState.asStateFlow()
 
+    @Volatile
+    private var generation = 0L
+    private val requests = java.util.concurrent.ConcurrentHashMap.newKeySet<Job>()
+
+    protected fun launchRequest(block: suspend CoroutineScope.(() -> Unit) -> Unit) {
+        val expected = generation
+        val job = scope.launch {
+            val checkCurrent = {
+                if (generation != expected) throw CancellationException("List reset")
+            }
+            coroutineContext.ensureActive()
+            checkCurrent()
+            block(checkCurrent)
+        }
+        requests.add(job)
+        job.invokeOnCompletion { requests.remove(job) }
+    }
+
     // Abstract methods to be implemented by specific managers
     // Returns a Pair of (Items, NextPageToken)
     protected abstract suspend fun fetchFromApi(pageToken: String?): Pair<List<T>, String?>
@@ -127,6 +148,9 @@ abstract class BaseListManager<T>(
 
     override fun reset() {
         android.util.Log.d(TAG, "reset")
+        generation++
+        requests.toList().forEach { it.cancel() }
+        requests.clear()
         _listState.update { initialState }
     }
 
@@ -138,9 +162,11 @@ abstract class BaseListManager<T>(
      */
     open fun loadFromCache() {
         if (cacheCallbacks == null) return
-        scope.launch {
+        launchRequest { checkCurrent ->
             try {
                 val cachedItems = cacheCallbacks.getCachedData(null)
+                coroutineContext.ensureActive()
+                checkCurrent()
                 if (cachedItems.isNotEmpty()) {
                     _listState.update { it.copy(
                         items = sortIfNeeded(cachedItems),
@@ -208,7 +234,7 @@ abstract class BaseListManager<T>(
     }
 
     private fun loadInternal(pageToken: String?) {
-        scope.launch {
+        launchRequest { checkCurrent ->
             try {
                 android.util.Log.d(TAG, "loadInternal: pageToken=$pageToken")
 
@@ -239,6 +265,8 @@ abstract class BaseListManager<T>(
                         android.util.Log.e(TAG, "cache prefill failed", e)
                         emptyList()
                     }
+                    coroutineContext.ensureActive()
+                    checkCurrent()
                     if (cachedPrefill.isNotEmpty()) {
                         _listState.update { it.copy(
                             items = sortIfNeeded(cachedPrefill),
@@ -253,9 +281,13 @@ abstract class BaseListManager<T>(
                 _listState.update { it.copy(isLoading = true, isOffline = false) }
 
                 val (newItems, rawNextToken) = fetchFromApi(pageToken)
+                coroutineContext.ensureActive()
+                checkCurrent()
                 val nextToken = if (rawNextToken.isNullOrBlank()) null else rawNextToken
 
                 val processedItems = newItems.map { processItem(it) }
+                coroutineContext.ensureActive()
+                checkCurrent()
 
                 android.util.Log.d(
                     TAG,
@@ -377,6 +409,7 @@ abstract class BaseListManager<T>(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                checkCurrent()
                 android.util.Log.e(TAG, "loadInternal error", e)
 
                 // Keep technical exception details in logs; UI receives a generic, localizable message.
@@ -386,6 +419,8 @@ abstract class BaseListManager<T>(
                 if (pageToken == null && cacheCallbacks != null) {
                     try {
                         val cachedItems = cacheCallbacks.getCachedData(null)
+                coroutineContext.ensureActive()
+                checkCurrent()
                         if (cachedItems.isNotEmpty()) {
                             android.util.Log.d(
                                 TAG, "Loaded ${cachedItems.size} items from cache"
@@ -397,7 +432,7 @@ abstract class BaseListManager<T>(
                                 isOffline = true,  // Mark as offline/cached data
                                 errorMessage = errorMessage
                             ) }
-                            return@launch
+                            return@launchRequest
                         }
                     } catch (cacheError: CancellationException) {
                         throw cacheError

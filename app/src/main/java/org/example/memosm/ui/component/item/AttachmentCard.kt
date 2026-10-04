@@ -4,6 +4,7 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import android.os.Environment
 import android.text.format.Formatter
 import android.util.Base64
@@ -98,6 +99,8 @@ fun AttachmentCard(
     onDismiss: (() -> Unit)? = null,
     onRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> }
 ) {
+    val accountIdentity = LocalAccountMediaIdentity.current
+    val accountId = accountIdentity?.id
     val context = LocalContext.current
     var showInfoDialog by remember { mutableStateOf(false) }
     var showDownloadDialog by remember { mutableStateOf(false) }
@@ -168,13 +171,13 @@ fun AttachmentCard(
 
     // Audio handling (temp file for base64 if needed)
     val audioUrl =
-        produceState<String?>(initialValue = null, uri, attachment, displayType, hostUrl) {
+        produceState<String?>(initialValue = null, uri, attachment, displayType, hostUrl, accountIdentity) {
             if (!isAudio) {
                 value = null
             } else {
                 value = withContext(Dispatchers.IO) {
                     val localFile = org.example.memosm.MemosApplication.instance
-                        .attachmentCacheManager.getLocalFileByHost(hostUrl, attachment?.name)
+                        .attachmentCacheManager.getLocalFileForAccount(accountId, attachment?.name)
                     when {
                         uri != Uri.EMPTY -> uri.toString()
                         localFile != null -> localFile.toUri().toString()
@@ -316,11 +319,11 @@ fun AttachmentCard(
                         )
                     } else if (isVideo) {
                         val videoUrl = produceState<String?>(
-                            initialValue = null, uri, attachment, hostUrl
+                            initialValue = null, uri, attachment, hostUrl, accountIdentity
                         ) {
                             value = withContext(Dispatchers.IO) {
                                 val localFile = org.example.memosm.MemosApplication.instance
-                                    .attachmentCacheManager.getLocalFileByHost(hostUrl, attachment?.name)
+                                    .attachmentCacheManager.getLocalFileForAccount(accountId, attachment?.name)
                                 when {
                                     uri != Uri.EMPTY -> uri.toString()
                                     localFile != null -> localFile.toUri().toString()
@@ -606,10 +609,10 @@ fun AttachmentCard(
     }
 
     if (showFullScreenImage && isImage) {
-        val model = produceState<Any?>(initialValue = null, uri, attachment, hostUrl) {
+        val model = produceState<Any?>(initialValue = null, uri, attachment, hostUrl, accountIdentity) {
             value = withContext(Dispatchers.IO) {
                 val localFile = org.example.memosm.MemosApplication.instance
-                    .attachmentCacheManager.getLocalFileByHost(hostUrl, attachment?.name)
+                    .attachmentCacheManager.getLocalFileForAccount(accountId, attachment?.name)
                 when {
                     uri != Uri.EMPTY -> uri
                     localFile != null -> localFile

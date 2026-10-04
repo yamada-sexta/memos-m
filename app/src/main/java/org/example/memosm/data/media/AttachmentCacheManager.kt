@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,11 +55,10 @@ class AttachmentCacheManager(
      * [activeAccountId] and [clearAccount] only zeroes it when the cleared
      * account is the published one.
      */
-    private val _usage = MutableStateFlow(Usage())
-    val usage: StateFlow<Usage> = _usage.asStateFlow()
+    data class AccountUsage(val accountId: String? = null, val usage: Usage = Usage())
 
-    /** Account the currently published [usage] belongs to (null = none yet). */
-    private var usageAccountId: String? = null
+    private val _usage = MutableStateFlow(AccountUsage())
+    val usage: StateFlow<AccountUsage> = _usage.asStateFlow()
 
     private fun rootDir(): File = OfflineMediaPaths.rootDir(context)
 
@@ -132,9 +132,6 @@ class AttachmentCacheManager(
      * stale entries from being served.
      */
     private val indexWarmed = AtomicBoolean(false)
-
-    /** Resolved hostUrl -> accountId cache (attachment lookup by display host). */
-    private val accountIdByHost = ConcurrentHashMap<String, String>()
 
     private fun indexKey(accountId: String, attachmentName: String): String =
         "$accountId\u0000$attachmentName"
@@ -211,96 +208,13 @@ class AttachmentCacheManager(
         }
     }
 
-    /**
-     * Resolve the account id for a display [hostUrl] (e.g. session.hostUrl).
-     * Attachment names are only unique per server, so the account must be
-     * known to pick the right cached file. The result is cached in memory;
-     * account host URLs do not change in practice.
-     */
-    private suspend fun resolveAccountId(hostUrl: String): String? {
-        accountIdByHost[hostUrl]?.let { return it }
-        val normalized = hostUrl.trimEnd('/')
-        val accountId = try {
-            dataStoreManager.accounts.first().firstOrNull { acc ->
-                acc.hostUrl.trimEnd('/') == normalized
-            }?.id
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "resolveAccountId failed for $hostUrl", e)
-            null
-        }
-        if (accountId != null) {
-            accountIdByHost[hostUrl] = accountId
-        }
-        return accountId
-    }
+    /** Missing account identity must fall back to the network, never another account's file. */
+    suspend fun getLocalFileForAccount(accountId: String?, attachmentName: String?): File? =
+        accountId?.let { getLocalFile(it, attachmentName) }
 
-    /**
-     * Drop the in-memory hostUrl -> accountId mapping for a removed account,
-     * so a later re-add of the same server resolves to its new account id
-     * instead of the stale one (which would only miss, never collide, but a
-     * stale entry would also keep the old account id alive in memory).
-     */
-    fun forgetHost(hostUrl: String) {
-        accountIdByHost.remove(hostUrl)
-        accountIdByHost.remove(hostUrl.trimEnd('/'))
-    }
-
-    /**
-     * Return the locally cached file for an attachment of the account whose
-     * server is [hostUrl]. Prefer this over [getLocalFileByName] whenever the
-     * host is known: it resolves the account and cannot pick up a same-named
-     * attachment downloaded for a different server.
-     */
-    suspend fun getLocalFileByHost(hostUrl: String, attachmentName: String?): File? {
-        if (attachmentName.isNullOrBlank()) return null
-        val accountId = resolveAccountId(hostUrl)
-            // The account cannot be resolved at all (e.g. hostUrl mismatch):
-            // only then fall back to the legacy cross-account name-only
-            // lookup (most recently downloaded row).
-            ?: return getLocalFileByName(attachmentName)
-        // The account IS known: never serve a same-named attachment that was
-        // downloaded for an account on a different server - return null so
-        // the caller falls back to the network URL.
-        return getLocalFile(accountId, attachmentName)
-    }
-
-    /**
-     * Legacy: return the locally cached file for an attachment by its name,
-     * regardless of account. Attachment names are NOT unique across servers,
-     * so this is only a fallback - it returns the most recently downloaded
-     * row for the name.
-     */
-    suspend fun getLocalFileByName(attachmentName: String?): File? {
-        if (attachmentName.isNullOrBlank()) return null
-        migrateLegacyRootIfNeeded()
-        return try {
-            val row = dao.getByAttachmentName(attachmentName) ?: return null
-            val file = File(row.localPath)
-            if (!file.exists()) {
-                dao.deleteForAttachment(row.accountId, attachmentName)
-                refreshUsage(row.accountId)
-                null
-            } else {
-                indexPut(row.accountId, attachmentName, file)
-                file
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "getLocalFileByName failed for $attachmentName", e)
-            null
-        }
-    }
-
-    /**
-     * Resolve the display model for an attachment: the locally cached file
-     * when available (offline playback/viewing), otherwise the network URL.
-     */
-    suspend fun displayModel(hostUrl: String, attachment: Attachment?): Any? {
+    suspend fun displayModel(accountId: String?, hostUrl: String, attachment: Attachment?): Any? {
         if (attachment == null) return null
-        getLocalFileByHost(hostUrl, attachment.name)?.let { return it }
+        getLocalFileForAccount(accountId, attachment.name)?.let { return it }
         return AttachmentManager.getAttachmentUrl(hostUrl, attachment)
     }
 
@@ -493,8 +407,7 @@ class AttachmentCacheManager(
                 count = dao.getAllForAccount(accountId).size
             )
             if (accountId == activeAccountId()) {
-                usageAccountId = accountId
-                _usage.value = usage
+                _usage.value = AccountUsage(accountId, usage)
             }
         } catch (e: CancellationException) {
             throw e
@@ -530,10 +443,7 @@ class AttachmentCacheManager(
             // Zero the published usage only when it belonged to the cleared
             // account; clearing a background account must not blank the
             // active account's numbers.
-            if (usageAccountId == accountId) {
-                usageAccountId = null
-                _usage.value = Usage()
-            }
+            _usage.update { if (it.accountId == accountId) AccountUsage() else it }
         }
     }
 

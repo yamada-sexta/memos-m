@@ -1,20 +1,28 @@
 package org.example.memosm.api
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object MemosApiFactory {
 
-    suspend fun create(baseUrl: String, client: OkHttpClient): MemosApi {
+    private fun retrofit(baseUrl: String, client: OkHttpClient): Retrofit {
         var normalizedBaseUrl = baseUrl.trimEnd('/') + "/"
         if (normalizedBaseUrl.endsWith("/api/v1/")) {
             normalizedBaseUrl = normalizedBaseUrl.removeSuffix("api/v1/")
         }
-
-        val retrofit = Retrofit.Builder().baseUrl(normalizedBaseUrl).client(client)
+        return Retrofit.Builder().baseUrl(normalizedBaseUrl).client(client)
             .addConverterFactory(GsonConverterFactory.create(GsonProvider.gson)).build()
+    }
+
+    /** Bind local state immediately; version discovery can run as a cancellable session read. */
+    fun createLatest(baseUrl: String, client: OkHttpClient): MemosApi =
+        MemosApiV0300Impl(retrofit(baseUrl, client).create(MemosApiV0300::class.java))
+
+    suspend fun create(baseUrl: String, client: OkHttpClient): MemosApi {
+        val retrofit = retrofit(baseUrl, client)
 
         // Create the v0.35.3 API used for version probing.
         val v0353Api = retrofit.create(MemosApiV0353::class.java)
@@ -60,6 +68,8 @@ object MemosApiFactory {
             } else {
                 latestApiFallback("Unsupported or unknown Memos server version: $version")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             latestApiFallback("Failed to probe Memos server version", e)
         }

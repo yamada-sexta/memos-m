@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CoroutineScope
@@ -89,6 +90,8 @@ class OutboxSyncWorker(
                         continue
                     }
                     index++
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (error: Exception) {
                     // 4xx means the server deterministically rejected the op -
                     // retrying is pointless, mark it permanent. 5xx and
@@ -112,6 +115,8 @@ class OutboxSyncWorker(
             dataStore.saveLastSyncTime(accountId, System.currentTimeMillis())
             runPreDownload(account, api, this)
             Result.success()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             audit.record(accountId, "WORKER", "RETRY", detailCode = errorCode(error))
             Result.retry()
@@ -160,6 +165,8 @@ class OutboxSyncWorker(
             manager.runAutoDownloadBlocking()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             Log.w("OutboxSyncWorker", "background pre-download failed", e)
         }

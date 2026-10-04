@@ -1,6 +1,7 @@
 package org.example.memosm.data.audit
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import java.security.MessageDigest
 
 /** Writes bounded, redacted audit records. Payloads and credentials never enter this class. */
@@ -27,6 +28,8 @@ class SyncAuditLogger(private val dao: SyncAuditDao) {
             )
             val count = dao.count()
             if (count > MAX_ENTRIES) dao.deleteOldest(count - MAX_ENTRIES)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             Log.w(TAG, "Could not persist audit entry", e)
         }

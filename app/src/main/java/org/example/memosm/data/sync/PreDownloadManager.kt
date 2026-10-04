@@ -3,6 +3,9 @@ package org.example.memosm.data.sync
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -155,13 +158,14 @@ class PreDownloadManager(
             return
         }
         val accountId = accountIdProvider()
+        val expectedApi = apiProvider()
         scope.launch {
             // The in-memory cooldown above is lost on process restart; the
             // persisted one keeps a fresh launch right after a completed
             // pre-download from re-downloading everything.
             if (accountId != null) {
                 val lastAt = dataStoreManager.lastPreDownloadAt(accountId).first()
-                if (lastAt > 0L &&
+                if (dataStoreManager.textSyncCursor(accountId).first() > 0L && lastAt > 0L &&
                     System.currentTimeMillis() - lastAt < AUTO_DOWNLOAD_COOLDOWN_MS
                 ) {
                     Log.d(TAG, "maybeAutoDownload skipped (recent pre-download at $lastAt)")
@@ -169,6 +173,7 @@ class PreDownloadManager(
                 }
             }
             val settings = readOfflineSettings()
+            if (accountIdProvider() != accountId || apiProvider() !== expectedApi) return@launch
             if (settings.preDownloadText) {
                 downloadAllText()
             } else if (settings.preDownloadAttachments) {
@@ -186,7 +191,7 @@ class PreDownloadManager(
     suspend fun runAutoDownloadBlocking() {
         val accountId = accountIdProvider() ?: return
         val lastAt = dataStoreManager.lastPreDownloadAt(accountId).first()
-        if (lastAt > 0L &&
+        if (dataStoreManager.textSyncCursor(accountId).first() > 0L && lastAt > 0L &&
             System.currentTimeMillis() - lastAt < AUTO_DOWNLOAD_COOLDOWN_MS
         ) {
             Log.d(TAG, "runAutoDownloadBlocking skipped (recent pre-download at $lastAt)")
@@ -216,8 +221,12 @@ class PreDownloadManager(
         if (!isOnlineProvider()) return
         val accountId = accountIdProvider() ?: return
         val api = apiProvider() ?: return
+        val user = userProvider()
+        val hostUrl = hostUrlProvider()
+        val token = tokenProvider()
 
         job = scope.launch {
+            val startedAt = System.currentTimeMillis()
             lastProgressEmitAt = 0L
             val settings = readOfflineSettings()
             if (settings.preDownloadWifiOnly && !isWifiProvider()) {
@@ -229,7 +238,6 @@ class PreDownloadManager(
                 PreDownloadState.Running.Phase.TEXT, accountId = accountId
             )
             try {
-                val user = userProvider()
                 if (user == null) {
                     // User identity is not ready yet (login just happened) - the
                     // creator filter cannot be built, so nothing can be downloaded.
@@ -251,7 +259,7 @@ class PreDownloadManager(
                 // to an incremental fetch, so a full (replace) run at least
                 // every 24h reconciles the cache with the server's current
                 // list and evicts stale rows.
-                val lastSync = dataStoreManager.textSyncCursor.first()
+                val lastSync = dataStoreManager.textSyncCursor(accountId).first()
                 val cachedCount = memoCacheRepository.getCachedCount(accountId)
                 val incremental = lastSync > 0L && cachedCount > 0 &&
                     System.currentTimeMillis() - lastSync < 24 * 60 * 60 * 1000L
@@ -287,8 +295,8 @@ class PreDownloadManager(
                 var attachmentCount = 0
                 if (settings.preDownloadAttachments) {
                     _state.value =
-                        PreDownloadState.Running(PreDownloadState.Running.Phase.ATTACHMENTS)
-                    attachmentCount = preloadAllAttachmentsInternal(accountId, api)
+                        PreDownloadState.Running(PreDownloadState.Running.Phase.ATTACHMENTS, accountId = accountId)
+                    attachmentCount = preloadAllAttachmentsInternal(accountId, hostUrl, token)
                 }
                 _state.value = PreDownloadState.Done(
                     timestamp = System.currentTimeMillis(),
@@ -296,10 +304,12 @@ class PreDownloadManager(
                     attachmentCount = attachmentCount,
                     accountId = accountId
                 )
-                dataStoreManager.saveTextSyncCursor(System.currentTimeMillis())
+                dataStoreManager.saveTextSyncCursor(accountId, startedAt)
                 dataStoreManager.saveLastPreDownloadAt(
                     accountId, System.currentTimeMillis()
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "downloadAllText failed", e)
                 _state.value = PreDownloadState.Failed(
@@ -334,13 +344,15 @@ class PreDownloadManager(
         if (!isOnlineProvider()) return
         val accountId = accountIdProvider() ?: return
         val api = apiProvider() ?: return
+        val hostUrl = hostUrlProvider()
+        val token = tokenProvider()
         job = scope.launch {
             lastProgressEmitAt = 0L
             _state.value = PreDownloadState.Running(
                 PreDownloadState.Running.Phase.ATTACHMENTS, accountId = accountId
             )
             try {
-                val count = preloadAllAttachmentsInternal(accountId, api)
+                val count = preloadAllAttachmentsInternal(accountId, hostUrl, token)
                 _state.value = PreDownloadState.Done(
                     timestamp = System.currentTimeMillis(),
                     attachmentCount = count,
@@ -349,6 +361,8 @@ class PreDownloadManager(
                 dataStoreManager.saveLastPreDownloadAt(
                     accountId, System.currentTimeMillis()
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _state.value = PreDownloadState.Failed(
                     e.message ?: "Unknown error", accountId = accountId
@@ -367,9 +381,9 @@ class PreDownloadManager(
      */
     suspend fun clearTextCache(accountId: String) {
         memoCacheRepository.clearCache(accountId)
-        dataStoreManager.saveTextSyncCursor(0L)
+        dataStoreManager.saveTextSyncCursor(accountId, 0L)
         dataStoreManager.saveLastPreDownloadAt(accountId, 0L)
-        _state.value = PreDownloadState.Idle
+        if (accountIdProvider() == accountId) _state.value = PreDownloadState.Idle
     }
 
     /**
@@ -410,6 +424,8 @@ class PreDownloadManager(
                     filter = effectiveFilter,
                     state = state
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (useIncremental) {
                     // Old server versions may reject the update_time filter;
@@ -432,6 +448,7 @@ class PreDownloadManager(
                     throw e
                 }
             }
+            coroutineContext.ensureActive()
             val memos = response.memos.orEmpty()
             // replace=true only for a full (non-incremental) paging run, where
             // the last page means the whole list has been seen. Incremental runs
@@ -447,9 +464,7 @@ class PreDownloadManager(
         return count
     }
 
-    private suspend fun preloadAllAttachmentsInternal(accountId: String, api: MemosApi): Int {
-        val hostUrl = hostUrlProvider()
-        val token = tokenProvider()
+    private suspend fun preloadAllAttachmentsInternal(accountId: String, hostUrl: String, token: String): Int {
         val allMemos =
             memoCacheRepository.getCachedMemos(accountId, CacheListType.USER) +
                 memoCacheRepository.getCachedMemos(accountId, CacheListType.ARCHIVED)
@@ -470,6 +485,6 @@ class PreDownloadManager(
                 missing.map { it to (it.memo ?: "") }
             )
         }
-        return attachmentCacheManager.usage.value.count
+        return attachmentCacheManager.usage.value.takeIf { it.accountId == accountId }?.usage?.count ?: 0
     }
 }

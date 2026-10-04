@@ -32,6 +32,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.CancellationException
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +62,8 @@ fun NotificationsScreen(
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val generation = uiState.accountGeneration
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -69,12 +73,12 @@ fun NotificationsScreen(
         onScrollUp = { onToggleNavBar?.invoke(true) }
     )
 
-    var notifications by remember { mutableStateOf<List<UserNotification>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var showingCached by remember { mutableStateOf(false) }
-    var cachedSavedAt by remember { mutableStateOf(0L) }
-    var hasLoadError by remember { mutableStateOf(false) }
+    var notifications by remember(generation) { mutableStateOf<List<UserNotification>>(emptyList()) }
+    var isLoading by remember(generation) { mutableStateOf(true) }
+    var isRefreshing by remember(generation) { mutableStateOf(false) }
+    var showingCached by remember(generation) { mutableStateOf(false) }
+    var cachedSavedAt by remember(generation) { mutableStateOf(0L) }
+    var hasLoadError by remember(generation) { mutableStateOf(false) }
 
     suspend fun loadNotifications(isUserRefresh: Boolean = false) {
         if (isUserRefresh) {
@@ -91,6 +95,7 @@ fun NotificationsScreen(
             showingCached = result.fromCache
             cachedSavedAt = result.savedAt
         }.onFailure {
+            if (it is CancellationException) throw it
             notifications = emptyList()
             showingCached = false
             Log.e("NotificationsScreen", "Failed to load notifications", it)
@@ -101,7 +106,7 @@ fun NotificationsScreen(
         isRefreshing = false
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(generation) {
         loadNotifications()
     }
 

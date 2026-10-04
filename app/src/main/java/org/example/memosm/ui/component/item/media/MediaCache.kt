@@ -109,7 +109,7 @@ object MediaCache {
         }
     }
 
-    fun createDataSourceFactory(context: Context, token: String?): DataSource.Factory {
+    fun createDataSourceFactory(context: Context, token: String?, accountId: String?): DataSource.Factory {
         val httpDataSourceFactory: HttpDataSource.Factory = if (token != null) {
             OkHttpDataSource.Factory(okHttpClient)
                 .setDefaultRequestProperties(mapOf("Authorization" to "Bearer $token"))
@@ -121,6 +121,7 @@ object MediaCache {
 
         return CacheDataSource.Factory()
             .setCache(getCache(context))
+            .setCacheKeyFactory { spec -> accountMediaCacheKey(accountId, spec.key ?: spec.uri.toString()) }
             .setUpstreamDataSourceFactory(defaultDataSourceFactory)
             // No setCacheWriteDataSinkFactory(null): the default write sink
             // persists streamed video/audio into the SimpleCache, so replaying

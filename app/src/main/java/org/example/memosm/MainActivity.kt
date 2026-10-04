@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
                                 MainScreen(
                                     onLogout = {
                                         scope.launch {
-                                            dataStoreManager.deleteAccount(activeAccount.id)
+                                            viewModel.userDelegate.removeAccount(activeAccount)
                                         }
                                     },
                                     shareIntentData = pendingShareData,

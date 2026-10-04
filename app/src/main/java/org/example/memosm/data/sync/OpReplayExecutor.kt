@@ -1,6 +1,7 @@
 package org.example.memosm.data.sync
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import org.example.memosm.api.GsonProvider
 import org.example.memosm.api.MemosApi
 import org.example.memosm.data.audit.SyncAuditLogger
@@ -47,13 +48,17 @@ class OpReplayExecutor(
      * a no-op) and can be deleted from the queue; false when it must stay
      * queued (conflict pending, attachments still uploading).
      */
-    suspend fun replay(op: PendingOp): Boolean = when (PendingOpType.valueOf(op.type)) {
+    suspend fun replay(op: PendingOp): Boolean {
+        require(op.accountId == accountId) { "Operation belongs to another account" }
+        return when (PendingOpType.valueOf(op.type)) {
         PendingOpType.CREATE -> syncCreate(op)
         PendingOpType.UPDATE -> syncUpdate(op)
         PendingOpType.DELETE -> syncDelete(op)
         PendingOpType.COMMENT_CREATE -> syncCommentCreate(op)
         PendingOpType.REACTION_UPSERT -> syncReactionUpsert(op)
         PendingOpType.REACTION_DELETE -> syncReactionDelete(op)
+    }
+
     }
 
     private suspend fun syncCreate(op: PendingOp): Boolean {
@@ -80,6 +85,9 @@ class OpReplayExecutor(
                 .forEach { repository.setBaseUpdateTime(it.id, created.updateTime?.toString()) }
         }
         cacheMemo(created)
+        if (tempName != null && tempName != serverName) {
+            memoCacheRepository.removeCachedMemo(accountId, tempName)
+        }
         onMemoSynced(created, tempName)
         return true
     }
@@ -99,7 +107,7 @@ class OpReplayExecutor(
                 System.currentTimeMillis(), permanentlyFailed = false
             )
             auditLogger.record(accountId, "SYNC", "CONFLICT", op.type, name, "base_update_time")
-            onConflict(ConflictItem(op.id, name, local, server))
+            onConflict(ConflictItem(op.id, accountId, name, local, server))
             return false // keep op queued until the user resolves
         }
         val resolved = resolvePlaceholderAttachments(local, op) ?: return false
@@ -252,6 +260,8 @@ class OpReplayExecutor(
             val fresh = api.getMemo(name)
             cacheMemo(fresh)
             onMemoSynced(fresh, null)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "refreshMemo failed for $name", e)
         }

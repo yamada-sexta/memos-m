@@ -8,6 +8,7 @@ import org.example.memosm.model.Memo
  */
 data class ConflictItem(
     val opId: String,
+    val accountId: String,
     val memoName: String,
     val localMemo: Memo,   // The locally edited version (from the pending op)
     val serverMemo: Memo   // The current server version

@@ -19,7 +19,6 @@ import org.example.memosm.model.toUserSnapshot
 class DataStoreManager(private val dataStore: DataStore<Preferences>) {
 
     private val gson = Gson()
-    private var cachedAccounts: List<Account>? = null
 
     companion object {
         val ACCOUNTS_JSON = stringPreferencesKey("accounts_json")
@@ -64,7 +63,6 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
                 val type = object : TypeToken<List<Account>>() {}.type
                 try {
                     val list: List<Account> = gson.fromJson(json, type)
-                    cachedAccounts = list
                     list
                 } catch (e: Exception) {
                     emptyList()
@@ -80,14 +78,12 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { preferences ->
             preferences[ACCOUNTS_JSON] = gson.toJson(accounts)
         }
-        cachedAccounts = accounts
     }
 
 
     // --- Account Helpers ---
 
     suspend fun getAccounts(): List<Account> {
-        cachedAccounts?.let { return it }
 
         val json = dataStore.data.map { it[ACCOUNTS_JSON] }.first()
 
@@ -127,103 +123,88 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
 
         if (needsSave) {
             saveAccounts(final)
-        } else {
-            cachedAccounts = final
         }
 
         return final
     }
 
-    suspend fun addAccount(
-        hostUrl: String,
-        accessToken: String
-    ) {
-        val current = getAccounts().toMutableList()
-        // Check if account already exists to avoid duplicates
-        val existingIndex =
-            current.indexOfFirst { it.hostUrl == hostUrl && it.accessToken == accessToken }
+    private suspend fun mutateAccounts(transform: (List<Account>) -> List<Account>) {
+        dataStore.edit { preferences ->
+            val type = object : TypeToken<List<Account>>() {}.type
+            val current: List<Account> = preferences[ACCOUNTS_JSON]?.let {
+                gson.fromJson(it, type)
+            } ?: emptyList()
+            val updated = transform(current)
+            preferences[ACCOUNTS_JSON] = gson.toJson(updated)
+        }
+    }
 
-        if (existingIndex != -1) {
-            // Just activate it
-            setActiveAccount(current[existingIndex].id)
-        } else {
-            // Deactivate others
-            val updated = current.map { it.copy(isActive = false) }.toMutableList()
-            updated.add(
-                Account(
-                    hostUrl = hostUrl,
-                    accessToken = accessToken,
-                    isActive = true
-                )
-            )
-            saveAccounts(updated)
+    suspend fun addAccount(hostUrl: String, accessToken: String) {
+        mutateAccounts { current ->
+            val existing = current.firstOrNull {
+                it.hostUrl == hostUrl && it.accessToken == accessToken
+            }
+            if (existing != null) current.map { it.copy(isActive = it.id == existing.id) }
+            else current.map { it.copy(isActive = false) } +
+                Account(hostUrl = hostUrl, accessToken = accessToken, isActive = true)
         }
     }
 
     suspend fun setActiveAccount(id: String) {
-        val current = getAccounts()
-        val updated = current.map { it.copy(isActive = it.id == id) }
-        saveAccounts(updated)
+        mutateAccounts { current ->
+            if (current.none { it.id == id }) current
+            else current.map { it.copy(isActive = it.id == id) }
+        }
     }
 
     suspend fun updateAccountLastUsed(id: String, timestamp: Long) {
-        val current = getAccounts()
-        val updated = current.map {
-            if (it.id == id) it.copy(lastUsed = timestamp) else it
+        mutateAccounts { current ->
+            current.map { if (it.id == id) it.copy(lastUsed = timestamp) else it }
         }
-        saveAccounts(updated)
     }
 
     suspend fun deleteAccount(id: String) {
-        val current = getAccounts()
-        val updated = current.filterNot { it.id == id }
-        saveAccounts(updated)
-
-        // If we deleted the active one, set new active
-        if (updated.isNotEmpty() && updated.none { it.isActive }) {
-            setActiveAccount(updated.first().id)
+        mutateAccounts { current ->
+            val remaining = current.filterNot { it.id == id }
+            if (remaining.isNotEmpty() && remaining.none { it.isActive }) {
+                remaining.mapIndexed { index, account -> account.copy(isActive = index == 0) }
+            } else remaining
         }
     }
 
-    suspend fun updateAccount(
-        id: String,
-        hostUrl: String,
-        token: String
-    ) {
-        val current = getAccounts()
-        val updated = current.map {
-            if (it.id == id) {
-                it.copy(hostUrl = hostUrl, accessToken = token)
-            } else it
+    suspend fun updateAccount(id: String, hostUrl: String, token: String) {
+        mutateAccounts { current ->
+            val previous = current.find { it.id == id } ?: return@mutateAccounts current
+            fun server(url: String) = url.trim().trimEnd('/').removeSuffix("/api/v1")
+            if (server(previous.hostUrl) == server(hostUrl)) {
+                // Token renewal retains this account's offline history and pending work.
+                current.map { if (it.id == id) it.copy(hostUrl = hostUrl, accessToken = token) else it }
+            } else {
+                // A different server gets a new namespace. Keep the original credentials
+                // and unsynced work available in the original saved account.
+                current.map { if (it.id == id) it.copy(isActive = false) else it } +
+                    Account(id = java.util.UUID.randomUUID().toString(), hostUrl = hostUrl,
+                        accessToken = token, isActive = previous.isActive)
+            }
         }
-        saveAccounts(updated)
     }
 
     suspend fun updateAccountUser(id: String, user: User) {
-        val current = getAccounts()
-        val updated = current.map {
-            if (it.id == id) {
-                it.copy(
-                    user = user.toUserSnapshot(),
-                    name = user.username,
-                    displayName = user.displayName,
-                    avatarUrl = user.avatarUrl,
-                    email = user.email,
-                    description = user.description
-                )
-            } else it
+        mutateAccounts { current ->
+            current.map {
+                if (it.id == id) it.copy(
+                    user = user.toUserSnapshot(), name = user.username,
+                    displayName = user.displayName, avatarUrl = user.avatarUrl,
+                    email = user.email, description = user.description
+                ) else it
+            }
         }
-        saveAccounts(updated)
     }
 
     suspend fun updateAccountToken(id: String, token: String) {
-        val current = getAccounts()
-        val updated = current.map {
-            if (it.id == id) {
-                it.copy(accessToken = token)
-            } else it
+        mutateAccounts { current ->
+            current.map { if (it.id == id) it.copy(accessToken = token) else it }
         }
-        saveAccounts(updated)
     }
 
     val pageSize: Flow<Int> = dataStore.data.map { preferences ->
@@ -319,13 +300,24 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
         }
     }
 
-    val textSyncCursor: Flow<Long> = dataStore.data.map { preferences ->
-        preferences[TEXT_SYNC_CURSOR] ?: 0L
+    private fun textSyncCursorKey(accountId: String) =
+        androidx.datastore.preferences.core.longPreferencesKey("text_sync_cursor_$accountId")
+
+    // The legacy global cursor has unknown ownership and must never be inherited.
+    fun textSyncCursor(accountId: String): Flow<Long> = dataStore.data.map { preferences ->
+        preferences[textSyncCursorKey(accountId)] ?: 0L
     }
 
-    suspend fun saveTextSyncCursor(timestamp: Long) {
+    suspend fun saveTextSyncCursor(accountId: String, timestamp: Long) {
         dataStore.edit { preferences ->
-            preferences[TEXT_SYNC_CURSOR] = timestamp
+            preferences[textSyncCursorKey(accountId)] = timestamp
+        }
+    }
+
+    suspend fun removeDownloadState(accountId: String) {
+        dataStore.edit { preferences ->
+            preferences.remove(textSyncCursorKey(accountId))
+            preferences.remove(lastPreDownloadAtKey(accountId))
         }
     }
 

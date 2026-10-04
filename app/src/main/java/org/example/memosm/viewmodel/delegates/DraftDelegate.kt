@@ -2,6 +2,8 @@ package org.example.memosm.viewmodel.delegates
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import org.example.memosm.viewmodel.AccountSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,24 +39,25 @@ class DraftDelegateImpl(
     private val scope: CoroutineScope,
     private val uiState: MutableStateFlow<MemosUiState>,
     private val draftManager: DraftManager,
+    private val accountSession: AccountSession,
     private val memoActionDelegateProvider: () -> MemoActionDelegate,
     private val onRefreshUserMemos: () -> Unit
 ) : DraftDelegate {
 
-    private fun getActiveAccountId(): String? {
-        return uiState.value.accounts.find { it.isActive }?.id
-    }
-
     override fun loadDraftsForAccount(accountId: String) {
+        val context = accountSession.current ?: return
+        if (context.account.id != accountId) return
         scope.launch {
             try {
                 val drafts = draftManager.getDrafts(accountId)
-                uiState.update {
+                accountSession.update(uiState, context) {
                     it.copy(draft = it.draft.copy(drafts = drafts, isDraftLoaded = true))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("MemosViewModel", "Error loading drafts for account $accountId", e)
-                uiState.update { it.copy(draft = it.draft.copy(isDraftLoaded = true)) }
+                accountSession.update(uiState, context) { it.copy(draft = it.draft.copy(isDraftLoaded = true)) }
             }
         }
     }
@@ -66,7 +69,8 @@ class DraftDelegateImpl(
         location: Location?,
         draftId: String?
     ) {
-        val accountId = getActiveAccountId() ?: return
+        val context = accountSession.current ?: return
+        val accountId = context.account.id
         val existingDraftId = draftId ?: uiState.value.draft.currentEditingDraftId
 
         val draft = Draft(
@@ -94,7 +98,8 @@ class DraftDelegateImpl(
     }
 
     override fun deleteDraft(draftId: String) {
-        val accountId = getActiveAccountId() ?: return
+        val context = accountSession.current ?: return
+        val accountId = context.account.id
         scope.launch {
             draftManager.deleteDraft(accountId, draftId)
             loadDraftsForAccount(accountId)
@@ -102,21 +107,23 @@ class DraftDelegateImpl(
     }
 
     override fun deleteAllDrafts() {
-        val accountId = getActiveAccountId() ?: return
+        val context = accountSession.current ?: return
+        val accountId = context.account.id
         scope.launch {
             draftManager.clearDrafts(accountId)
             loadDraftsForAccount(accountId)
             // If the current editing draft was one of them, clear it
-            setCurrentEditingDraft(null)
+            if (accountSession.isCurrent(context)) setCurrentEditingDraft(null)
         }
     }
 
     override fun publishAllDrafts(onResult: (Int) -> Unit) {
-        val accountId = getActiveAccountId() ?: return
+        val context = accountSession.current ?: return
+        val accountId = context.account.id
         val drafts = uiState.value.draft.drafts
         if (drafts.isEmpty()) return
 
-        scope.launch {
+        accountSession.readScope.launch {
             var published = 0
             // Publishing goes through MemoActionDelegate.createMemo, so an
             // offline publish lands in the outbox (optimistic cache entry +
@@ -126,8 +133,9 @@ class DraftDelegateImpl(
             // Clear the editing pointer up front: createMemo deletes the
             // "current editing" draft on success, which must not consume one
             // of the drafts being published here.
-            setCurrentEditingDraft(null)
+            if (accountSession.isCurrent(context)) setCurrentEditingDraft(null)
             for (draft in drafts) {
+                if (!accountSession.isCurrent(context)) break
                 if (!draft.hasContent()) continue
                 // Deterministic memoId derived from the draft id so a user
                 // retry after a timeout deduplicates server-side.
@@ -140,8 +148,10 @@ class DraftDelegateImpl(
                 }
             }
             loadDraftsForAccount(accountId)
-            onRefreshUserMemos()
-            onResult(published)
+            if (accountSession.isCurrent(context)) {
+                onRefreshUserMemos()
+                onResult(published)
+            }
         }
     }
 
@@ -164,7 +174,8 @@ class DraftDelegateImpl(
         }
 
     override fun setCurrentEditingDraft(draftId: String?) {
-        uiState.update {
+        val context = accountSession.current ?: return
+        accountSession.update(uiState, context) {
             it.copy(draft = it.draft.copy(currentEditingDraftId = draftId))
         }
     }
@@ -180,6 +191,7 @@ class DraftDelegateImpl(
     }
 
     override fun clearCurrentEditingDraft() {
+        val context = accountSession.current ?: return
         val draftId = uiState.value.draft.currentEditingDraftId
         if (draftId != null) {
             deleteDraft(draftId)

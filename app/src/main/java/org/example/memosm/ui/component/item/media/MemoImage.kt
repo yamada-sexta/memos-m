@@ -58,16 +58,18 @@ fun MemoImage(
     isFullScreen: Boolean = false,
     onDismiss: (() -> Unit)? = null
 ) {
+    val accountIdentity = LocalAccountMediaIdentity.current
+    val accountId = accountIdentity?.id
     val context = LocalContext.current
     val attachmentCacheManager = org.example.memosm.MemosApplication.instance.attachmentCacheManager
-    val imageModels = produceState<Pair<Any?, Any?>>(Pair(null, null), uri, attachment, hostUrl) {
+    val imageModels = produceState<Pair<Any?, Any?>>(Pair(null, null), uri, attachment, hostUrl, accountIdentity) {
         value = withContext(Dispatchers.IO) {
             when {
                 uri != Uri.EMPTY -> Pair(uri, uri)
                 attachment != null -> {
                     // Prefer the account-scoped offline file. A remote attachment
                     // still keeps upstream's thumbnail preview and original fallback.
-                    val original = attachmentCacheManager.getLocalFileByHost(hostUrl, attachment.name)
+                    val original = attachmentCacheManager.getLocalFileForAccount(accountId, attachment.name)
                         ?: AttachmentManager.getAttachmentUrl(hostUrl, attachment)
                         ?: when {
                             !attachment.content.isNullOrBlank() -> {
@@ -100,10 +102,10 @@ fun MemoImage(
     }
     val model = if (useOriginal) originalModel else previewModel
 
-    val cacheKey = remember(uri, attachment, hostUrl) {
+    val cacheKey = remember(uri, attachment, hostUrl, accountIdentity) {
         when {
             uri != Uri.EMPTY -> uri.toString()
-            attachment?.name != null -> "${hostUrl}_${attachment.name}"
+            attachment?.name != null -> accountMediaCacheKey(accountId, "${hostUrl}_${attachment.name}")
             else -> model?.toString()
         }
     }
@@ -120,8 +122,10 @@ fun MemoImage(
         builder.build()
     }
 
-    val imageRequest = remember(model, headers) {
+    val imageRequest = remember(model, headers, accountIdentity) {
         ImageRequest.Builder(context).data(model).httpHeaders(headers)
+            .memoryCacheKey(accountMediaCacheKey(accountId, model.toString()))
+            .diskCacheKey(accountMediaCacheKey(accountId, model.toString()))
             .diskCachePolicy(CachePolicy.ENABLED).memoryCachePolicy(CachePolicy.ENABLED).build()
     }
 
