@@ -122,7 +122,12 @@ fun RecoveryCard(importOnly: Boolean = false) {
 /** Full-screen Import/Export selection; the Settings backup page stays in place. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackupTransferScreen(exporting: Boolean, sourcePath: String? = null, onClose: () -> Unit) {
+fun BackupTransferScreen(
+    exporting: Boolean,
+    sourcePath: String? = null,
+    onClose: () -> Unit,
+    onRestoreSuccess: () -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val service = remember { GlobalContext.get().get<BackupService>() }
@@ -232,7 +237,8 @@ fun BackupTransferScreen(exporting: Boolean, sourcePath: String? = null, onClose
             }
         }
     }
-    androidx.activity.compose.BackHandler { if (!busy) onClose() }
+    // Let Android animate predictive Back to the caller while idle.
+    androidx.activity.compose.BackHandler(enabled = busy) {}
     DisposableEffect(Unit) {
         onDispose {
             prepared?.close()
@@ -316,7 +322,7 @@ fun BackupTransferScreen(exporting: Boolean, sourcePath: String? = null, onClose
                         service.restore(backup, RestoreSelection(chosenAccounts, chosenCategories)).fold(onSuccess = {
                             val resultText = summary.format(it.accountCount, it.memoCount, it.draftCount, it.mediaCount)
                             android.widget.Toast.makeText(context.applicationContext, resultText, android.widget.Toast.LENGTH_LONG).show()
-                            closeImport(); onClose()
+                            closeImport(); onRestoreSuccess(); onClose()
                         }, onFailure = { message = it.message })
                     }
                 } finally { busy = false }

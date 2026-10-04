@@ -71,9 +71,12 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".ui.profile.EditProfileActivity" android:exported="false" />
         <activity android:name=".ui.profile.NotificationsActivity" android:exported="false" />
         <activity android:name=".ui.profile.ArchivedMemosActivity" android:exported="false" />
         <activity android:name=".ui.profile.SettingsActivity" android:exported="false" />
+        <activity android:name=".ui.setup.SetupActivity" android:exported="false" />
+        <activity android:name=".ui.setup.SetupLoginActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
         <activity android:name=".ui.backup.BackupTransferActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" />
         <activity android:name=".ui.profile.SyncLogActivity" android:exported="false" />
         <activity android:name=".ui.profile.OpenSourceLicensesActivity" android:exported="false" />

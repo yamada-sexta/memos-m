@@ -452,4 +452,6 @@
     <string name="widget_stats_tap_to_configure">탭하여 설정</string>
     <string name="sync_panel_manage_cache">캐시 관리</string>
     <string name="sync_time_never">동기화한 적 없음</string>
+    <string name="setup_show">설정 화면 보기</string>
+    <string name="setup_get_started">시작하세요</string>
 </resources>

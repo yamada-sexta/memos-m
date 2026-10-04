@@ -2,14 +2,18 @@ package org.example.memosm.ui.backup
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import android.app.Activity
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.example.memosm.R
 import org.example.memosm.data.DataStoreManager
 import org.example.memosm.data.backup.*
 import org.example.memosm.model.Account
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.GlobalContext
@@ -67,5 +71,33 @@ class BackupTransferActivityTest {
                 compose.onNodeWithText(label(R.string.backup_category_queued)).performScrollTo().assertIsOff()
             }
         } finally { BackupCoordinator.finishStartupRecovery() }
+    }
+
+    @Test fun successfulSettingsOnlyImportReportsSuccessAndCompletesSetup() {
+        val service = GlobalContext.get().get<BackupService>()
+        val archive = runBlocking { service.export(BackupSelection(emptySet(), setOf(BackupCategory.SETTINGS))).getOrThrow() }
+        try {
+            ActivityScenario.launchActivityForResult<BackupTransferActivity>(BackupTransferActivity.importIntent(context, archive.absolutePath)).use { scenario ->
+                compose.waitUntil(10_000) { compose.onAllNodesWithText(label(R.string.backup_contents_heading)).fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText(label(R.string.recovery_import)).performClick()
+                compose.onNode(hasText(label(R.string.recovery_import)) and hasAnyAncestor(isDialog())).performClick()
+                compose.waitUntil(10_000) { scenario.state == Lifecycle.State.DESTROYED }
+                assertEquals(Activity.RESULT_OK, scenario.result.resultCode)
+                assertTrue(runBlocking { GlobalContext.get().get<DataStoreManager>().setupCompleted.first() })
+            }
+        } finally { archive.delete() }
+    }
+
+    @Test fun canceledImportDoesNotReportSuccess() {
+        val service = GlobalContext.get().get<BackupService>()
+        val archive = runBlocking { service.export(BackupSelection(emptySet(), setOf(BackupCategory.SETTINGS))).getOrThrow() }
+        try {
+            ActivityScenario.launchActivityForResult<BackupTransferActivity>(BackupTransferActivity.importIntent(context, archive.absolutePath)).use { scenario ->
+                compose.waitUntil(10_000) { compose.onAllNodesWithText(label(R.string.backup_contents_heading)).fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText(label(R.string.common_cancel)).performClick()
+                compose.waitUntil(10_000) { scenario.state == Lifecycle.State.DESTROYED }
+                assertEquals(Activity.RESULT_CANCELED, scenario.result.resultCode)
+            }
+        } finally { archive.delete() }
     }
 }

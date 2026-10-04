@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
+import org.example.memosm.ui.profile.EditProfileActivity
 import org.example.memosm.ui.profile.ArchivedMemosActivity
 import org.example.memosm.ui.profile.NotificationsActivity
 import org.example.memosm.ui.profile.SettingsActivity
@@ -73,7 +74,6 @@ import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.ProfileHeader
 import org.example.memosm.ui.component.StatsActivityCard
 import org.example.memosm.ui.component.rememberScrollContext
-import org.example.memosm.ui.component.setting.AccountEditDialog
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.RefreshSource
 
@@ -95,6 +95,9 @@ fun ProfileScreen(
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.refreshAfterProfileDetails()
     }
+    val editProfile = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.refreshAfterProfileDetails()
+    }
     val listState = rememberLazyListState()
     ProfileTheme {
         ProfileListPane(
@@ -104,6 +107,7 @@ fun ProfileScreen(
             onShowArchived = { archived.launch(Intent(context, ArchivedMemosActivity::class.java)) },
             onShowNotifications = { notifications.launch(Intent(context, NotificationsActivity::class.java)) },
             onShowSettings = { settings.launch(Intent(context, SettingsActivity::class.java)) },
+            onEditProfile = { editProfile.launch(Intent(context, EditProfileActivity::class.java)) },
             onToggleNavBar = onToggleNavBar,
             isNavBarVisible = isNavBarVisible,
             listState = listState
@@ -120,6 +124,7 @@ private fun ProfileListPane(
     onShowArchived: () -> Unit,
     onShowNotifications: () -> Unit,
     onShowSettings: () -> Unit,
+    onEditProfile: () -> Unit,
     onToggleNavBar: ((Boolean) -> Unit)? = null,
     isNavBarVisible: Boolean = true,
     listState: LazyListState
@@ -154,37 +159,10 @@ private fun ProfileListPane(
     }
 
     var showAccountSwitcher by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
     var accountToEditCredentials by remember { mutableStateOf<Account?>(null) }
-    var isSavingProfile by remember { mutableStateOf(false) }
 
     // Get current account for profile editing
     val activeAccount = accounts.find { it.isActive }
-
-    // Profile Edit Dialog (remote API update)
-    if (showEditDialog && activeAccount != null) {
-        AccountEditDialog(
-            account = activeAccount,
-            onDismiss = { showEditDialog = false },
-            onSave = { update ->
-                isSavingProfile = true
-                viewModel.userDelegate.updateUserProfile(
-                    username = update.username,
-                    email = update.email,
-                    displayName = update.displayName,
-                    avatarUrl = update.avatarUrl,
-                    description = update.description,
-                    password = update.password
-                ) { success ->
-                    isSavingProfile = false
-                    if (success) {
-                        showEditDialog = false
-                    }
-                }
-            },
-            isSaving = isSavingProfile
-        )
-    }
 
     // Credential Edit Dialog (local login info)
     accountToEditCredentials?.let { account ->
@@ -264,7 +242,7 @@ private fun ProfileListPane(
                                 token = uiState.session.token
                             ).copy(avatarUrl = avatarUrl),
                             onClick = { showAccountSwitcher = true },
-                            onEditClick = { showEditDialog = true })
+                            onEditClick = onEditProfile)
                     } else {
                         if (activeAccount != null) {
                             val rawAvatarUrl = activeAccount.avatarUrl
@@ -281,7 +259,7 @@ private fun ProfileListPane(
                                     token = uiState.session.token
                                 ),
                                 onClick = { showAccountSwitcher = true },
-                                onEditClick = { showEditDialog = true })
+                                onEditClick = onEditProfile)
                         } else if (uiState.userMemoList.list.isLoading) {
                             Box(
                                 modifier = Modifier

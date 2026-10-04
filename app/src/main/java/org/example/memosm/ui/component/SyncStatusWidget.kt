@@ -12,14 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -30,7 +28,6 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -49,13 +46,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
 import org.example.memosm.api.GsonProvider
 import org.example.memosm.data.sync.PendingOp
 import org.example.memosm.data.sync.PendingOpType
 import org.example.memosm.data.sync.PreDownloadState
+import org.example.memosm.ui.component.setting.SettingsGroup
+import org.example.memosm.ui.component.setting.SettingsNavigationRow
 import org.example.memosm.ui.preDownloadPhaseLabel
 import org.example.memosm.viewmodel.MemosUiState
 import java.text.SimpleDateFormat
@@ -229,49 +227,32 @@ fun SyncStatusPanel(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilledTonalButton(
-                    onClick = onPreDownloadAttachments,
-                    enabled = uiState.isOnline,
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
-                    modifier = Modifier.weight(1f).heightIn(min = 64.dp).fillMaxHeight()
+            SettingsGroup {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text(
-                        stringResource(R.string.offline_predownload_attachments_button),
-                        textAlign = TextAlign.Center
+                    SettingsNavigationRow(
+                        title = stringResource(R.string.offline_predownload_attachments_button),
+                        showChevron = false,
+                        enabled = uiState.isOnline,
+                        modifier = Modifier.weight(1f).heightIn(min = 64.dp).fillMaxHeight(),
+                        onClick = onPreDownloadAttachments
+                    )
+                    SettingsNavigationRow(
+                        title = stringResource(R.string.offline_predownload_text_button),
+                        showChevron = false,
+                        enabled = uiState.isOnline,
+                        modifier = Modifier.weight(1f).heightIn(min = 64.dp).fillMaxHeight(),
+                        onClick = onPreDownloadText
                     )
                 }
-                FilledTonalButton(
-                    onClick = onPreDownloadText,
-                    enabled = uiState.isOnline,
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
-                    modifier = Modifier.weight(1f).heightIn(min = 64.dp).fillMaxHeight()
-                ) {
-                    Text(
-                        stringResource(R.string.offline_predownload_text_button),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            FilledTonalButton(
-                onClick = onManageCache,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-                contentPadding = PaddingValues(16.dp)
-            ) {
-                Icon(Icons.Outlined.Storage, contentDescription = null)
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    stringResource(R.string.sync_panel_manage_cache),
-                    modifier = Modifier.weight(1f)
+                SettingsNavigationRow(
+                    title = stringResource(R.string.sync_panel_manage_cache),
+                    icon = Icons.Outlined.Storage,
+                    modifier = Modifier.heightIn(min = 64.dp),
+                    onClick = onManageCache
                 )
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
             }
         }
     }

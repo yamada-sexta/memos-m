@@ -33,6 +33,7 @@ class DataStoreManager(
         val APPEARANCE_CUSTOM_HUE = androidx.datastore.preferences.core.floatPreferencesKey("appearance_custom_hue")
         val APPEARANCE_FONT = stringPreferencesKey("appearance_font")
         val ACCOUNTS_JSON = stringPreferencesKey("accounts_json")
+        val SETUP_COMPLETED = androidx.datastore.preferences.core.booleanPreferencesKey("setup_completed")
         val PAGE_SIZE = intPreferencesKey("page_size")
         const val DEFAULT_PAGE_SIZE = 10
         val HEADER_SCALE = androidx.datastore.preferences.core.floatPreferencesKey("header_scale")
@@ -85,6 +86,14 @@ class DataStoreManager(
 
     val account: Flow<Account?> = accounts.map { list ->
         list.find { it.isActive }
+    }
+
+    val setupCompleted: Flow<Boolean> = dataStore.data
+        .map { it[SETUP_COMPLETED] ?: false }
+        .distinctUntilChanged()
+
+    suspend fun completeSetup() {
+        editPreferences { it[SETUP_COMPLETED] = true }
     }
 
     suspend fun saveAccounts(accounts: List<Account>) {
@@ -142,7 +151,7 @@ class DataStoreManager(
         return final
     }
 
-    private suspend fun mutateAccounts(transform: (List<Account>) -> List<Account>) {
+    private suspend fun mutateAccounts(completeSetup: Boolean = false, transform: (List<Account>) -> List<Account>) {
         editPreferences { preferences ->
             val type = object : TypeToken<List<Account>>() {}.type
             val current: List<Account> = preferences[ACCOUNTS_JSON]?.let {
@@ -150,12 +159,13 @@ class DataStoreManager(
             } ?: emptyList()
             val updated = transform(current)
             preferences[ACCOUNTS_JSON] = gson.toJson(updated)
+            if (completeSetup) preferences[SETUP_COMPLETED] = true
         }
         onAccountsChanged()
     }
 
     suspend fun addAccount(hostUrl: String, accessToken: String) {
-        mutateAccounts { current ->
+        mutateAccounts(completeSetup = true) { current ->
             val existing = current.firstOrNull {
                 it.hostUrl == hostUrl && it.accessToken == accessToken
             }
@@ -529,6 +539,9 @@ class DataStoreManager(
                 val active = restored.firstOrNull { it.isActive }?.id ?: current.firstOrNull { it.isActive }?.id ?: combined.firstOrNull()?.id
                 prefs[ACCOUNTS_JSON] = gson.toJson(combined.map { it.copy(isActive = it.id == active) })
             }
+            // Includes Android restoration and imports containing settings only.
+            // This installation state is deliberately excluded from portableKeys.
+            prefs[SETUP_COMPLETED] = true
         }
         if (org.example.memosm.data.backup.BackupCategory.ACCOUNTS in categories) onAccountsChanged()
     }

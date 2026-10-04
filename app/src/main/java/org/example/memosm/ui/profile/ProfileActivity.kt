@@ -35,6 +35,7 @@ import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import org.example.memosm.ui.component.rememberLocalNetworkPermission
 import org.example.memosm.ui.nav.SettingsScreen
 import org.example.memosm.ui.nav.SettingsSection
+import org.example.memosm.ui.setup.SetupActivity
 import org.example.memosm.ui.theme.SavedMemosMTheme
 import org.example.memosm.ui.theme.ProfileTheme
 import org.example.memosm.viewmodel.MemosViewModel
@@ -148,6 +149,9 @@ class SettingsActivity : ProfileActivity() {
             section = section,
             onOpenLicenses = {
                 launcher.launch(Intent(this, OpenSourceLicensesActivity::class.java))
+            },
+            onShowSetup = {
+                launcher.launch(SetupActivity.createIntent(this, fromSettings = true))
             },
             onOpenSection = { destination ->
                 launcher.launch(createIntent(this, destination))

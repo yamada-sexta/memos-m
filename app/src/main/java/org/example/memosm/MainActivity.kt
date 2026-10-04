@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -20,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +36,7 @@ import org.example.memosm.ui.component.LoginScreen
 import org.example.memosm.ui.component.LocalNetworkPermission
 import org.example.memosm.ui.component.rememberLocalNetworkPermission
 import org.example.memosm.ui.theme.SavedMemosMTheme
+import org.example.memosm.ui.setup.SetupActivity
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.widget.DraftWidget
 
@@ -95,6 +99,16 @@ class MainActivity : ComponentActivity() {
                     } else {
                     // Observe accounts instead of single credentials
                     val accounts by dataStoreManager.accounts.collectAsState(initial = null)
+                    val setupCompleted by dataStoreManager.setupCompleted.collectAsState(initial = null)
+                    var setupLaunched by rememberSaveable { mutableStateOf(false) }
+                    val setupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                        if (it.resultCode == RESULT_OK) {
+                            viewModel.userDelegate.updateCurrentAccountInList()
+                        } else {
+                            // Back from first-launch setup leaves the app; the next launch retries.
+                            finish()
+                        }
+                    }
 
                     // Wait for DataStore to emit initial values
                     var isCheckingSession by remember { mutableStateOf(true) }
@@ -103,14 +117,23 @@ class MainActivity : ComponentActivity() {
                     val pendingShareData by pendingShareDataFlow.collectAsState()
                     val shouldOpenComposer by shouldOpenComposerFlow.collectAsState()
 
-                    LaunchedEffect(accounts) {
-                        if (accounts != null) {
+                    LaunchedEffect(accounts, setupCompleted) {
+                        if (accounts != null && setupCompleted != null) {
                             // Once we have a non-null list (even if empty), we've finished the initial load
                             isCheckingSession = false
+                            if (setupCompleted == false) {
+                                if (accounts!!.isNotEmpty()) {
+                                    // Existing installations stay onboarded even after logout.
+                                    dataStoreManager.completeSetup()
+                                } else if (!setupLaunched) {
+                                    setupLaunched = true
+                                    setupLauncher.launch(SetupActivity.createIntent(this@MainActivity))
+                                }
+                            }
                         }
                     }
 
-                    if (isCheckingSession) {
+                    if (isCheckingSession || setupCompleted != true) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }

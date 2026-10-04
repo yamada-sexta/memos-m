@@ -408,4 +408,6 @@
     <string name="user_stats_widget_last_updated">Ostatnia aktualizacja: %1$s</string>
     <string name="sync_panel_manage_cache">Zarządzaj pamięcią podręczną</string>
     <string name="sync_time_never">Nigdy</string>
+    <string name="setup_show">Pokaż konfigurację</string>
+    <string name="setup_get_started">Zacznij korzystać z</string>
 </resources>

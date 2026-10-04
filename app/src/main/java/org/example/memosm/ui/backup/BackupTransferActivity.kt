@@ -29,7 +29,12 @@ class BackupTransferActivity : ComponentActivity() {
         setContent {
             SavedMemosMTheme(settings) {
                 val ready by BackupCoordinator.startupReady.collectAsState()
-                if (ready) BackupTransferScreen(intent.getBooleanExtra(EXPORT, false), intent.getStringExtra(SOURCE), ::finish)
+                if (ready) BackupTransferScreen(
+                    exporting = intent.getBooleanExtra(EXPORT, false),
+                    sourcePath = intent.getStringExtra(SOURCE),
+                    onClose = ::finish,
+                    onRestoreSuccess = { setResult(RESULT_OK) }
+                )
                 else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             }
         }

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.Balance
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.WavingHand
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -42,7 +43,7 @@ private data class KaomojiMessage(val text: String, val kaomoji: String)
 @Suppress("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit) {
+fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit, onShowSetup: () -> Unit) {
     val context = LocalContext.current
     val packageInfo = remember {
         try {
@@ -148,6 +149,12 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit) {
                     context.startActivity(intent)
                 }),
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        )
+
+        SettingsNavigationRow(
+            title = stringResource(R.string.setup_show),
+            icon = Icons.Outlined.WavingHand,
+            onClick = onShowSetup
         )
 
         SettingsNavigationRow(

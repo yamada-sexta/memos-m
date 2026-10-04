@@ -43,7 +43,7 @@ class MemoCatchTest {
     fun tenthTapOpensGameAndClosingRequiresTenMoreTaps() {
         compose.setContent {
             MemosMTheme(dynamicColor = false) {
-                AboutAppCard(onOpenLicenses = {}, onOpenLogs = {})
+                AboutAppCard(onOpenLicenses = {}, onOpenLogs = {}, onShowSetup = {})
             }
         }
         repeat(9) { compose.onNodeWithText("App Version").performClick() }
@@ -63,7 +63,7 @@ class MemoCatchTest {
     @Test
     fun longPressStillCopiesVersionAndDoesNotCountAsATap() {
         compose.setContent {
-            MemosMTheme { AboutAppCard(onOpenLicenses = {}, onOpenLogs = {}) }
+            MemosMTheme { AboutAppCard(onOpenLicenses = {}, onOpenLogs = {}, onShowSetup = {}) }
         }
         repeat(9) { compose.onNodeWithText("App Version").performClick() }
         compose.onNodeWithText("App Version").performTouchInput { longClick() }

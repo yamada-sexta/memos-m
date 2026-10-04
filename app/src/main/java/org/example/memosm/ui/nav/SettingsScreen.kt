@@ -40,6 +40,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenSection: (SettingsSection) -> Unit,
     onOpenLicenses: () -> Unit,
+    onShowSetup: () -> Unit,
     section: SettingsSection? = null,
     modifier: Modifier = Modifier
 ) {
@@ -187,6 +188,7 @@ fun SettingsScreen(
                     SettingsSection.ABOUT -> settingsItem {
                         AboutAppCard(
                             onOpenLicenses = onOpenLicenses,
+                            onShowSetup = onShowSetup,
                             onOpenLogs = { onOpenSection(SettingsSection.AUDIT) }
                         )
                     }

@@ -451,4 +451,6 @@
     </string-array>
     <string name="sync_panel_manage_cache">管理快取</string>
     <string name="sync_time_never">從未同步</string>
+    <string name="setup_show">顯示初始設定</string>
+    <string name="setup_get_started">開始使用</string>
 </resources>
