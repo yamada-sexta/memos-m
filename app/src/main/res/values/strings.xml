@@ -367,7 +367,7 @@
     <string name="settings_memos" tools:ignore="MissingTranslation">Memos</string>
     <string name="settings_network" tools:ignore="MissingTranslation">Network</string>
     <string name="settings_summary_general" tools:ignore="MissingTranslation">Language, default visibility, page size</string>
-    <string name="settings_summary_appearance" tools:ignore="MissingTranslation">Link previews, memo heading size</string>
+    <string name="settings_summary_appearance" tools:ignore="MissingTranslation">Colors, fonts, link previews, heading size</string>
     <string name="settings_summary_memos" tools:ignore="MissingTranslation">Shortcuts, webhooks</string>
     <string name="settings_summary_network" tools:ignore="MissingTranslation">Local network access</string>
     <string name="settings_summary_offline" tools:ignore="MissingTranslation">Automatic caching, storage limits, clear cache</string>
@@ -381,4 +381,38 @@
     <string name="settings_shortcuts_summary" tools:ignore="MissingTranslation">Manage saved memo filters</string>
     <string name="settings_webhooks_summary" tools:ignore="MissingTranslation">Manage webhook integrations</string>
     <string name="settings_summary_instance" tools:ignore="MissingTranslation">Server version, mode, address</string>
+    <string name="appearance_preview" tools:ignore="MissingTranslation">Preview</string>
+    <string name="appearance_preview_memo" tools:ignore="MissingTranslation"># Make room for ideas\n\nA small thought can become **something great**.\n\n- Capture an idea\n- Come back to it later</string>
+    <string name="appearance_theme_mode" tools:ignore="MissingTranslation">Theme mode</string>
+    <string name="appearance_mode_system" tools:ignore="MissingTranslation">Follow system</string>
+    <string name="appearance_mode_light" tools:ignore="MissingTranslation">Light</string>
+    <string name="appearance_mode_dark" tools:ignore="MissingTranslation">Dark</string>
+    <string name="appearance_custom_colors" tools:ignore="MissingTranslation">Your custom colors</string>
+    <string name="appearance_memos" tools:ignore="MissingTranslation">Memos</string>
+    <string name="appearance_custom" tools:ignore="MissingTranslation">Custom</string>
+    <string name="appearance_monochrome" tools:ignore="MissingTranslation">Monochrome</string>
+    <string name="appearance_device_colors" tools:ignore="MissingTranslation">Follow system</string>
+    <string name="appearance_choose_color" tools:ignore="MissingTranslation">Color theme</string>
+    <string name="appearance_color_option" tools:ignore="MissingTranslation">Color option %1$d</string>
+    <string name="appearance_color_hint" tools:ignore="MissingTranslation">Slide to choose your accent color</string>
+    <string name="appearance_font" tools:ignore="MissingTranslation">Font</string>
+    <string name="appearance_font_system" tools:ignore="MissingTranslation">System default</string>
+    <string name="appearance_font_sans" tools:ignore="MissingTranslation">Sans serif</string>
+    <string name="appearance_font_serif" tools:ignore="MissingTranslation">Serif</string>
+    <string name="appearance_font_mono" tools:ignore="MissingTranslation">Monospace</string>
+    <string name="appearance_save_error" tools:ignore="MissingTranslation">Could not save appearance. Try again.</string>
+    <!-- Hidden About-screen game. English fallback until translations are contributed. -->
+    <string name="memo_catch_title" tools:ignore="MissingTranslation">Memo Catch</string>
+    <string name="memo_catch_instruction" tools:ignore="MissingTranslation">Drag the tray to catch the falling memos.</string>
+    <string name="memo_catch_welcome" tools:ignore="MissingTranslation">You found a little distraction!</string>
+    <string name="memo_catch_play" tools:ignore="MissingTranslation">Play</string>
+    <string name="memo_catch_replay" tools:ignore="MissingTranslation">Play again</string>
+    <string name="memo_catch_resume" tools:ignore="MissingTranslation">Resume</string>
+    <string name="memo_catch_paused" tools:ignore="MissingTranslation">Taking a little break</string>
+    <string name="memo_catch_finished" tools:ignore="MissingTranslation">Nice catch!</string>
+    <string name="memo_catch_score" tools:ignore="MissingTranslation">Score: %1$d</string>
+    <string name="memo_catch_time" tools:ignore="MissingTranslation">%1$d s left</string>
+    <string name="memo_catch_tray_position" tools:ignore="MissingTranslation">Tray position: %1$d percent</string>
+    <string name="memo_catch_move_left" tools:ignore="MissingTranslation">Move tray left</string>
+    <string name="memo_catch_move_right" tools:ignore="MissingTranslation">Move tray right</string>
 </resources>

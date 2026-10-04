@@ -66,6 +66,13 @@ fun SettingsScreen(
             SettingsOverview(onOpenSection = onOpenSection, modifier = Modifier.padding(innerPadding))
         } else if (section == SettingsSection.AUDIT) {
             AuditLogContent(modifier = Modifier.fillMaxSize().padding(innerPadding))
+        } else if (section == SettingsSection.APPEARANCE) {
+            AppearanceSettingsContent(
+                headerScale = uiState.appSettings.headerScale,
+                modifier = Modifier.fillMaxSize().padding(innerPadding)
+            ) {
+                AppPreferenceRows(viewModel, AppSettingsCategory.APPEARANCE)
+            }
         } else {
             LazyColumn(
                 state = listState,
@@ -89,9 +96,7 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    SettingsSection.APPEARANCE -> settingsItem {
-                        SettingsGroup { AppPreferenceRows(viewModel, AppSettingsCategory.APPEARANCE) }
-                    }
+                    SettingsSection.APPEARANCE -> Unit
                     SettingsSection.CONTENT -> {
                         settingsItem {
                             SettingsGroup {

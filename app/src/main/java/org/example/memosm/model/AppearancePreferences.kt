@@ -10,7 +10,7 @@ enum class ThemeMode {
     }
 }
 
-enum class ColorTheme { SYSTEM, MONOCHROME, CUSTOM }
+enum class ColorTheme { SYSTEM, MONOCHROME, MEMOS, CUSTOM }
 
 enum class AppFont { SYSTEM, SANS_SERIF, SERIF, MONOSPACE }
 

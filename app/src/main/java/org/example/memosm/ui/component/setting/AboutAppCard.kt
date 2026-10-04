@@ -23,8 +23,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -64,6 +68,12 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit) {
     }
 
     val currentToast = remember { mutableStateOf<Toast?>(null) }
+    var versionTaps by remember { mutableIntStateOf(0) }
+    var showMemoCatch by rememberSaveable { mutableStateOf(false) }
+
+    if (showMemoCatch) {
+        MemoCatchDialog(onDismiss = { showMemoCatch = false })
+    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -80,8 +90,11 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit) {
                 .clip(RoundedCornerShape(4.dp))
                 .combinedClickable(onClick = {
                     currentToast.value?.cancel()
-                    val item = kaomojis.randomOrNull()
-                    if (item != null) {
+                    versionTaps++
+                    if (versionTaps == 10) {
+                        versionTaps = 0
+                        showMemoCatch = true
+                    } else kaomojis.randomOrNull()?.let { item ->
                         val toast = Toast.makeText(
                             context, "${item.text} ${item.kaomoji}", Toast.LENGTH_SHORT
                         )
