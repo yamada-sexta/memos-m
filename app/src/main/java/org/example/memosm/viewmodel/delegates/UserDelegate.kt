@@ -69,6 +69,7 @@ class UserDelegateImpl(
     private val onAccountRemoved: (Account) -> Unit = {}
 ) : UserDelegate {
 
+    private val retryUserAfter = mutableMapOf<Pair<Long, String>, Long>()
     private val pendingUserRequests = mutableSetOf<Pair<Long, String>>()
     private val accountMutex = Mutex()
 
@@ -155,17 +156,26 @@ class UserDelegateImpl(
     override suspend fun fetchUsers(names: List<String>) {
         val context = accountSession.current ?: return
         val api = context.api
+        val currentUser = uiState.value.session.currUser
+        if (currentUser?.name != null && currentUser.name !in uiState.value.users)
+            accountSession.update(uiState, context) { it.copy(users = it.users + (currentUser.name!! to currentUser)) }
         val currentUsers = uiState.value.users
-        val toFetch = names.filter { it !in currentUsers && (context.generation to it) !in pendingUserRequests }
+        val now = System.nanoTime() / 1_000_000
+        retryUserAfter.entries.removeAll { it.key.first != context.generation || it.value <= now }
+        val toFetch = names.distinct().filter { it !in currentUsers &&
+            (context.generation to it) !in pendingUserRequests && (context.generation to it) !in retryUserAfter }
         Log.d("MemosUsers", "fetchUsers: requested=$names cached=${currentUsers.keys} toFetch=$toFetch")
         if (toFetch.isEmpty()) return
 
         pendingUserRequests.addAll(toFetch.map { context.generation to it })
         accountSession.readScope.launch {
             try {
+                // Failed or absent creators must not retry on every list/cache state update.
+                toFetch.forEach { retryUserAfter[context.generation to it] = System.nanoTime() / 1_000_000 + 60_000 }
                 val fetchedUsers = api.getUsers(toFetch).orEmpty()
                 Log.d("MemosUsers", "fetchUsers: resolved=${fetchedUsers.keys}")
                 if (fetchedUsers.isNotEmpty()) {
+                    fetchedUsers.keys.forEach { retryUserAfter.remove(context.generation to it) }
                     accountSession.update(uiState, context) { it.copy(users = it.users + fetchedUsers) }
                 }
                 val unresolved = toFetch.filter { it !in fetchedUsers }
@@ -527,6 +537,7 @@ class UserDelegateImpl(
         if (active?.id != previous?.id || active?.hostUrl != previous?.hostUrl ||
             active?.accessToken != previous?.accessToken || active == null) {
             pendingUserRequests.clear()
+            retryUserAfter.clear()
             onAccountSwitched(active)
         }
     }

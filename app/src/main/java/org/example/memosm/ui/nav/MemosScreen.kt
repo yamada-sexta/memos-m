@@ -404,7 +404,8 @@ private fun MemosListPane(
             val syncActive = uiState.isSyncing ||
                 uiState.preDownloadState is PreDownloadState.Running ||
                 uiState.pendingOpsCount > 0 ||
-                !uiState.isOnline
+                !uiState.isOnline ||
+                uiState.connectionState == org.example.memosm.viewmodel.ConnectionState.RATE_LIMITED
 
             if (hasDrafts || showFilterRow || syncActive) {
                 item(key = "header_section") {
@@ -424,7 +425,8 @@ private fun MemosListPane(
                                 pendingOpsCount = uiState.pendingOpsCount,
                                 preDownloadState = uiState.preDownloadState,
                                 cachedCount = uiState.textCacheCount,
-                                lastSyncTime = uiState.lastSyncTime
+                                lastSyncTime = uiState.lastSyncTime,
+                                connectionState = uiState.connectionState
                             )
                         }
 

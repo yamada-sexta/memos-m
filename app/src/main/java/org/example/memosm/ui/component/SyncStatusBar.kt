@@ -46,13 +46,14 @@ fun SyncStatusBar(
     preDownloadState: PreDownloadState,
     cachedCount: Int,
     lastSyncTime: Long,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    connectionState: org.example.memosm.viewmodel.ConnectionState = org.example.memosm.viewmodel.ConnectionState.ONLINE
 ) {
     val iconTint = MaterialTheme.colorScheme.onSurfaceVariant
     val textStyle = MaterialTheme.typography.labelSmall
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    val status = syncStatusOf(isOnline, isSyncing, preDownloadState, pendingOpsCount)
+    val status = syncStatusOf(isOnline, isSyncing, preDownloadState, pendingOpsCount, connectionState)
     val (icon, text) = when (status) {
         SyncStatus.SYNCING -> {
             Icons.Outlined.Sync to stringResource(R.string.sync_status_syncing)
@@ -75,6 +76,10 @@ fun SyncStatusBar(
 
         SyncStatus.OFFLINE -> {
             Icons.Outlined.CloudOff to stringResource(R.string.sync_status_offline)
+        }
+
+        SyncStatus.RATE_LIMITED -> {
+            Icons.Outlined.CloudSync to stringResource(R.string.sync_status_rate_limited)
         }
 
         SyncStatus.IDLE -> {

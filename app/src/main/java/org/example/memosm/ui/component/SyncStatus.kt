@@ -2,8 +2,9 @@ package org.example.memosm.ui.component
 
 import org.example.memosm.data.sync.PreDownloadState
 import org.example.memosm.viewmodel.MemosUiState
+import org.example.memosm.viewmodel.ConnectionState
 
-enum class SyncStatus { SYNCING, PREDOWNLOAD, PENDING, OFFLINE, IDLE }
+enum class SyncStatus { SYNCING, PREDOWNLOAD, PENDING, OFFLINE, RATE_LIMITED, IDLE }
 
 /**
  * THE one place that decides which sync/cache state the UI surfaces, used by
@@ -19,9 +20,11 @@ fun syncStatusOf(
     isOnline: Boolean,
     isSyncing: Boolean,
     preDownloadState: PreDownloadState,
-    pendingOpsCount: Int
+    pendingOpsCount: Int,
+    connectionState: ConnectionState = ConnectionState.ONLINE
 ): SyncStatus = when {
     !isOnline -> SyncStatus.OFFLINE
+    connectionState == ConnectionState.RATE_LIMITED -> SyncStatus.RATE_LIMITED
     isSyncing -> SyncStatus.SYNCING
     preDownloadState is PreDownloadState.Running -> SyncStatus.PREDOWNLOAD
     pendingOpsCount > 0 -> SyncStatus.PENDING
@@ -32,5 +35,6 @@ fun syncStatusOf(uiState: MemosUiState): SyncStatus = syncStatusOf(
     isOnline = uiState.isOnline,
     isSyncing = uiState.isSyncing,
     preDownloadState = uiState.preDownloadState,
-    pendingOpsCount = uiState.pendingOpsCount
+    pendingOpsCount = uiState.pendingOpsCount,
+    connectionState = uiState.connectionState
 )

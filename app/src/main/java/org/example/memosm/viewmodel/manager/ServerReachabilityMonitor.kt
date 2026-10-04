@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import org.example.memosm.api.MemosApi
+import org.example.memosm.api.ServerRateLimit
 import org.example.memosm.viewmodel.ConnectionState
 
 /** Account-owned reachability, independently of Android's Internet validation. */
@@ -32,6 +33,8 @@ class ServerReachabilityMonitor(
     val state: StateFlow<ReachabilityState> = _state.asStateFlow()
     private var probeJob: Job? = null
     private var schedulerJob: Job? = null
+    private var retryJob: Job? = null
+    private var onRecovered: (() -> Unit)? = null
     private var generation = 0L
     private var probeAccount: String? = null
     private var probeApi: MemosApi? = null
@@ -57,11 +60,13 @@ class ServerReachabilityMonitor(
         probeApi = expectedApi
         val expectedGeneration = generation
         val wasOnline = _state.value.isOnline
+        val wasReady = _state.value.connectionState == ConnectionState.ONLINE
         if (onReachable != null) callbacks[onReachable] = onlyOnRecovery
         val job = scope.launch(start = CoroutineStart.LAZY) {
             fun isCurrent() = generation == expectedGeneration && accountIdProvider() == expectedAccount &&
                 apiProvider() === expectedApi
             if (!wasOnline) _state.value = ReachabilityState()
+            var retryDelay: Long? = null
             val result = try {
                 withTimeout(30_000) { expectedApi.getInstanceProfile() }
                 ReachabilityState(isOnline = true, connectionState = ConnectionState.ONLINE)
@@ -70,15 +75,27 @@ class ServerReachabilityMonitor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ReachabilityState(connectionState = if (e is retrofit2.HttpException && e.code() in listOf(401, 403))
+                retryDelay = ServerRateLimit.retryDelay(e)
+                if (retryDelay != null) ReachabilityState(isOnline = true,
+                    connectionState = ConnectionState.RATE_LIMITED, error = "Server rate limit; retrying automatically")
+                else ReachabilityState(connectionState = if (e is retrofit2.HttpException && e.code() in listOf(401, 403))
                     ConnectionState.AUTH_REQUIRED else ConnectionState.SERVER_UNREACHABLE, error = e.message)
             }
             if (!isCurrent()) return@launch
             _state.value = result
             val completedCallbacks = callbacks.toMap()
             callbacks.clear()
-            if (result.isOnline) completedCallbacks.forEach { (callback, recoveryOnly) ->
-                if (isCurrent() && (!recoveryOnly || !wasOnline)) callback()
+            if (retryDelay != null) {
+                retryJob = scope.launch {
+                    delay(retryDelay!!)
+                    if (isCurrent()) probe({
+                        onRecovered?.invoke()
+                        completedCallbacks.keys.filter { it != onRecovered }.forEach { it() }
+                    }, onlyOnRecovery = false)?.join()
+                }
+            }
+            if (result.connectionState == ConnectionState.ONLINE) completedCallbacks.forEach { (callback, recoveryOnly) ->
+                if (isCurrent() && (!recoveryOnly || !wasReady)) callback()
             }
         }
         probeJob = job
@@ -88,6 +105,7 @@ class ServerReachabilityMonitor(
 
     /** Every failed state remains retryable, even if no connectivity event arrives. */
     fun start(onRecovered: () -> Unit) {
+        this.onRecovered = onRecovered
         schedulerJob?.cancel()
         schedulerJob = scope.launch {
             while (true) {
@@ -99,6 +117,8 @@ class ServerReachabilityMonitor(
 
     fun cancelProbe(resetState: Boolean = true) {
         generation++
+        retryJob?.cancel()
+        retryJob = null
         probeJob?.cancel()
         probeJob = null
         callbacks.clear()

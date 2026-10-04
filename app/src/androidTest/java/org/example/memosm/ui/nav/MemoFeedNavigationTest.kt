@@ -198,9 +198,12 @@ class MemoFeedNavigationTest {
             compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             awaitFeed(MemoFeed.EXPLORE)
             scenario.onActivity { activity ->
+                val launchIntent = activity.intent
                 instrumentation.callActivityOnNewIntent(activity, android.content.Intent(context, MainActivity::class.java).apply {
                     action = DraftWidget.ACTION_OPEN_COMPOSER
                 })
+                // ActivityScenario matches lifecycle events against its original launch intent.
+                activity.intent = launchIntent
             }
             compose.onNodeWithText(label(R.string.drafts_prompt_start_fresh)).performClick()
             compose.onNode(hasSetTextAction() and hasText("Unfinished feed draft")).assertDoesNotExist()

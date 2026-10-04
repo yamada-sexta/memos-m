@@ -291,6 +291,7 @@
     <string name="sync_status_pending">Changes awaiting sync: %1$d</string>
     <string name="sync_status_offline">Offline · using local cache</string>
     <string name="sync_status_cached">%1$s · synced %2$s</string>
+    <string name="sync_status_rate_limited">Server busy · retrying automatically</string>
     <string name="sync_status_idle">Up to date</string>
     <string name="sync_panel_title">Sync &amp; Cache</string>
     <string name="sync_panel_last_sync">Last sync: %1$s</string>

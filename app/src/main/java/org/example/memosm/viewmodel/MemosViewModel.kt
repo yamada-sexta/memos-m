@@ -524,7 +524,7 @@ class MemosViewModel(
         if (!org.example.memosm.data.backup.BackupCoordinator.startupReady.value || org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
         val reachable = reachabilityMonitor.state.value
         _uiState.update { it.copy(isOnline = reachable.isOnline, connectionState = reachable.connectionState, syncError = reachable.error) }
-        if (!reachable.isOnline) return
+        if (reachable.connectionState != ConnectionState.ONLINE) return
         syncManager.pushPendingChanges()
         preDownloadManager.maybeAutoDownload()
         if (_uiState.value.session.currUser == null) fetchCurrentUser()
@@ -645,6 +645,13 @@ class MemosViewModel(
         // reporting validated connectivity while the server process dies (or
         // comes back) without any connectivity change.
         reachabilityMonitor.start(::runRecoverySequence)
+        viewModelScope.launch {
+            org.example.memosm.api.ServerRateLimit.shared.changes.collect {
+                val account = accountSession.current?.account ?: return@collect
+                if (org.example.memosm.api.ServerRateLimit.shared.remaining(account.hostUrl, account.accessToken) > 0)
+                    reachabilityMonitor.checkNow(::runRecoverySequence)
+            }
+        }
         // Bridge the monitor's reachability state into the UI state.
         viewModelScope.launch {
             reachabilityMonitor.state.collect { reachability ->
@@ -987,6 +994,10 @@ class MemosViewModel(
                 reachabilityMonitor.checkNow()?.join()
                 if (!accountSession.isCurrent(context)) return@launch
                 if (connectivityObserver.isBlocked.value) {
+                    manager.loadFromCache()
+                    return@launch
+                }
+                if (reachabilityMonitor.state.value.connectionState == ConnectionState.RATE_LIMITED) {
                     manager.loadFromCache()
                     return@launch
                 }

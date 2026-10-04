@@ -97,6 +97,7 @@ enum class ConnectionState {
     OFFLINE,
     SERVER_UNREACHABLE,
     AUTH_REQUIRED,
+    RATE_LIMITED,
     ONLINE
 }
 

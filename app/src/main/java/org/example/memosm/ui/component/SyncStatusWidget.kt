@@ -95,6 +95,12 @@ fun SyncStatusIconButton(
                 tint = MaterialTheme.colorScheme.error
             )
 
+            SyncStatus.RATE_LIMITED -> Icon(
+                Icons.Outlined.CloudSync,
+                contentDescription = stringResource(R.string.sync_status_rate_limited),
+                tint = MaterialTheme.colorScheme.tertiary
+            )
+
             SyncStatus.IDLE -> Icon(
                 Icons.Outlined.CheckCircle,
                 contentDescription = stringResource(R.string.sync_status_idle),
@@ -144,6 +150,8 @@ fun SyncStatusPanel(
                         stringResource(R.string.sync_status_pending, uiState.pendingOpsCount)
                     SyncStatus.OFFLINE ->
                         stringResource(R.string.sync_status_offline)
+                    SyncStatus.RATE_LIMITED ->
+                        stringResource(R.string.sync_status_rate_limited)
                     SyncStatus.IDLE ->
                         stringResource(R.string.sync_status_idle)
                 }
