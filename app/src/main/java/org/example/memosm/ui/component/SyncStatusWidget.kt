@@ -2,16 +2,12 @@ package org.example.memosm.ui.component
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -116,8 +112,6 @@ fun SyncStatusIconButton(
 fun SyncStatusPanel(
     uiState: MemosUiState,
     onDismiss: () -> Unit,
-    onPreDownloadText: () -> Unit,
-    onPreDownloadAttachments: () -> Unit,
     onDeleteOp: (String) -> Unit,
     onManageCache: () -> Unit
 ) {
@@ -228,29 +222,9 @@ fun SyncStatusPanel(
 
             Spacer(modifier = Modifier.height(16.dp))
             SettingsGroup {
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    SettingsNavigationRow(
-                        title = stringResource(R.string.offline_predownload_attachments_button),
-                        showChevron = false,
-                        enabled = uiState.isOnline,
-                        modifier = Modifier.weight(1f).heightIn(min = 64.dp).fillMaxHeight(),
-                        onClick = onPreDownloadAttachments
-                    )
-                    SettingsNavigationRow(
-                        title = stringResource(R.string.offline_predownload_text_button),
-                        showChevron = false,
-                        enabled = uiState.isOnline,
-                        modifier = Modifier.weight(1f).heightIn(min = 64.dp).fillMaxHeight(),
-                        onClick = onPreDownloadText
-                    )
-                }
                 SettingsNavigationRow(
                     title = stringResource(R.string.sync_panel_manage_cache),
                     icon = Icons.Outlined.Storage,
-                    modifier = Modifier.heightIn(min = 64.dp),
                     onClick = onManageCache
                 )
             }

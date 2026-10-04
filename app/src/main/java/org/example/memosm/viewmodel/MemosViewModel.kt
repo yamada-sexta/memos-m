@@ -851,12 +851,13 @@ class MemosViewModel(
         }
     }
 
-    fun preDownloadNow() {
-        preDownloadManager.downloadAllText()
-    }
-
-    fun preDownloadAllAttachments() {
-        preDownloadManager.preloadAllAttachments()
+    fun cacheNow(text: Boolean, attachments: Boolean) {
+        if (text) {
+            // Run both selected phases in one job; separate jobs would compete.
+            preDownloadManager.downloadAllText(includeAttachments = attachments)
+        } else if (attachments) {
+            preDownloadManager.preloadAllAttachments()
+        }
     }
 
     fun clearTextCache() {

@@ -279,8 +279,6 @@ fun MemoSearchBar(
             SyncStatusPanel(
                 uiState = uiState,
                 onDismiss = { showSyncPanel = false },
-                onPreDownloadText = { viewModel.preDownloadNow() },
-                onPreDownloadAttachments = { viewModel.preDownloadAllAttachments() },
                 onDeleteOp = { opId -> viewModel.deletePendingOp(opId) },
                 onManageCache = {
                     showSyncPanel = false

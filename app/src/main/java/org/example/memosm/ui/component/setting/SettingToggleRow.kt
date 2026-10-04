@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 
 /** The row owns the switch semantics so its label and state are announced together. */
 @Composable
@@ -23,12 +24,14 @@ internal fun SettingToggleRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    description: String? = null
+    description: String? = null,
+    icon: ImageVector? = null
 ) {
     ListItem(
         modifier = Modifier.clip(RoundedCornerShape(4.dp)).toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         headlineContent = { Text(label) },
         supportingContent = description?.let { { Text(it) } },
+        leadingContent = icon?.let { { Icon(it, contentDescription = null) } },
         trailingContent = {
             Switch(
                 checked = checked,

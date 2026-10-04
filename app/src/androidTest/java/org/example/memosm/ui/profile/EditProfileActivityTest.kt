@@ -1,10 +1,14 @@
 package org.example.memosm.ui.profile
 
+import android.app.Activity
+import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.InputDevice
 import android.view.MotionEvent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -17,6 +21,8 @@ import org.example.memosm.data.backup.BackupCoordinator
 import org.example.memosm.model.Account
 import org.example.memosm.model.UserSnapshot
 import org.junit.Before
+import org.junit.Assert.assertEquals
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.GlobalContext
@@ -70,9 +76,23 @@ class EditProfileActivityTest {
         }
     }
 
+    @Test
+    fun savingUnchangedProfileClosesEditorWithSuccess() {
+        ActivityScenario.launchActivityForResult<EditProfileActivity>(
+            android.content.Intent(context, EditProfileActivity::class.java)
+        ).use { scenario ->
+            awaitEditor()
+            compose.onNodeWithText(label(R.string.common_save)).performClick()
+            compose.waitUntil(10_000) { scenario.state == Lifecycle.State.DESTROYED }
+            assertEquals(Activity.RESULT_OK, scenario.result.resultCode)
+        }
+    }
+
     /** Run on an emulator with gesture navigation enabled. */
     @Test
     fun canceledBackGestureKeepsEditorAndCompletedGestureReturnsToProfile() {
+        assumeTrue(Build.VERSION.SDK_INT >= 35)
+        assumeTrue(Settings.Secure.getInt(context.contentResolver, "navigation_mode", 0) == 2)
         ActivityScenario.launch(MainActivity::class.java).use {
             openEditor()
             backGesture(cancel = true)

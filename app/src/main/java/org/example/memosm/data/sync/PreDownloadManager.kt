@@ -216,7 +216,7 @@ class PreDownloadManager(
      * history. Servers that reject the update_time filter (old versions) fall
      * back to a full download automatically.
      */
-    fun downloadAllText() {
+    fun downloadAllText(includeAttachments: Boolean? = null) {
         if (job?.isActive == true) return
         if (!isOnlineProvider()) return
         val accountId = accountIdProvider() ?: return
@@ -293,7 +293,7 @@ class PreDownloadManager(
                 }
 
                 var attachmentCount = 0
-                if (settings.preDownloadAttachments) {
+                if (includeAttachments ?: settings.preDownloadAttachments) {
                     _state.value =
                         PreDownloadState.Running(PreDownloadState.Running.Phase.ATTACHMENTS, accountId = accountId)
                     attachmentCount = preloadAllAttachmentsInternal(accountId, hostUrl, token)
