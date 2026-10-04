@@ -104,6 +104,7 @@ enum class ConnectionState {
 // --- Main UI State ---
 
 data class MemosUiState(
+    val memoMap: MemoMapState = MemoMapState(),
     val session: SessionState = SessionState(),
     val userMemoList: MemoListState = MemoListState(),
     val exploreMemoList: MemoListState = MemoListState(),
@@ -136,6 +137,18 @@ data class MemosUiState(
     val attachmentCacheUsage: AttachmentCacheManager.Usage = AttachmentCacheManager.Usage(),
     val textCacheCount: Int = 0,
     val syncError: String? = null
+)
+
+data class MemoMapState(
+    val capability: org.example.memosm.model.MapCapability = org.example.memosm.model.MapCapability.UNKNOWN,
+    val scope: org.example.memosm.model.MapScope = org.example.memosm.model.MapScope.MEMOS,
+    val memos: List<Memo> = emptyList(),
+    val isLoading: Boolean = false,
+    val complete: Boolean = false,
+    val isOffline: Boolean = false,
+    val loadFailed: Boolean = false,
+    val savedView: Shortcut? = null,
+    val filterUnavailable: Boolean = false
 )
 
 enum class RefreshSource {

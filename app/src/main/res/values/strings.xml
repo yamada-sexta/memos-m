@@ -451,4 +451,18 @@
     <string name="cache_now_running_text">Caching text…</string>
     <string name="cache_now_running_attachments">Caching attachments…</string>
     <string name="cache_text">Text</string>
+    <string name="login_sso">SSO</string>
+    <string name="login_sso_description">Find the sign-in providers configured for your Memos server.</string>
+    <string name="login_sso_find_providers">Find providers</string>
+    <string name="login_sso_continue_with">Continue with %1$s</string>
+    <string name="login_sso_no_providers">This server has no supported SSO providers configured.</string>
+    <string name="login_sso_discovery_failed">Could not load sign-in providers. Check the server URL and try again.</string>
+    <string name="login_sso_waiting">Completing SSO sign-in…</string>
+    <string name="login_sso_invalid_provider">This sign-in provider has an invalid configuration. Contact your administrator.</string>
+    <string name="login_sso_invalid_callback">Could not verify the sign-in response. Please start SSO sign-in again.</string>
+    <string name="login_sso_expired">The sign-in session expired. Please start SSO sign-in again.</string>
+    <string name="login_sso_denied">The provider declined sign-in. You can try again.</string>
+    <string name="login_sso_no_browser">No browser is available. Install or enable a browser and try again.</string>
+    <string name="login_sso_failed">SSO sign-in failed. Please try again. Your administrator may need to register the app callback URI.</string>
+    <string name="login_sso_token_failed">Signed in, but could not create an app access token. Please try again.</string>
 </resources>

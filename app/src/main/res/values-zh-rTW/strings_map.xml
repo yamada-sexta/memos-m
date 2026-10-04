@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_map">地圖</string>
+    <string name="map_filters">篩選</string>
+    <string name="map_retry">重試</string>
+    <string name="map_all_views">所有筆記</string>
+    <string name="map_search">搜尋內容</string>
+    <string name="map_tag">標籤</string>
+    <string name="map_loaded">已載入 %1$d 則筆記…</string>
+    <string name="map_offline">正在顯示快取的位置。離線地圖可能不完整。</string>
+    <string name="map_view_offline">已儲存的檢視需要網路連線。請選擇所有筆記以離線瀏覽。</string>
+    <string name="map_load_error">無法載入所有筆記位置。</string>
+    <string name="map_tile_error">無法載入底圖。</string>
+    <string name="map_fit_all">顯示所有位置</string>
+    <string name="map_no_results">沒有符合篩選條件的位置。</string>
+    <string name="map_empty">尚無附位置的筆記。長按地圖即可在該位置撰寫筆記。</string>
+    <string name="map_close">關閉</string>
+    <string name="map_new_here">在此新增筆記</string>
+    <string name="map_open_memo">開啟筆記</string>
+</resources>

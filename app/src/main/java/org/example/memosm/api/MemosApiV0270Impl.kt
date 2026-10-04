@@ -3,7 +3,6 @@ package org.example.memosm.api
 import org.example.memosm.model.CurrentSessionResponse
 import org.example.memosm.model.ListUsersResponse
 import org.example.memosm.model.SignInRequest
-import org.example.memosm.model.SignInRequestV0260
 import org.example.memosm.model.SignInResponse
 import org.example.memosm.model.User
 import org.example.memosm.model.toUserSnapshot
@@ -23,10 +22,7 @@ open class MemosApiV0270Impl(
     }
 
     override suspend fun signIn(request: SignInRequest): SignInResponse {
-        val v0260Request = SignInRequestV0260(
-            passwordCredentials = request.passwordCredentials
-        )
-        return apiV0270.signInV0270(v0260Request).toModel()
+        return apiV0270.signInV0270(request).toModel()
     }
 
     override suspend fun listUsers(

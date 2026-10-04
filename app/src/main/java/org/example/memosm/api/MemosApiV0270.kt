@@ -2,7 +2,7 @@ package org.example.memosm.api
 
 import org.example.memosm.model.CurrentSessionResponse
 import org.example.memosm.model.ListUsersResponse
-import org.example.memosm.model.SignInRequestV0260
+import org.example.memosm.model.SignInRequest
 import org.example.memosm.model.SignInResponse
 import org.example.memosm.model.UseRole
 import org.example.memosm.model.UseState
@@ -20,7 +20,7 @@ interface MemosApiV0270 : MemosApiV0260 {
     suspend fun getCurrentUserV0270(): GetCurrentUserResponseDtoV0270
 
     @POST("api/v1/auth/signin")
-    suspend fun signInV0270(@Body request: SignInRequestV0260): SignInResponseDtoV0270
+    suspend fun signInV0270(@Body request: SignInRequest): SignInResponseDtoV0270
 
     @GET("api/v1/users")
     suspend fun listUsersV0270(

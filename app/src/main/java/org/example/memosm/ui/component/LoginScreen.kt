@@ -1,7 +1,9 @@
 package org.example.memosm.ui.component
 
-import android.util.Log
 import android.os.Build
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,11 +41,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -53,18 +57,22 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.example.memosm.R
 import org.example.memosm.api.MemosApiFactory
+import org.example.memosm.api.SsoFailure
+import org.example.memosm.api.SsoTransaction
 import org.example.memosm.api.loginAndCreateToken
+import org.example.memosm.api.normalizeLoginServerUrl
 import org.example.memosm.model.Account
+import org.example.memosm.model.IdentityProvider
+import org.example.memosm.ui.setup.SsoLoginActivity
 
 enum class LoginMode {
-    PASSWORD, TOKEN
+    PASSWORD, TOKEN, SSO
 }
 
 @Composable
@@ -167,6 +175,8 @@ fun LoginContent(
     var username by rememberSaveable(editAccount?.id) { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var ssoInProgress by rememberSaveable { mutableStateOf(false) }
+    var providers by remember(hostUrl) { mutableStateOf<List<IdentityProvider>?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
@@ -182,27 +192,70 @@ fun LoginContent(
     val errorEmptyCredentials = stringResource(R.string.login_error_empty_credentials)
     val errorInvalidCredentials = stringResource(R.string.login_error_invalid_credentials)
 
+    val context = LocalContext.current
+    val ssoErrorMessages = mapOf(
+        SsoFailure.INVALID_PROVIDER to stringResource(R.string.login_sso_invalid_provider),
+        SsoFailure.INVALID_CALLBACK to stringResource(R.string.login_sso_invalid_callback),
+        SsoFailure.EXPIRED to stringResource(R.string.login_sso_expired),
+        SsoFailure.DENIED to stringResource(R.string.login_sso_denied),
+        SsoFailure.BROWSER_UNAVAILABLE to stringResource(R.string.login_sso_no_browser),
+        SsoFailure.SIGN_IN to stringResource(R.string.login_sso_failed),
+        SsoFailure.TOKEN to stringResource(R.string.login_sso_token_failed)
+    )
+    val discoveryFailed = stringResource(R.string.login_sso_discovery_failed)
+    val ssoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        ssoInProgress = false
+        val credentials = SsoLoginActivity.readResult(result.resultCode, result.data)
+        if (credentials.baseUrl != null && credentials.token != null) {
+            onLoginSuccess(credentials.baseUrl, credentials.token)
+        } else {
+            errorMessage = credentials.error?.let { ssoErrorMessages[it] }
+        }
+    }
+    val busy = isLoading || ssoInProgress
+
+    val findProviders = {
+        scope.launch {
+            if (isLoading || ssoInProgress) return@launch
+            errorMessage = null
+            providers = null
+            val baseUrl = normalizeLoginServerUrl(hostUrl)
+            if (baseUrl == null) {
+                errorMessage = if (hostUrl.isBlank()) errorEmptyHost else errorInvalidUrl
+            } else {
+                isLoading = true
+                try {
+                    if (!networkPermission.ensureAccess(baseUrl)) {
+                        errorMessage = localNetworkDenied
+                    } else {
+                        val api = MemosApiFactory.create(baseUrl, OkHttpClient())
+                        api.getInstanceProfile()
+                        providers = api.listIdentityProviders().identityProviders.orEmpty().filter { provider ->
+                            try {
+                                SsoTransaction.create(baseUrl, provider, SsoLoginActivity.redirectUri(context))
+                                true
+                            } catch (_: Exception) { false }
+                        }
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    errorMessage = discoveryFailed
+                } finally {
+                    isLoading = false
+                }
+            }
+        }
+    }
+
     val performLogin = {
         scope.launch {
+            if (isLoading || ssoInProgress) return@launch
             isLoading = true
             errorMessage = null
-            var normalizedHost = hostUrl.trim()
-
-            if (normalizedHost.isBlank()) {
-                errorMessage = errorEmptyHost
-                isLoading = false
-                return@launch
-            }
-
-            if (!normalizedHost.startsWith("http")) {
-                normalizedHost = "https://$normalizedHost"
-            }
-            val baseUrl = if (normalizedHost.endsWith("/")) normalizedHost else "$normalizedHost/"
-
-            val httpUrl = normalizedHost.toHttpUrlOrNull()
-
-            if (httpUrl == null) {
-                errorMessage = errorInvalidUrl
+            val baseUrl = normalizeLoginServerUrl(hostUrl)
+            if (baseUrl == null) {
+                errorMessage = if (hostUrl.isBlank()) errorEmptyHost else errorInvalidUrl
                 isLoading = false
                 return@launch
             }
@@ -218,7 +271,6 @@ fun LoginContent(
                     level = HttpLoggingInterceptor.Level.BASIC
                 }
 
-                // Use MemosCookieJar to capture cookies using standard JavaNetCookieJar
                 val client = OkHttpClient.Builder()
                     .addInterceptor(logging)
                     .build()
@@ -316,27 +368,39 @@ fun LoginContent(
         ) {
             ToggleButton(
                 checked = loginMode == LoginMode.PASSWORD,
-                onCheckedChange = { loginMode = LoginMode.PASSWORD },
+                onCheckedChange = { loginMode = LoginMode.PASSWORD; errorMessage = null },
                 modifier = Modifier.weight(1f).semantics {
                     role = Role.RadioButton
                     selected = loginMode == LoginMode.PASSWORD
                 },
-                enabled = !isLoading,
+                enabled = !busy,
                 shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
             ) {
                 Text(stringResource(R.string.login_password))
             }
             ToggleButton(
                 checked = loginMode == LoginMode.TOKEN,
-                onCheckedChange = { loginMode = LoginMode.TOKEN },
+                onCheckedChange = { loginMode = LoginMode.TOKEN; errorMessage = null },
                 modifier = Modifier.weight(1f).semantics {
                     role = Role.RadioButton
                     selected = loginMode == LoginMode.TOKEN
                 },
-                enabled = !isLoading,
-                shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+                enabled = !busy,
+                shapes = ButtonGroupDefaults.connectedMiddleButtonShapes()
             ) {
                 Text(stringResource(R.string.login_token))
+            }
+            ToggleButton(
+                checked = loginMode == LoginMode.SSO,
+                onCheckedChange = { loginMode = LoginMode.SSO; errorMessage = null },
+                modifier = Modifier.weight(1f).semantics {
+                    role = Role.RadioButton
+                    selected = loginMode == LoginMode.SSO
+                },
+                enabled = !busy,
+                shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+            ) {
+                Text(stringResource(R.string.login_sso))
             }
         }
 
@@ -344,11 +408,11 @@ fun LoginContent(
 
         OutlinedTextField(
             value = hostUrl,
-            onValueChange = { hostUrl = it },
+            onValueChange = { hostUrl = it; errorMessage = null },
             label = { Text(stringResource(R.string.login_host_url)) },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text(stringResource(R.string.login_host_url_placeholder)) },
-            enabled = !isLoading,
+            enabled = !busy,
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
         )
@@ -356,13 +420,57 @@ fun LoginContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         when (loginMode) {
+            LoginMode.SSO -> {
+                Text(stringResource(R.string.login_sso_description), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                providers?.let { available ->
+                    if (available.isEmpty()) {
+                        Text(stringResource(R.string.login_sso_no_providers))
+                    }
+                    available.forEach { provider ->
+                        OutlinedButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !busy,
+                            onClick = {
+                                scope.launch {
+                                    if (isLoading || ssoInProgress) return@launch
+                                    errorMessage = null
+                                    val baseUrl = normalizeLoginServerUrl(hostUrl)
+                                    if (baseUrl == null) {
+                                        errorMessage = errorInvalidUrl
+                                        return@launch
+                                    }
+                                    isLoading = true
+                                    try {
+                                        if (!networkPermission.ensureAccess(baseUrl)) {
+                                            errorMessage = localNetworkDenied
+                                        } else {
+                                            ssoInProgress = true
+                                            ssoLauncher.launch(SsoLoginActivity.createIntent(context, baseUrl, provider))
+                                        }
+                                    } catch (error: CancellationException) {
+                                        throw error
+                                    } catch (_: Exception) {
+                                        ssoInProgress = false
+                                        errorMessage = ssoErrorMessages[SsoFailure.SIGN_IN]
+                                    } finally {
+                                        isLoading = false
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.login_sso_continue_with, provider.title))
+                        }
+                    }
+                }
+            }
             LoginMode.TOKEN -> {
                 OutlinedTextField(
                     value = token,
                     onValueChange = { token = it },
                     label = { Text(stringResource(R.string.login_token)) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
+                    enabled = !busy,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { performLogin() })
                 )
@@ -375,7 +483,7 @@ fun LoginContent(
                         onValueChange = { username = it },
                         label = { Text(stringResource(R.string.login_username)) },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
+                        enabled = !busy,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                     )
@@ -386,7 +494,7 @@ fun LoginContent(
                         label = { Text(stringResource(R.string.login_password)) },
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
+                        enabled = !busy,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { performLogin() })
@@ -403,14 +511,18 @@ fun LoginContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { performLogin() },
+            onClick = { if (loginMode == LoginMode.SSO) findProviders() else performLogin() },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && hostUrl.isNotBlank()
+            enabled = !busy && hostUrl.isNotBlank()
         ) {
-            if (isLoading) {
+            if (busy) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
             } else {
-                Text(if (isEditMode) stringResource(R.string.common_save) else stringResource(R.string.login_button))
+                Text(when {
+                    loginMode == LoginMode.SSO -> stringResource(R.string.login_sso_find_providers)
+                    isEditMode -> stringResource(R.string.common_save)
+                    else -> stringResource(R.string.login_button)
+                })
             }
         }
     }

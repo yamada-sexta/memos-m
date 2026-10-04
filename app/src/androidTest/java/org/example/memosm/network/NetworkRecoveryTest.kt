@@ -9,6 +9,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import org.example.memosm.api.ServerRateLimit
+import org.example.memosm.viewmodel.ConnectionState
 import org.example.memosm.MainActivity
 import org.example.memosm.api.AuthInterceptor
 import org.example.memosm.api.MemosApiFactory
@@ -50,7 +53,9 @@ class NetworkRecoveryTest {
 
     @Test fun remoteDeletionIsRemovedFromCacheAndDisplayedList() = exerciseRestriction(doze = false, deleteRemote = true)
 
-    private fun exerciseRestriction(doze: Boolean, batterySaver: Boolean = false, deleteRemote: Boolean = false) = runBlocking {
+    @Test fun recoversAfterRateLimitCooldownWithoutRestart() = exerciseRestriction(doze = false, rateLimited = true)
+
+    private fun exerciseRestriction(doze: Boolean, batterySaver: Boolean = false, deleteRemote: Boolean = false, rateLimited: Boolean = false) = runBlocking {
         val host = InstrumentationRegistry.getArguments().getString("recoveryHost")
         assumeNotNull(host)
         BackupCoordinator.awaitStartupRecovery()
@@ -77,6 +82,7 @@ class NetworkRecoveryTest {
         val memo = api.createMemo(Memo(content = "Network recovery regression"))
         val account = Account(id = "network-recovery-integration", hostUrl = host,
             accessToken = login.accessToken, isActive = true, user = api.getCurrentSession().user!!.toUserSnapshot())
+        var newMemo: Memo? = null
         try {
             settings.completeSetup()
             settings.savePreDownloadText(false)
@@ -88,7 +94,21 @@ class NetworkRecoveryTest {
                 scenario.onActivity { viewModel = ViewModelProvider(it)[MemosViewModel::class.java] }
                 await("Initial fetch failed") { viewModel.uiState.value.isOnline &&
                     viewModel.uiState.value.userMemoList.list.items.any { it.name == memo.name } }
-                if (deleteRemote) {
+                if (rateLimited) {
+                    newMemo = api.createMemo(Memo(content = "Created during rate-limit recovery test"))
+                    ServerRateLimit.shared.record(host.toHttpUrl(), account.accessToken, 4_000)
+                    await("Rate limit was labelled offline") {
+                        viewModel.uiState.value.connectionState == ConnectionState.RATE_LIMITED
+                    }
+                    repeat(3) { scenario.onActivity { viewModel.fetchUserMemos(refresh = true) } }
+                    await("Pull to refresh stuck during cooldown") { !viewModel.uiState.value.isRefreshing }
+                    assertTrue(viewModel.uiState.value.isOnline)
+                    assertTrue(viewModel.uiState.value.userMemoList.list.items.any { it.name == memo.name })
+                    await("Cooldown recovery required another refresh or restart") {
+                        viewModel.uiState.value.connectionState == ConnectionState.ONLINE &&
+                            viewModel.uiState.value.userMemoList.list.items.any { it.name == newMemo?.name }
+                    }
+                } else if (deleteRemote) {
                     api.deleteMemo(memo.name!!)
                     scenario.onActivity { viewModel.fetchUserMemos(refresh = true) }
                     val repository = GlobalContext.get().get<org.example.memosm.data.cache.MemoCacheRepository>()
@@ -143,6 +163,7 @@ class NetworkRecoveryTest {
             settings.savePreDownloadText(originalText)
             settings.savePreDownloadAttachments(originalAttachments)
             runCatching { api.deleteMemo(memo.name!!) }
+            newMemo?.name?.let { runCatching { api.deleteMemo(it) } }
             GlobalContext.get().get<org.example.memosm.data.cache.MemoCacheRepository>().clearCache(account.id)
         }
     }

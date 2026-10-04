@@ -21,6 +21,7 @@ datastore = "1.2.1"
 coil = "3.6.2"
 playServicesLocation = "21.4.0"
 media3 = "1.11.1"
+maplibre = "11.13.5"
 aboutlibraries = "15.2.0"
 materialKolor = "5.0.1"
 
@@ -33,6 +34,8 @@ slf4j = "2.0.19"
 core = "1.7.0"
 
 [libraries]
+androidx-browser = { module = "androidx.browser:browser", version = "1.10.0" }
+maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
 msgpack-core = { module = "org.msgpack:msgpack-core", version = "0.9.12" }
 material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
 android-desugarJdkLibs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }

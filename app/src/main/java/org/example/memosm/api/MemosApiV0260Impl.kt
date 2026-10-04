@@ -36,10 +36,8 @@ open class MemosApiV0260Impl(
     }
 
     override suspend fun signIn(request: SignInRequest): SignInResponse {
-        // v0.26.0+ uses different structure for signin
-        val v0260Request = SignInRequestV0260(
-            passwordCredentials = request.passwordCredentials
-        )
+        // Only v0.26 uses a numeric SSO provider ID.
+        val v0260Request = SignInRequestV0260.from(request)
         return apiV0260.signIn(v0260Request).toModel()
     }
 }

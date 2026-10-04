@@ -1,6 +1,7 @@
 package org.example.memosm.viewmodel.manager
 
 import java.io.IOException
+import okhttp3.ResponseBody.Companion.toResponseBody
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
 import org.example.memosm.account.stub
@@ -103,4 +104,69 @@ class ServerReachabilityMonitorTest {
         release!!.complete(Unit); runCurrent()
         assertTrue(monitor.state.value.isOnline)
     }
+    @Test fun `429 stays reachable and automatically recovers after the supplied cooldown`() = runTest {
+        var calls = 0
+        var recoveries = 0
+        val api = stub<MemosApi> { _, _ ->
+            calls++
+            if (calls == 1) throw retrofit2.HttpException(retrofit2.Response.error<Any>(429,
+                """{"details":[{"metadata":{"retry_after_seconds":"16"}}]}""".toResponseBody()))
+            InstanceProfile()
+        }
+        val monitor = ServerReachabilityMonitor(backgroundScope, { api }, { "A" })
+        monitor.start { recoveries++ }
+        monitor.checkNow(); runCurrent()
+        assertTrue(monitor.state.value.isOnline)
+        assertEquals(ConnectionState.RATE_LIMITED, monitor.state.value.connectionState)
+        assertEquals(0, recoveries)
+        advanceTimeBy(15_999); runCurrent()
+        assertEquals(1, calls)
+        advanceTimeBy(1); runCurrent()
+        assertEquals(2, calls)
+        assertEquals(1, recoveries)
+        assertEquals(ConnectionState.ONLINE, monitor.state.value.connectionState)
+    }
+
+    @Test fun `cached cooldown does not postpone recovery and account switch cancels retries`() = runTest {
+        var calls = 0
+        var account = "A"
+        val api = stub<MemosApi> { _, _ ->
+            calls++
+            yield() // Deliver checked IO failures through the suspend continuation, as Retrofit does.
+            throw org.example.memosm.api.RateLimitException((16_000 - testScheduler.currentTime).coerceAtLeast(1_000))
+        }
+        val monitor = ServerReachabilityMonitor(backgroundScope, { api }, { account })
+        monitor.checkNow(); runCurrent()
+        advanceTimeBy(1_000)
+        monitor.checkNow(); runCurrent()
+        assertEquals(2, calls)
+        advanceTimeBy(14_999); runCurrent()
+        assertEquals(2, calls)
+        advanceTimeBy(1); runCurrent()
+        assertEquals(3, calls)
+        account = "B"; monitor.cancelProbe()
+        advanceTimeBy(60_000); runCurrent()
+        assertEquals(3, calls)
+    }
+
+    @Test fun `consecutive cooldowns recover once without multiplying recovery callbacks`() = runTest {
+        var calls = 0
+        var recoveries = 0
+        var manualHook = 0
+        val api = stub<MemosApi> { _, _ ->
+            calls++
+            yield()
+            if (calls <= 3) throw org.example.memosm.api.RateLimitException(1_000)
+            InstanceProfile()
+        }
+        val monitor = ServerReachabilityMonitor(backgroundScope, { api }, { "A" })
+        val hook: () -> Unit = { manualHook++ }
+        monitor.start { recoveries++ }
+        monitor.checkNow(hook); runCurrent()
+        repeat(3) { advanceTimeBy(1_000); runCurrent() }
+        assertEquals(4, calls)
+        assertEquals(1, recoveries)
+        assertEquals(1, manualHook)
+    }
+
 }

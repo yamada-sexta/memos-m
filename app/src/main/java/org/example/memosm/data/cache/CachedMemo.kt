@@ -13,7 +13,9 @@ enum class CacheListType {
     EXPLORE,
     ARCHIVED,
     COMMENT,
-    SEARCH
+    SEARCH,
+    MAP_USER,
+    MAP_EXPLORE
 }
 
 /**

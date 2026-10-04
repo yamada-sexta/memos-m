@@ -38,6 +38,7 @@ class ServerReachabilityMonitor(
     private var generation = 0L
     private var probeAccount: String? = null
     private var probeApi: MemosApi? = null
+    private val retryCallbacks = linkedMapOf<() -> Unit, Boolean>()
     private val callbacks = linkedMapOf<() -> Unit, Boolean>()
 
     /** Coalesce concurrent checks without cancelling a caller's recovery hook. */
@@ -55,11 +56,13 @@ class ServerReachabilityMonitor(
             if (onReachable != null) callbacks[onReachable] = callbacks[onReachable]?.let { it && onlyOnRecovery } ?: onlyOnRecovery
             return probeJob
         }
+        if (probeAccount != expectedAccount || probeApi !== expectedApi) retryCallbacks.clear()
         cancelProbe(resetState = false)
         probeAccount = expectedAccount
         probeApi = expectedApi
         val expectedGeneration = generation
         val wasOnline = _state.value.isOnline
+        val wasRateLimited = _state.value.connectionState == ConnectionState.RATE_LIMITED
         val wasReady = _state.value.connectionState == ConnectionState.ONLINE
         if (onReachable != null) callbacks[onReachable] = onlyOnRecovery
         val job = scope.launch(start = CoroutineStart.LAZY) {
@@ -86,16 +89,24 @@ class ServerReachabilityMonitor(
             val completedCallbacks = callbacks.toMap()
             callbacks.clear()
             if (retryDelay != null) {
+                completedCallbacks.forEach { (callback, recoveryOnly) ->
+                    retryCallbacks[callback] = retryCallbacks[callback]?.let { it && recoveryOnly } ?: recoveryOnly
+                }
                 retryJob = scope.launch {
-                    delay(retryDelay!!)
-                    if (isCurrent()) probe({
-                        onRecovered?.invoke()
-                        completedCallbacks.keys.filter { it != onRecovered }.forEach { it() }
-                    }, onlyOnRecovery = false)?.join()
+                    delay(retryDelay)
+                    if (isCurrent()) probe(onRecovered, onlyOnRecovery = true)?.join()
                 }
             }
-            if (result.connectionState == ConnectionState.ONLINE) completedCallbacks.forEach { (callback, recoveryOnly) ->
-                if (isCurrent() && (!recoveryOnly || !wasReady)) callback()
+            if (result.connectionState == ConnectionState.ONLINE) {
+                val readyCallbacks = retryCallbacks.toMutableMap()
+                retryCallbacks.clear()
+                completedCallbacks.forEach { (callback, recoveryOnly) ->
+                    readyCallbacks[callback] = readyCallbacks[callback]?.let { it && recoveryOnly } ?: recoveryOnly
+                }
+                if (wasRateLimited) onRecovered?.let { readyCallbacks.putIfAbsent(it, true) }
+                readyCallbacks.forEach { (callback, recoveryOnly) ->
+                    if (isCurrent() && (!recoveryOnly || !wasReady)) callback()
+                }
             }
         }
         probeJob = job
@@ -122,7 +133,10 @@ class ServerReachabilityMonitor(
         probeJob?.cancel()
         probeJob = null
         callbacks.clear()
-        if (resetState) _state.value = ReachabilityState()
+        if (resetState) {
+            retryCallbacks.clear()
+            _state.value = ReachabilityState()
+        }
     }
 
     fun stop() {

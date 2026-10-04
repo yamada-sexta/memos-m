@@ -102,6 +102,10 @@ class MemosViewModel(
 
     private fun activeAccountId(): String? = accountSession.current?.account?.id
 
+    val memoMapManager = org.example.memosm.viewmodel.manager.MemoMapManager(
+        accountSession, _uiState, memoCacheRepository, dataStoreManager
+    )
+
     // Managers
     private val userMemoManager: UserMemoListManager = UserMemoListManager(
         scope = accountSession.readScope,
@@ -365,6 +369,7 @@ class MemosViewModel(
                 sessionCacheStore.clear(account.id)
                 dataStoreManager.removeLastSyncTime(account.id)
                 dataStoreManager.removeDownloadState(account.id)
+                dataStoreManager.removeSnapshot("map_support", account.id)
             }
         }
     )
@@ -408,6 +413,7 @@ class MemosViewModel(
         }
 
         override fun removeMemoFromLists(memoName: String) {
+            memoMapManager.forget(memoName)
             userMemoManager.forget(memoName)
             exploreMemoManager.forget(memoName)
             archivedMemoManager.forget(memoName)
@@ -417,9 +423,11 @@ class MemosViewModel(
 
         override fun refreshUserMemos() {
             userMemoManager.fetch(refresh = true)
+            memoMapManager.refreshIfOpen()
         }
 
         override fun handleMemoStateChange(memo: Memo, updated: Memo) {
+            memoMapManager.upsert(updated)
             val oldState = memo.state ?: "NORMAL"
             val newState = updated.state ?: "NORMAL"
             val comparator = compareByDescending<Memo> { it.displayTime }
@@ -445,6 +453,7 @@ class MemosViewModel(
         }
 
         override fun insertMemoIntoUserList(memo: Memo) {
+            memoMapManager.upsert(memo)
             userMemoManager.upsert(memo, { it.name == memo.name }, USER_MEMO_COMPARATOR)
             if (_uiState.value.detailPane.selectedMemo?.name == memo.name) {
                 _uiState.update {
@@ -525,6 +534,7 @@ class MemosViewModel(
         val reachable = reachabilityMonitor.state.value
         _uiState.update { it.copy(isOnline = reachable.isOnline, connectionState = reachable.connectionState, syncError = reachable.error) }
         if (reachable.connectionState != ConnectionState.ONLINE) return
+        memoMapManager.verify()
         syncManager.pushPendingChanges()
         preDownloadManager.maybeAutoDownload()
         if (_uiState.value.session.currUser == null) fetchCurrentUser()
@@ -539,6 +549,7 @@ class MemosViewModel(
     private suspend fun switchAccountInternal(account: Account?) {
         if (account != null && (!org.example.memosm.data.backup.BackupCoordinator.startupReady.value || org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null)) return
         _sessionReady.value = false
+        memoMapManager.reset()
         _linkPreviews.value = null
         accountSession.clear()
         syncManager.cancelSync()
@@ -564,6 +575,7 @@ class MemosViewModel(
         userMemoManager.loadFromCache()
         exploreMemoManager.loadFromCache()
         userDelegate.restoreCachedSessionNow()
+        memoMapManager.restoreSupport(provisional)
         _sessionReady.value = true
         draftDelegate.loadDraftsForAccount(account.id)
         refreshTextCacheCount()
@@ -675,6 +687,7 @@ class MemosViewModel(
                         // Stop active network work promptly; durable Room queue and
                         // optimistic cache remain intact for the next recovery pass.
                         syncManager.cancelSync()
+                        memoMapManager.connectionUnavailable()
                         preDownloadManager.cancel()
                         memoCacheReconciler.cancel()
                         listOf(userMemoManager, exploreMemoManager, archivedMemoManager, searchMemoManager, commentManager, attachmentManager)
@@ -766,6 +779,7 @@ class MemosViewModel(
         val context = accountSession.current ?: return
         userDelegate.fetchCurrentUser { user ->
             if (!accountSession.isCurrent(context)) return@fetchCurrentUser
+            memoMapManager.verify()
             // User fetched, now fetch related data that requires user name
             val name = user.name ?: return@fetchCurrentUser
             accountSession.readScope.launch { shortcutDelegate.fetchShortcuts(name) }
@@ -913,6 +927,7 @@ class MemosViewModel(
             userMemoManager.reset()
             exploreMemoManager.reset()
             archivedMemoManager.reset()
+            memoMapManager.refreshIfOpen()
             refreshTextCacheCount()
         }
     }
@@ -1107,6 +1122,7 @@ class MemosViewModel(
     }
 
     private fun updateMemoInState(updatedMemo: Memo) {
+        memoMapManager.upsert(updatedMemo)
         val isSame = { m: Memo -> m.name == updatedMemo.name }
         userMemoManager.replace(updatedMemo, isSame)
         exploreMemoManager.replace(updatedMemo, isSame)
@@ -1131,6 +1147,7 @@ class MemosViewModel(
         }
     }
     override fun onCleared() {
+        memoMapManager.reset()
         reachabilityMonitor.stop()
         memoCacheReconciler.cancel()
         unregisterBackupHook()

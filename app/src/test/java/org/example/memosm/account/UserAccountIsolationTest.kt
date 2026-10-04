@@ -119,4 +119,26 @@ class UserAccountIsolationTest {
         assertEquals(listOf("B", null), switches)
         assertEquals(SessionState(), state.value.session)
     }
+    @Test fun `cached current creator needs no request and failed other creator does not loop`() = runTest {
+        var calls = 0
+        val api = stub<MemosApi> { method, _ -> check(method == "getUsers"); calls++; emptyMap<String, User>() }
+        val manager = DataStoreManager(MemoryPreferences())
+        val sessions = AccountSession(backgroundScope)
+        sessions.activate(Account(id = "A"), api, OkHttpClient())
+        val creator = UserSnapshot(name = "users/A")
+        val state = MutableStateFlow(MemosUiState(session = SessionState(currUser = creator)))
+        val cache = SessionCacheStore(DataStoreSnapshotStore(manager, "session", SessionSnapshotData::class.java))
+        val delegate = UserDelegateImpl(backgroundScope, state, manager, cache, sessions, {})
+        delegate.fetchUsers(listOf("users/A")); runCurrent()
+        assertEquals(0, calls)
+        assertEquals(creator, state.value.users["users/A"])
+        repeat(10) { delegate.fetchUsers(listOf("users/B")); runCurrent() }
+        assertEquals(1, calls)
+        // Retry budgets belong to an activation, not a different account.
+        sessions.activate(Account(id = "B"), api, OkHttpClient())
+        state.value = state.value.forAccount(Account(id = "B"))
+        delegate.fetchUsers(listOf("users/B")); runCurrent()
+        assertEquals(2, calls)
+    }
+
 }

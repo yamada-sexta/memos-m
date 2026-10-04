@@ -78,6 +78,30 @@ class BackupServiceTest {
         source.database.cachedAttachmentDao().upsert(CachedAttachment("A", "attachments/1", "memos/1", "https://example.invalid/file", image.absolutePath, image.length()))
     }
 
+    @Test fun mapLocationCachesRoundTripWithoutASchemaChange() = runBlocking {
+        Fixture().use { source -> Fixture().use { target ->
+            source.settings.saveAccounts(listOf(account))
+            val types = listOf(CacheListType.MAP_USER, CacheListType.MAP_EXPLORE)
+            types.forEachIndexed { index, type ->
+                source.database.memoDao().insertMemo(CachedMemo.fromMemo(
+                    memo("memos/map-$index", "mapped memo").copy(location = org.example.memosm.model.Location(
+                        placeholder = "Origin", latitude = 0.0, longitude = 0.0
+                    )), "A", type, 0
+                ))
+            }
+            val archive = source.service.export(BackupSelection(setOf("A"), setOf(BackupCategory.CACHE))).getOrThrow()
+            target.service.inspect(archive).getOrThrow().use { backup ->
+                target.service.restore(backup, RestoreSelection(setOf("A"), setOf(BackupCategory.CACHE))).getOrThrow()
+            }
+            types.forEach { type ->
+                val restored = target.database.memoDao().getMemos("A", type.name).single().toMemo()!!
+                assertEquals("Origin", restored.location!!.placeholder)
+                assertEquals(0.0, restored.location.latitude!!, 0.0)
+                assertEquals(0.0, restored.location.longitude!!, 0.0)
+            }
+        } }
+    }
+
     @Test fun fullRoundTripNeverCreatesServerWrites() = runBlocking {
         Fixture().use { source -> Fixture().use { target ->
             seed(source)

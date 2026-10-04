@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_map">Karte</string>
+    <string name="map_filters">Filter</string>
+    <string name="map_retry">Erneut versuchen</string>
+    <string name="map_all_views">Alle Notizen</string>
+    <string name="map_search">Inhalt durchsuchen</string>
+    <string name="map_tag">Tag</string>
+    <string name="map_loaded">%1$d Notizen geladen…</string>
+    <string name="map_offline">Gespeicherte Orte werden angezeigt. Offline-Karten können unvollständig sein.</string>
+    <string name="map_view_offline">Gespeicherte Ansichten benötigen eine Verbindung. Wähle Alle Notizen für die Offline-Ansicht.</string>
+    <string name="map_load_error">Nicht alle Orte konnten geladen werden.</string>
+    <string name="map_tile_error">Die Basiskarte konnte nicht geladen werden.</string>
+    <string name="map_fit_all">Alle Orte anzeigen</string>
+    <string name="map_no_results">Keine Orte entsprechen diesen Filtern.</string>
+    <string name="map_empty">Noch keine Notizen mit Ort. Halte die Karte gedrückt, um an einem Ort zu schreiben.</string>
+    <string name="map_close">Schließen</string>
+    <string name="map_new_here">Neue Notiz hier</string>
+    <string name="map_open_memo">Notiz öffnen</string>
+</resources>

@@ -134,15 +134,22 @@ data class RefreshTokenResponse(
 )
 
 data class SignInRequest(
-    val passwordCredentials: PasswordCredentials? = null
-)
+    val passwordCredentials: PasswordCredentials? = null,
+    val ssoCredentials: SSOCredentials? = null
+) {
+    init {
+        require((passwordCredentials != null) xor (ssoCredentials != null)) {
+            "Provide exactly one authentication method"
+        }
+    }
+}
 
 data class PasswordCredentials(
     val username: String, val password: String
 )
 
 data class SSOCredentials(
-    val idpId: Int, val code: String, val redirectUri: String, val codeVerifier: String? = null
+    val idpName: String, val code: String, val redirectUri: String, val codeVerifier: String
 )
 
 data class SignInResponse(
@@ -173,7 +180,7 @@ data class IdentityProviderConfig(
 
 data class OAuth2Config(
     val clientId: String,
-    val clientSecret: String,
+    val clientSecret: String? = null,
     val authUrl: String,
     val tokenUrl: String,
     val userInfoUrl: String,

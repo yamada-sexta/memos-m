@@ -32,6 +32,28 @@ While other clients like [MoeMemos](https://github.com/mudkipme/MoeMemosAndroid)
 - **Efficiency:** Optimized syncing prevents high data usage and ensures a faster, more responsive experience compared to clients that re-sync entire histories.
 - **Modern Feature Set:** By focusing on recent Memos versions, we avoid the limitations of backward compatibility and can implement modern features like advanced Markdown and Reactions.
 
+## SSO login
+
+Select **SSO**, enter your Memos server URL, and choose **Find providers**. Select a provider
+to authenticate in your browser. MemosM then creates a personal access token for the account,
+just as password login does. Password and manual token login remain available.
+
+An administrator must add the app callback URI to the allowed redirect URIs for the OAuth2
+client configured in Memos. Keep the existing Memos web callback registered as well.
+
+| Build | Callback URI |
+| --- | --- |
+| Release | `org.example.memosm://oauth/callback` |
+| Insider | `org.example.memosm.insider://oauth/callback` |
+| Canary | `org.example.memosm.canary://oauth/callback` |
+| Debug | `org.example.memosm.debug://oauth/callback` |
+
+The provider must accept custom URI schemes and S256 PKCE. Providers requiring an HTTPS
+callback can use manual token login instead. SSO supports the existing v0.26–v0.31 API
+adapters and the newer Memos SSO format. Registration and identity provisioning follow
+the server's settings. Sign-in attempts expire after ten minutes; if Android terminates
+the app during authentication, start sign-in again.
+
 ## Downloads
 
 ### Stable Build
@@ -97,6 +119,7 @@ On Android 17 and later, connecting to a local Memos server may require the **Ne
   - [x] View notifications
   - [ ] ~~Fetch notifications in the background~~ (bad for battery + no demand)
 - Misc
+  - [x] Native map with Memos/Explore scopes, location pins, filters, and composing at a selected place
   - [x] Multi language support: English, Japanese, Chinese, Korean, German, Polish
   - [x] Sharing intent support
   - [x] Local cache
@@ -105,6 +128,12 @@ On Android 17 and later, connecting to a local Memos server may require the **Ne
     - [x] Offline writes queued
     - [x] Offline media store
     - [x] Auto-sync on reconnect
+
+The Map destination appears only after the connected instance accepts the `has_location`
+memo filter. Older and unknown instances do not show it. Previously verified accounts can
+browse cached locations offline using available cached tiles. Saved views require a connection;
+map regions are not downloaded in advance. Basemaps use OpenFreeMap, with OpenStreetMap
+as a fallback.
 
 ## Non-goals
 

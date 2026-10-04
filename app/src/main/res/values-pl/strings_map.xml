@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_map">Mapa</string>
+    <string name="map_filters">Filtry</string>
+    <string name="map_retry">Ponów</string>
+    <string name="map_all_views">Wszystkie notatki</string>
+    <string name="map_search">Szukaj w treści</string>
+    <string name="map_tag">Tag</string>
+    <string name="map_loaded">Wczytano %1$d notatek…</string>
+    <string name="map_offline">Wyświetlane są lokalizacje z pamięci podręcznej. Mapa offline może być niepełna.</string>
+    <string name="map_view_offline">Zapisane widoki wymagają połączenia. Wybierz Wszystkie notatki, aby przeglądać offline.</string>
+    <string name="map_load_error">Nie udało się wczytać wszystkich lokalizacji notatek.</string>
+    <string name="map_tile_error">Nie udało się wczytać mapy.</string>
+    <string name="map_fit_all">Pokaż wszystkie lokalizacje</string>
+    <string name="map_no_results">Żadne lokalizacje nie pasują do tych filtrów.</string>
+    <string name="map_empty">Brak notatek z lokalizacją. Przytrzymaj mapę, aby napisać notatkę w wybranym miejscu.</string>
+    <string name="map_close">Zamknij</string>
+    <string name="map_new_here">Nowa notatka tutaj</string>
+    <string name="map_open_memo">Otwórz notatkę</string>
+</resources>

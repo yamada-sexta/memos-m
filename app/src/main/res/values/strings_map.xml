@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_map">Map</string>
+    <string name="map_filters">Filters</string>
+    <string name="map_retry">Retry</string>
+    <string name="map_all_views">All memos</string>
+    <string name="map_search">Search content</string>
+    <string name="map_tag">Tag</string>
+    <string name="map_loaded">Loaded %1$d memos…</string>
+    <string name="map_offline">Showing cached locations. Offline map tiles may be incomplete.</string>
+    <string name="map_view_offline">Saved views require a connection. Choose All memos to browse offline.</string>
+    <string name="map_load_error">Could not load all memo locations.</string>
+    <string name="map_tile_error">Could not load the basemap.</string>
+    <string name="map_fit_all">Fit all locations</string>
+    <string name="map_no_results">No locations match these filters.</string>
+    <string name="map_empty">No memos with locations yet. Long press the map to write at a place.</string>
+    <string name="map_close">Close</string>
+    <string name="map_new_here">New memo here</string>
+    <string name="map_open_memo">Open memo</string>
+</resources>

@@ -69,7 +69,7 @@ class ServerRateLimit(private val nowMillis: () -> Long = { System.nanoTime() / 
         fun retryDelay(error: Exception): Long? = when {
             error is RateLimitException -> error.retryAfterMillis
             error is HttpException && error.code() == 429 -> retryDelay(
-                error.response()?.headers()?.get("Retry-After"), error.response()?.errorBody()?.string()
+                error.response()?.headers()?.get("Retry-After"), runCatching { error.response()?.errorBody()?.string() }.getOrNull()
             )
             else -> null
         }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_map">地图</string>
+    <string name="map_filters">筛选</string>
+    <string name="map_retry">重试</string>
+    <string name="map_all_views">所有笔记</string>
+    <string name="map_search">搜索内容</string>
+    <string name="map_tag">标签</string>
+    <string name="map_loaded">已加载 %1$d 条笔记…</string>
+    <string name="map_offline">正在显示缓存的位置。离线地图可能不完整。</string>
+    <string name="map_view_offline">已保存的视图需要网络连接。请选择所有笔记以离线浏览。</string>
+    <string name="map_load_error">无法加载所有笔记位置。</string>
+    <string name="map_tile_error">无法加载底图。</string>
+    <string name="map_fit_all">显示所有位置</string>
+    <string name="map_no_results">没有符合筛选条件的位置。</string>
+    <string name="map_empty">暂无带位置的笔记。长按地图即可在该位置写笔记。</string>
+    <string name="map_close">关闭</string>
+    <string name="map_new_here">在此新建笔记</string>
+    <string name="map_open_memo">打开笔记</string>
+</resources>

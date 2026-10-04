@@ -151,6 +151,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.browser)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -181,6 +182,7 @@ dependencies {
 
     // Location
     implementation(libs.google.play.services.location)
+    implementation(libs.maplibre.android)
 
     // About Libraries (OSS Licenses)
     implementation(libs.aboutlibraries.compose)

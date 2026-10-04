@@ -99,7 +99,7 @@ interface MemosApiV0353 {
     @POST("api/v1/auth/refresh")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): RefreshTokenResponse
 
-    @POST("/api/v1/auth/signin")
+    @POST("api/v1/auth/signin")
     suspend fun signIn(@Body request: SignInRequest): SignInResponseV0353
 
     @POST("api/v1/auth/signout")

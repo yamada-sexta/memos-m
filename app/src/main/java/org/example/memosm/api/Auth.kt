@@ -1,75 +1,41 @@
 package org.example.memosm.api
 
-import android.util.Log
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import org.example.memosm.model.CreatePersonalAccessTokenRequest
 import org.example.memosm.model.PasswordCredentials
 import org.example.memosm.model.SignInRequest
 
-const val TAG = "MemosLogin"
-
-/**
- * Authenticates a user and creates an access token for the app.
- * Uses a CookieJar to persist session cookies between CreateSession and CreateUserAccessToken calls.
- *
- * @param baseUrl The base URL of the Memos instance.
- * @param username The username provided by the user.
- * @param password The password provided by the user.
- * @return The access token string.
- * @throws Exception if the login fails or a network error occurs.
- */
+/** Sign in with a password and create the long-lived token used by account storage. */
 suspend fun loginAndCreateToken(
     api: MemosApi, baseUrl: String, username: String, password: String
-): String {
+): String = signInAndCreateToken(
+    api, baseUrl, SignInRequest(passwordCredentials = PasswordCredentials(username.trim(), password))
+)
 
-    val logging = HttpLoggingInterceptor { message ->
-        Log.d(TAG, message)
-    }.apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
+/** Both password and SSO exchange session credentials for a personal access token. */
+suspend fun signInAndCreateToken(api: MemosApi, baseUrl: String, request: SignInRequest): String {
+    val session = api.signIn(request)
+    check(session.accessToken.isNotBlank()) { "Sign-in returned no access token" }
+    return createTokenFromSession(baseUrl, session.accessToken)
+}
 
-    try {
-        val logInRes = api.signIn(
-            SignInRequest(
-                passwordCredentials = PasswordCredentials(
-                    username = username.trim(), password = password
-                )
-            )
+internal suspend fun createTokenFromSession(baseUrl: String, accessToken: String): String {
+    // Do not log session responses, authorization codes, or tokens.
+    val client = OkHttpClient.Builder().addInterceptor { chain ->
+        chain.proceed(chain.request().newBuilder()
+            .header("Authorization", "Bearer $accessToken").build())
+    }.build()
+    return createTokenForCurrentUser(MemosApiFactory.create(baseUrl, client))
+}
+
+internal suspend fun createTokenForCurrentUser(api: MemosApi): String {
+    val userName = api.getCurrentSession().user?.name
+    check(!userName.isNullOrBlank()) { "Unable to verify the signed-in user" }
+    val result = api.createPersonalAccessToken(
+        userName, CreatePersonalAccessTokenRequest(
+            parent = userName, description = "MemosM${System.currentTimeMillis()}"
         )
-
-        Log.d(TAG, "Login successful! Response: $logInRes")
-
-// Verify token validity by fetching current user
-        val authClient = OkHttpClient.Builder().addInterceptor(logging).addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${logInRes.accessToken}").build()
-            chain.proceed(request)
-        }.build()
-
-        val authApi = MemosApiFactory.create(baseUrl, authClient)
-
-        val userRes = authApi.getCurrentSession()
-
-        Log.d(TAG, "Current user: ${userRes.user}")
-
-        // Token name generated with the current time
-        val tokenName = "MemosM" + System.currentTimeMillis()
-
-        val userId = userRes.user!!.name!!
-
-        val accessTokenRes = authApi.createPersonalAccessToken(
-            userId, CreatePersonalAccessTokenRequest(
-                parent = userId, description = tokenName
-            )
-        )
-        Log.d(TAG, "Access token Res: $accessTokenRes")
-        return accessTokenRes.token
-    } catch (e: retrofit2.HttpException) {
-        val errorBody = e.response()?.errorBody()?.string()
-        Log.e(TAG, "Login failed: $errorBody", e)
-        throw Exception("Failed to login: $errorBody", e)
-    } catch (e: Exception) {
-        throw Exception("Failed to create personal access token: ${e.message}", e)
-    }
+    )
+    check(result.token.isNotBlank()) { "Server returned no personal access token" }
+    return result.token
 }

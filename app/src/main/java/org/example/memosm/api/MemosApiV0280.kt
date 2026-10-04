@@ -16,7 +16,7 @@ import org.example.memosm.model.MemoRelationType
 import org.example.memosm.model.MemoSnippet
 import org.example.memosm.model.MemoState
 import org.example.memosm.model.Reaction
-import org.example.memosm.model.SignInRequestV0260
+import org.example.memosm.model.SignInRequest
 import org.example.memosm.model.SignInResponse
 import org.example.memosm.model.UseRole
 import org.example.memosm.model.UseState
@@ -35,7 +35,7 @@ interface MemosApiV0280 : MemosApiV0270 {
     suspend fun getCurrentUserV0280(): GetCurrentUserResponseDtoV0280
 
     @POST("api/v1/auth/signin")
-    suspend fun signInV0280(@Body request: SignInRequestV0260): SignInResponseDtoV0280
+    suspend fun signInV0280(@Body request: SignInRequest): SignInResponseDtoV0280
 
     @GET("api/v1/users")
     suspend fun listUsersV0280(

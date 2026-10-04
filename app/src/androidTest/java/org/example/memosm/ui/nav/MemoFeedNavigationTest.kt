@@ -197,6 +197,10 @@ class MemoFeedNavigationTest {
             compose.onNode(hasSetTextAction() and hasText("Unfinished feed draft")).assertIsDisplayed()
             compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             awaitFeed(MemoFeed.EXPLORE)
+            compose.onNodeWithText(label(R.string.nav_profile)).performClick()
+            compose.waitForIdle()
+            scenario.recreate()
+            compose.waitForIdle()
             scenario.onActivity { activity ->
                 val launchIntent = activity.intent
                 instrumentation.callActivityOnNewIntent(activity, android.content.Intent(context, MainActivity::class.java).apply {

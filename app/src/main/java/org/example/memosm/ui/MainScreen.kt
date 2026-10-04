@@ -30,6 +30,10 @@ import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Attachment
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.filled.Map
+import org.example.memosm.model.MapCapability
+import org.example.memosm.ui.nav.MapScreen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -89,7 +93,7 @@ import androidx.compose.runtime.MutableState
 enum class MainDestination(
     val labelRes: Int
 ) {
-    MEMOS(R.string.nav_memos), ATTACHMENTS(R.string.nav_attachments), PROFILE(
+    MEMOS(R.string.nav_memos), MAP(R.string.nav_map), ATTACHMENTS(R.string.nav_attachments), PROFILE(
         R.string.nav_profile
     )
 }
@@ -138,6 +142,11 @@ private fun MainScreenContent(
     onComposerOpened: () -> Unit
 ) {
     var currentDestination by destination
+    val mapSupported = uiState.memoMap.capability == MapCapability.SUPPORTED
+    val visibleDestinations = MainDestination.entries.filter { it != MainDestination.MAP || mapSupported }
+    LaunchedEffect(mapSupported, uiState.accountGeneration) {
+        if (!mapSupported && currentDestination == MainDestination.MAP) currentDestination = MainDestination.MEMOS
+    }
     val feedPagerState = rememberPagerState(pageCount = { MemoFeed.entries.size })
     var lastTapTime by remember { mutableLongStateOf(0L) }
     val focusManager = LocalFocusManager.current
@@ -172,8 +181,9 @@ private fun MainScreenContent(
     // Switch to Memos tab if widget triggered composer
     LaunchedEffect(shouldOpenComposer) {
         if (shouldOpenComposer) {
-            feedPagerState.scrollToPage(MemoFeed.MEMOS.ordinal)
             currentDestination = MainDestination.MEMOS
+            // The pager may be off-screen when a widget request arrives.
+            feedPagerState.requestScrollToPage(MemoFeed.MEMOS.ordinal)
         }
     }
 
@@ -232,6 +242,11 @@ private fun MainScreenContent(
         destination: MainDestination, isSelected: Boolean, modifier: Modifier = Modifier.size(24.dp)
     ) {
         when (destination) {
+            MainDestination.MAP -> Icon(
+                if (isSelected) Icons.Filled.Map else Icons.Outlined.Map,
+                contentDescription = null,
+                modifier = modifier
+            )
             MainDestination.MEMOS -> Icon(
                 if (isSelected) Icons.AutoMirrored.Filled.LibraryBooks else Icons.AutoMirrored.Outlined.LibraryBooks,
                 contentDescription = null,
@@ -285,6 +300,7 @@ private fun MainScreenContent(
                     MemoFeed.EXPLORE -> viewModel.fetchExploreMemos(refresh = true)
                 }
                 MainDestination.ATTACHMENTS -> viewModel.fetchAttachments(refresh = true)
+                MainDestination.MAP -> viewModel.memoMapManager.load()
                 else -> {}
             }
         }
@@ -305,7 +321,7 @@ private fun MainScreenContent(
                     ) {
                         Spacer(Modifier.height(12.dp))
                         // Items
-                        MainDestination.entries.forEach { destination ->
+                        visibleDestinations.forEach { destination ->
                             if (destination == MainDestination.PROFILE) {
                                 Spacer(Modifier.weight(1f))
                             }
@@ -338,8 +354,16 @@ private fun MainScreenContent(
                         label = "MainScreenDestinationTransition",
                         modifier = Modifier.fillMaxSize()
                     ) { targetDestination ->
-                        saveableStateHolder.SaveableStateProvider(targetDestination) {
+                        val destinationKey = if (targetDestination == MainDestination.MAP) {
+                            "map:${uiState.accounts.firstOrNull { it.isActive }?.id}:${uiState.session.hostUrl}"
+                        } else targetDestination
+                        saveableStateHolder.SaveableStateProvider(destinationKey) {
                             when (targetDestination) {
+                                MainDestination.MAP -> if (mapSupported) {
+                                    key(uiState.accountGeneration) {
+                                        MapScreen(viewModel, isNavBarVisible = isNavBarVisible, onToggleNavBar = toggleNavBar)
+                                    }
+                                }
                                 MainDestination.MEMOS -> MemosScreen(
                                     viewModel = viewModel,
                                     pagerState = feedPagerState,
@@ -380,7 +404,7 @@ private fun MainScreenContent(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             contentColor = contentColorFor(MaterialTheme.colorScheme.surfaceContainer)
                         ) {
-                            MainDestination.entries.forEach { destination ->
+                            visibleDestinations.forEach { destination ->
                                 NavigationBarItem(
                                     selected = currentDestination == destination,
                                     onClick = { handleDestinationClick(destination) },

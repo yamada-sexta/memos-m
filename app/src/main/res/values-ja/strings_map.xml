@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_map">地図</string>
+    <string name="map_filters">フィルター</string>
+    <string name="map_retry">再試行</string>
+    <string name="map_all_views">すべてのメモ</string>
+    <string name="map_search">本文を検索</string>
+    <string name="map_tag">タグ</string>
+    <string name="map_loaded">%1$d 件のメモを読み込みました…</string>
+    <string name="map_offline">キャッシュした位置を表示しています。オフラインの地図は一部表示できない場合があります。</string>
+    <string name="map_view_offline">保存したビューには接続が必要です。オフラインでは「すべてのメモ」を選択してください。</string>
+    <string name="map_load_error">メモの位置をすべて読み込めませんでした。</string>
+    <string name="map_tile_error">背景地図を読み込めませんでした。</string>
+    <string name="map_fit_all">すべての位置を表示</string>
+    <string name="map_no_results">条件に一致する位置がありません。</string>
+    <string name="map_empty">位置情報付きのメモはまだありません。地図を長押しして、その場所にメモを書けます。</string>
+    <string name="map_close">閉じる</string>
+    <string name="map_new_here">この場所にメモを書く</string>
+    <string name="map_open_memo">メモを開く</string>
+</resources>
