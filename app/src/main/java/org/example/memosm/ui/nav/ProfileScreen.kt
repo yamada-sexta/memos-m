@@ -243,6 +243,7 @@ private fun ProfileListPane(
                             user = user.toUserSnapshot(
                                 token = uiState.session.token
                             ).copy(avatarUrl = avatarUrl),
+                            userStats = stats,
                             onClick = { showAccountSwitcher = true },
                             onEditClick = onEditProfile)
                     } else {
@@ -260,6 +261,7 @@ private fun ProfileListPane(
                                     avatarUrl = avatarUrl,
                                     token = uiState.session.token
                                 ),
+                                userStats = stats,
                                 onClick = { showAccountSwitcher = true },
                                 onEditClick = onEditProfile)
                         } else if (uiState.userMemoList.list.isLoading) {

@@ -86,6 +86,7 @@ import kotlinx.coroutines.delay
 import org.example.memosm.R
 import org.example.memosm.api.MemoOrderBy
 import org.example.memosm.model.Memo
+import org.example.memosm.model.Visibility
 import org.example.memosm.ui.nav.SettingsSection
 import org.example.memosm.ui.profile.SettingsActivity
 import org.example.memosm.ui.component.item.MemoItem
@@ -125,12 +126,23 @@ fun MemoSearchBar(
     var endDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var orderBy by rememberSaveable { mutableStateOf(MemoOrderBy.NEWEST) }
 
+    // Search results are shared in the view model. Keep them scoped to the
+    // active feed, including while a new query is being debounced.
+    val currentUserName = uiState.session.currUser?.name
+    val searchMemos = remember(uiState.searchMemoList.list.items, isExplore, currentUserName) {
+        if (isExplore) uiState.searchMemoList.list.items.filter {
+            it.visibility == Visibility.PUBLIC || it.visibility == Visibility.PROTECTED
+        } else uiState.searchMemoList.list.items.filter {
+            currentUserName != null && it.creator == currentUserName
+        }
+    }
+
     // Aggregate tags from the search pool to be context-accurate
     val availableTags =
-        remember(uiState.searchMemoList.list.items, uiState.session.userStats, isExplore) {
+        remember(searchMemos, uiState.session.userStats, isExplore) {
             if (isExplore) {
                 val tags = mutableMapOf<String, Int>()
-                uiState.searchMemoList.list.items.forEach { memo ->
+                searchMemos.forEach { memo ->
                     val regex = "#(\\w+)".toRegex()
                     regex.findAll(memo.content).forEach { match ->
                         val tag = match.groupValues[1]
@@ -266,7 +278,7 @@ fun MemoSearchBar(
                     endDateMillis = endDateMillis,
                     orderBy = orderBy,
                     availableTags = availableTags,
-                    filteredMemos = uiState.searchMemoList.list.items,
+                    filteredMemos = searchMemos,
                     uiState = uiState,
                     onTagClick = { tag ->
                         searchSelectedTags = if (tag in searchSelectedTags) {

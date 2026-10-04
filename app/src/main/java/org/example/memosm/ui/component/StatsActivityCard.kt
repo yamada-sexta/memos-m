@@ -3,29 +3,18 @@ package org.example.memosm.ui.component
 import android.text.format.DateFormat
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.Tag
-import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,12 +24,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.example.memosm.R
 import org.example.memosm.model.UserStats
 import java.time.DayOfWeek
 import java.time.Instant
@@ -53,11 +40,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.format.TextStyle
 
-/**
- * Combined Stats and Activity Card with responsive layout.
- * - Narrow screens: Stats on top, Calendar on bottom
- * - Wide screens: Calendar on left, Stats on right
- */
+/** Compact activity calendar; summary counts live in the profile header. */
 @Composable
 fun StatsActivityCard(
     modifier: Modifier = Modifier, userStats: UserStats?, weekStartDayOffset: Int = 0
@@ -78,167 +61,12 @@ fun StatsActivityCard(
     }
 
     Card(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
-        @Suppress("COMPOSE_APPLIER_CALL_MISMATCH") BoxWithConstraints(modifier = Modifier.padding(16.dp)) {
-            val isWide = maxWidth > 500.dp
-
-            if (isWide) {
-                // Wide layout: Calendar left, Stats right
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Calendar section
-                    Column(modifier = Modifier.weight(1f)) {
-                        CalendarMonthView(
-                            yearMonth = displayMonth,
-                            activityData = activityData,
-                            weekStartDayOffset = weekStartDayOffset,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    // Stats section - smaller on tablet since vertical space is limited
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        StatsGrid(userStats, compact = true)
-                    }
-                }
-            } else {
-                // Narrow layout: Stats top, Calendar bottom
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Stats section - larger on phone since horizontal space is available
-                    Spacer(modifier = Modifier.height(8.dp))
-                    StatsGrid(userStats, compact = false)
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Calendar section
-                    CalendarMonthView(
-                        yearMonth = displayMonth,
-                        activityData = activityData,
-                        weekStartDayOffset = weekStartDayOffset,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatsGrid(stats: UserStats?, compact: Boolean = false) {
-    val notAvailable = stringResource(R.string.common_not_available)
-    val dividerPadding = if (compact) 10.dp else 16.dp
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // First Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatItem(
-                label = stringResource(R.string.profile_stats_memos),
-                value = stats?.totalMemoCount?.toString() ?: notAvailable,
-                icon = Icons.AutoMirrored.Outlined.LibraryBooks,
-                compact = compact,
-                modifier = Modifier.weight(1f)
-            )
-            StatItem(
-                label = stringResource(R.string.profile_stats_tags),
-                value = stats?.tagCount?.size?.toString() ?: notAvailable,
-                icon = Icons.Outlined.Tag,
-                compact = compact,
-                modifier = Modifier.weight(1f)
-            )
-            StatItem(
-                label = stringResource(R.string.profile_stats_pinned),
-                value = stats?.pinnedMemos?.size?.toString() ?: notAvailable,
-                icon = Icons.Outlined.PushPin,
-                compact = compact,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = dividerPadding, horizontal = 24.dp),
-            thickness = 0.5.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        CalendarMonthView(
+            yearMonth = displayMonth,
+            activityData = activityData,
+            weekStartDayOffset = weekStartDayOffset,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
         )
-
-        // Second Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatItem(
-                label = stringResource(R.string.profile_stats_links),
-                value = stats?.memoTypeStats?.linkCount?.toString() ?: notAvailable,
-                icon = Icons.Outlined.Link,
-                compact = compact,
-                modifier = Modifier.weight(1f)
-            )
-            StatItem(
-                label = stringResource(R.string.profile_stats_code),
-                value = stats?.memoTypeStats?.codeCount?.toString() ?: notAvailable,
-                icon = Icons.Outlined.Code,
-                compact = compact,
-                modifier = Modifier.weight(1f)
-            )
-            StatItem(
-                label = stringResource(R.string.profile_stats_todo),
-                value = stats?.memoTypeStats?.todoCount?.toString() ?: notAvailable,
-                icon = Icons.Outlined.TaskAlt,
-                compact = compact,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatItem(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
-    icon: ImageVector,
-    compact: Boolean = false,
-) {
-    val iconSize = if (compact) 18.dp else 22.dp
-    val valueStyle =
-        if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
-    val labelStyle =
-        if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium
-    val verticalPadding = if (compact) 2.dp else 4.dp
-    val iconSpacing = if (compact) 2.dp else 4.dp
-
-    Column(
-        modifier = modifier.padding(vertical = verticalPadding),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(iconSize),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(iconSpacing))
-        Text(
-            text = value, style = valueStyle, fontWeight = FontWeight.Bold
-        )
-        Text(text = label, style = labelStyle)
     }
 }
 
@@ -256,7 +84,13 @@ private fun CalendarMonthView(
     val maxCount = activityData.values.maxOrNull()?.coerceAtLeast(1) ?: 1
 
     val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+    val emptyDayColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
+    val activeDayColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val cellShape = CircleShape
+    val cellHeight = with(LocalDensity.current) {
+        MaterialTheme.typography.labelSmall.lineHeight.toDp() + 12.dp
+    }.coerceAtLeast(28.dp)
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
 
     val locale = LocalConfiguration.current.locales[0]
@@ -273,7 +107,7 @@ private fun CalendarMonthView(
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Medium,
             color = onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 4.dp)
         )
 
         // Weekday headers - rotate based on weekStartDayOffset
@@ -304,7 +138,7 @@ private fun CalendarMonthView(
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         // Calendar grid
         // Calculate offset: how many blank cells before day 1
@@ -329,8 +163,7 @@ private fun CalendarMonthView(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .aspectRatio(1f)
-                            .padding(1.dp),
+                            .padding(horizontal = 2.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (dayOfMonth in 1..daysInMonth) {
@@ -341,27 +174,24 @@ private fun CalendarMonthView(
                             val intensity = calculateIntensity(count, maxCount)
 
                             val cellColor = when {
-                                count > 0 -> lerp(surfaceVariant, primaryColor, intensity)
-                                else -> surfaceVariant.copy(alpha = 0.5f)
+                                count > 0 -> lerp(activeDayColor, primaryColor, intensity * 0.25f)
+                                else -> emptyDayColor
                             }
 
                             val textColor = when {
-                                count > 0 -> MaterialTheme.colorScheme.onPrimary
                                 isToday -> primaryColor
-                                else -> onSurfaceVariant.copy(alpha = 0.8f)
+                                count > 0 -> onSurface
+                                else -> onSurfaceVariant
                             }
 
                             Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
+                                    .size(cellHeight)
+                                    .clip(cellShape)
                                     .background(cellColor)
                                     .then(
-                                        if (isToday && count == 0) {
-                                            Modifier.background(
-                                                primaryColor.copy(alpha = 0.15f),
-                                                CircleShape
-                                            )
+                                        if (isToday) {
+                                            Modifier.border(1.dp, primaryColor, cellShape)
                                         } else Modifier
                                     ), contentAlignment = Alignment.Center
                             ) {

@@ -39,7 +39,7 @@ class MemoFeedNavigationTest {
     private fun label(id: Int) = context.getString(id)
 
     @Before
-    fun seedCachedFeeds() = runBlocking {
+    fun seedCachedFeeds(): Unit = runBlocking {
         BackupCoordinator.awaitStartupRecovery()
         val koin = GlobalContext.get()
         koin.get<DraftManager>().clearDrafts(accountId)
