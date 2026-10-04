@@ -1,20 +1,22 @@
 package org.example.memosm.ui.nav
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
@@ -53,6 +55,8 @@ fun MapScreen(
     var tileRetry by remember { mutableIntStateOf(0) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showViews by remember { mutableStateOf(false) }
+    var controlsHeight by remember { mutableIntStateOf(0) }
+    val controlsBottom = with(LocalDensity.current) { controlsHeight.toDp() } + 24.dp
     val desktop = LocalConfiguration.current.screenWidthDp >= 600
     val bottom = if (!desktop && isNavBarVisible) 80.dp else 0.dp
     val dark = MaterialTheme.colorScheme.background.let { it.red + it.green + it.blue < 1.5f }
@@ -81,23 +85,25 @@ fun MapScreen(
         isNavBarVisible = isNavBarVisible,
         listPane = { onMemoClick ->
             Box(Modifier.fillMaxSize().padding(bottom = bottom).testTag("memo_map")) {
-                Column(Modifier.fillMaxSize()) {
-                    Surface(color = MaterialTheme.colorScheme.background) {
+                Box(Modifier.fillMaxSize()) {
+                    key(map.scope) {
+                        NativeMemoMap(controller, visible, dark, MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.fillMaxSize().testTag("memo_map_canvas"), retry = tileRetry,
+                            initialFitReady = !map.isLoading && (map.complete || map.isOffline || map.loadFailed),
+                            selection = place, panelSize = panelSize, desktop = desktop,
+                            onPlace = { place = it }, onDismiss = { place = null }, onTileError = { tileError = it })
+                    }
+                    Surface(modifier = Modifier.align(Alignment.TopStart).padding(12.dp).onSizeChanged { controlsHeight = it.height },
+                        shape = MaterialTheme.shapes.medium, shadowElevation = 2.dp) {
                         Column {
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(R.string.nav_map), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                                TextButton(onClick = { showFilters = !showFilters }) { Text(stringResource(R.string.map_filters)) }
-                                IconButton(onClick = { viewModel.memoMapManager.load() }) {
-                                    Icon(Icons.Outlined.Refresh, stringResource(R.string.map_retry))
-                                }
-                            }
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 MapScope.entries.forEach { scope ->
                                     FilterChip(selected = map.scope == scope,
                                         onClick = { if (map.scope != scope) viewModel.memoMapManager.selectScope(scope) },
                                         label = { Text(stringResource(if (scope == MapScope.MEMOS) R.string.nav_memos else R.string.nav_explore)) })
                                 }
-                                if (map.scope == MapScope.MEMOS) {
+                                if (map.scope == MapScope.MEMOS && (ui.userMemoList.shortcuts.isNotEmpty() || map.savedView != null)) {
                                     Box {
                                         FilterChip(selected = map.savedView != null, onClick = { showViews = true },
                                             label = { Text(map.savedView?.title ?: stringResource(R.string.map_all_views)) })
@@ -113,6 +119,7 @@ fun MapScreen(
                                         }
                                     }
                                 }
+                                TextButton(onClick = { showFilters = !showFilters }) { Text(stringResource(R.string.map_filters)) }
                             }
                             if (showFilters) {
                                 Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -124,14 +131,8 @@ fun MapScreen(
                             }
                         }
                     }
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
-                        key(map.scope) {
-                            NativeMemoMap(controller, visible, dark, MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.fillMaxSize().testTag("memo_map_canvas"), retry = tileRetry,
-                                selection = place, panelSize = panelSize, desktop = desktop,
-                                onPlace = { place = it }, onDismiss = { place = null }, onTileError = { tileError = it })
-                        }
-                        Column(Modifier.align(Alignment.TopStart).padding(12.dp).widthIn(max = 280.dp),
+                    Box(Modifier.fillMaxSize().padding(top = controlsBottom)) {
+                        Column(Modifier.align(Alignment.TopStart).padding(horizontal = 12.dp).widthIn(max = 280.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (map.isLoading) MapNotice(stringResource(R.string.map_loaded, map.memos.size))
                             if (map.isOffline) MapNotice(stringResource(R.string.map_offline))
@@ -141,9 +142,14 @@ fun MapScreen(
                             if (tileError) MapNotice(stringResource(R.string.map_tile_error),
                                 stringResource(R.string.map_retry)) { tileRetry++ }
                         }
-                        FilledIconButton(onClick = controller::fitAll, enabled = visible.isNotEmpty(),
-                            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp).testTag("map_fit_all")) {
-                            Icon(Icons.Outlined.MyLocation, stringResource(R.string.map_fit_all))
+                        if (desktop || place == null) {
+                            Surface(modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                                shape = MaterialTheme.shapes.medium, shadowElevation = 2.dp) {
+                                IconButton(onClick = controller::fitAll, enabled = visible.isNotEmpty(),
+                                    modifier = Modifier.testTag("map_fit_all")) {
+                                    Icon(Icons.Outlined.MyLocation, stringResource(R.string.map_fit_all))
+                                }
+                            }
                         }
                         if ((map.complete || map.isOffline) && visible.isEmpty() && place == null && !map.filterUnavailable && !map.loadFailed) {
                             MapNotice(stringResource(if (query.isNotBlank() || tag.isNotBlank() || map.savedView != null)
@@ -190,7 +196,7 @@ fun MapScreen(
         }
     )
     composeLocation?.let { location ->
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().testTag("map_composer")) {
             MemoComposerScreen(viewModel = viewModel, hostUrl = ui.session.hostUrl,
                 title = stringResource(R.string.map_new_here), initialLocation = location,
                 onToggleNavBar = onToggleNavBar,

@@ -81,6 +81,7 @@ class BackupServiceTest {
     @Test fun mapLocationCachesRoundTripWithoutASchemaChange() = runBlocking {
         Fixture().use { source -> Fixture().use { target ->
             source.settings.saveAccounts(listOf(account))
+            target.settings.saveAccounts(listOf(account))
             val types = listOf(CacheListType.MAP_USER, CacheListType.MAP_EXPLORE)
             types.forEachIndexed { index, type ->
                 source.database.memoDao().insertMemo(CachedMemo.fromMemo(

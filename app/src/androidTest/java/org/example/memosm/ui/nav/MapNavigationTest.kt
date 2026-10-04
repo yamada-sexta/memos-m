@@ -86,7 +86,7 @@ class MapNavigationTest {
             compose.onNodeWithTag("memo_map_canvas").performTouchInput { longClick(center) }
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("map_new_here").performClick()
-            compose.onNodeWithText(label(R.string.map_new_here)).assertIsDisplayed()
+            compose.onNodeWithTag("map_composer").assertIsDisplayed()
             compose.onNodeWithTag("memo_map_canvas").assertExists()
         }
     }

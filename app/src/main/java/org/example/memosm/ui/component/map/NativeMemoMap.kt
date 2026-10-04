@@ -11,6 +11,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -50,6 +51,7 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
 
 private const val MEMO_SOURCE = "memosm-locations"
+private const val COUNT_SOURCE = "memosm-location-counts"
 private const val PIN_LAYER = "memosm-pins"
 private const val COUNT_LAYER = "memosm-counts"
 private const val SELECTION_SOURCE = "memosm-selection"
@@ -71,13 +73,15 @@ internal class MemoMapController {
     companion object {
         val Saver = StateSaver<MemoMapController, List<Double>>(
             save = { controller ->
-                controller.savedCamera?.let { camera -> camera.target?.let { listOf(it.latitude, it.longitude, camera.zoom) } }
+                controller.savedCamera?.let { camera -> camera.target?.let {
+                    listOf(it.latitude, it.longitude, camera.zoom, if (controller.fitted) 1.0 else 0.0)
+                } }
                     ?: emptyList()
             },
             restore = { values -> MemoMapController().apply {
-                if (values.size == 3) {
+                if (values.size >= 3) {
                     savedCamera = CameraPosition.Builder().target(LatLng(values[0], values[1])).zoom(values[2]).build()
-                    fitted = true
+                    fitted = values.getOrNull(3)?.let { it == 1.0 } ?: true
                 }
             } }
         )
@@ -108,6 +112,7 @@ internal fun NativeMemoMap(
     color: Color,
     modifier: Modifier = Modifier,
     retry: Int = 0,
+    initialFitReady: Boolean = true,
     selection: Location? = null,
     panelSize: IntSize = IntSize.Zero,
     desktop: Boolean = false,
@@ -124,13 +129,15 @@ internal fun NativeMemoMap(
     val currentColor by rememberUpdatedState(color)
     val currentSelection by rememberUpdatedState(selection)
     var ready by remember { mutableStateOf(false) }
+    var loadedStyle by remember { mutableIntStateOf(0) }
+    var viewportSize by remember { mutableStateOf(IntSize.Zero) }
     val styleGeneration = remember { longArrayOf(0L) }
     var fallback by remember(retry, dark) { mutableStateOf(false) }
     val view = remember(controller) {
         MapLibre.getInstance(context.applicationContext)
         HttpRequestUtil.setOkHttpClient(tileClient)
         MapView(context, MapLibreMapOptions().textureMode(true).logoEnabled(false)
-            .attributionGravity(Gravity.TOP or Gravity.END).attributionMargins(intArrayOf(0, 12, 12, 0))
+            .attributionGravity(Gravity.BOTTOM or Gravity.END).attributionMargins(intArrayOf(0, 0, 12, 12))
             .rotateGesturesEnabled(false).tiltGesturesEnabled(false).maxZoomPreference(19.0)).apply { onCreate(Bundle()) }
     }
     DisposableEffect(view, lifecycle) {
@@ -154,6 +161,10 @@ internal fun NativeMemoMap(
             override fun onConfigurationChanged(newConfig: Configuration) = Unit
         }
         context.applicationContext.registerComponentCallbacks(memoryCallback)
+        val layoutListener = android.view.View.OnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+            viewportSize = IntSize(right - left, bottom - top)
+        }
+        view.addOnLayoutChangeListener(layoutListener)
         view.getMapAsync { map ->
             if (disposed) return@getMapAsync
             controller.map = map
@@ -190,12 +201,14 @@ internal fun NativeMemoMap(
             controller.map = null
             lifecycle.removeObserver(observer)
             context.applicationContext.unregisterComponentCallbacks(memoryCallback)
+            view.removeOnLayoutChangeListener(layoutListener)
             if (resumed) view.onPause()
             if (started) view.onStop()
             view.onDestroy()
         }
     }
     LaunchedEffect(ready, dark, retry, fallback) {
+        if (!ready) return@LaunchedEffect
         val map = controller.map ?: return@LaunchedEffect
         val generation = ++styleGeneration[0]
         errorCallback(false)
@@ -212,19 +225,24 @@ internal fun NativeMemoMap(
             if (styleGeneration[0] != generation || controller.map !== map || !ready) return@setStyle
             handler.removeCallbacks(timeout)
             errorCallback(false)
-            loaded.addSource(GeoJsonSource(MEMO_SOURCE, mapFeatures(currentMemos), GeoJsonOptions()
+            val features = mapFeatures(currentMemos)
+            val options = GeoJsonOptions()
                 .withCluster(true).withClusterRadius(44).withClusterMaxZoom(17)
-                .withClusterProperty("count", literal("+"), get("count"))))
+                .withClusterProperty("count", literal("+"), get("count"))
+            loaded.addSource(GeoJsonSource(MEMO_SOURCE, features, options))
             loaded.addLayer(CircleLayer(PIN_LAYER, MEMO_SOURCE).withProperties(
                 circleRadius(16f), circleColor(currentColor.toArgb()), circleStrokeWidth(2f), circleStrokeColor(android.graphics.Color.WHITE)))
-            loaded.addLayer(SymbolLayer(COUNT_LAYER, MEMO_SOURCE).withProperties(
+            // A missing glyph delays every layer in its source, including circles. Keep
+            // labels separate so pins remain visible when fonts are unavailable offline.
+            loaded.addSource(GeoJsonSource(COUNT_SOURCE, features, options))
+            loaded.addLayer(SymbolLayer(COUNT_LAYER, COUNT_SOURCE).withProperties(
                 textField(org.maplibre.android.style.expressions.Expression.toString(get("count"))),
-                textSize(12f), textColor(android.graphics.Color.WHITE), textAllowOverlap(true)))
+                textFont(arrayOf("Noto Sans Regular")), textSize(12f), textColor(android.graphics.Color.WHITE), textAllowOverlap(true)))
             loaded.addSource(GeoJsonSource(SELECTION_SOURCE, selectionFeatures(currentSelection)))
             loaded.addLayer(CircleLayer("memosm-selected-pin", SELECTION_SOURCE).withProperties(
                 circleRadius(21f), circleColor(android.graphics.Color.TRANSPARENT),
                 circleStrokeWidth(3f), circleStrokeColor(currentColor.toArgb())))
-            if (!controller.fitted && currentMemos.isNotEmpty()) controller.fitAll()
+            loadedStyle++
         }
         try { kotlinx.coroutines.awaitCancellation() }
         finally {
@@ -233,13 +251,23 @@ internal fun NativeMemoMap(
             view.removeOnDidFailLoadingMapListener(failure)
         }
     }
-    LaunchedEffect(memos, color, ready) {
+    LaunchedEffect(memos, color, ready, loadedStyle) {
         controller.memos = memos
-        controller.map?.style?.getSourceAs<GeoJsonSource>(MEMO_SOURCE)?.setGeoJson(mapFeatures(memos))
+        val features = mapFeatures(memos)
+        controller.map?.style?.getSourceAs<GeoJsonSource>(MEMO_SOURCE)?.setGeoJson(features)
+        controller.map?.style?.getSourceAs<GeoJsonSource>(COUNT_SOURCE)?.setGeoJson(features)
         controller.map?.style?.getLayerAs<CircleLayer>(PIN_LAYER)?.setProperties(circleColor(color.toArgb()))
-        if (!controller.fitted && memos.isNotEmpty()) controller.fitAll()
     }
-    LaunchedEffect(selection, panelSize, ready) {
+    // Fit the complete history after both the style and the native viewport exist. Fitting
+    // the first cached page hides locations loaded later and can save an unfitted camera.
+    LaunchedEffect(memos, initialFitReady, ready, loadedStyle, viewportSize) {
+        if (ready && loadedStyle > 0 && viewportSize.width > 0 && viewportSize.height > 0 &&
+            initialFitReady && !controller.fitted && memos.isNotEmpty()) {
+            controller.memos = memos
+            controller.fitAll()
+        }
+    }
+    LaunchedEffect(selection, panelSize, ready, loadedStyle) {
         val map = controller.map ?: return@LaunchedEffect
         map.style?.getSourceAs<GeoJsonSource>(SELECTION_SOURCE)?.setGeoJson(selectionFeatures(selection))
         if (selection.hasValidCoordinates() && panelSize != IntSize.Zero) {
