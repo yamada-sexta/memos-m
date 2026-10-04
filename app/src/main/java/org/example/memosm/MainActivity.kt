@@ -31,7 +31,7 @@ import org.example.memosm.ui.MainScreen
 import org.example.memosm.ui.component.LoginScreen
 import org.example.memosm.ui.component.LocalNetworkPermission
 import org.example.memosm.ui.component.rememberLocalNetworkPermission
-import org.example.memosm.ui.theme.MemosMTheme
+import org.example.memosm.ui.theme.SavedMemosMTheme
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.widget.DraftWidget
 
@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MemosMTheme {
+            SavedMemosMTheme(dataStoreManager) {
                 val networkPermission = rememberLocalNetworkPermission()
                 CompositionLocalProvider(LocalNetworkPermission provides networkPermission) {
                     val scope = rememberCoroutineScope()

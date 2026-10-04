@@ -41,6 +41,7 @@ import org.example.memosm.R
 import androidx.compose.ui.res.stringResource
 import org.example.memosm.model.Account
 import org.example.memosm.ui.component.resolveResourceUrl
+import org.example.memosm.ui.theme.SavedMemosMTheme
 import org.koin.android.ext.android.inject
 
 class UserStatsWidgetConfigActivity : ComponentActivity() {
@@ -68,7 +69,7 @@ class UserStatsWidgetConfigActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            SavedMemosMTheme(dataStoreManager) {
                 Scaffold(
                     topBar = {
                         TopAppBar(title = { Text(stringResource(R.string.widget_stats_select_account)) })

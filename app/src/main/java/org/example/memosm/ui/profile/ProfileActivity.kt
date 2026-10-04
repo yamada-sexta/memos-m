@@ -34,7 +34,7 @@ import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import org.example.memosm.ui.component.rememberLocalNetworkPermission
 import org.example.memosm.ui.nav.SettingsScreen
 import org.example.memosm.ui.nav.SettingsSection
-import org.example.memosm.ui.theme.MemosMTheme
+import org.example.memosm.ui.theme.SavedMemosMTheme
 import org.example.memosm.ui.theme.ProfileTheme
 import org.example.memosm.viewmodel.MemosViewModel
 import org.koin.android.ext.android.inject
@@ -49,7 +49,7 @@ abstract class ProfileActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MemosMTheme {
+            SavedMemosMTheme(dataStore) {
                 ProfileTheme {
                     val permission = rememberLocalNetworkPermission()
                     val accounts by dataStore.accounts.collectAsStateWithLifecycle(initialValue = null)

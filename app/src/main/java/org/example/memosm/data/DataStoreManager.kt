@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import org.example.memosm.model.AppearancePreferences
+import org.example.memosm.model.ThemeMode
+import org.example.memosm.model.ColorTheme
+import org.example.memosm.model.AppFont
 import org.example.memosm.model.Account
 import org.example.memosm.model.User
 import org.example.memosm.model.toUserSnapshot
@@ -21,6 +25,10 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
     private val gson = Gson()
 
     companion object {
+        val APPEARANCE_THEME_MODE = stringPreferencesKey("appearance_theme_mode")
+        val APPEARANCE_COLOR_THEME = stringPreferencesKey("appearance_color_theme")
+        val APPEARANCE_CUSTOM_HUE = androidx.datastore.preferences.core.floatPreferencesKey("appearance_custom_hue")
+        val APPEARANCE_FONT = stringPreferencesKey("appearance_font")
         val ACCOUNTS_JSON = stringPreferencesKey("accounts_json")
         val PAGE_SIZE = intPreferencesKey("page_size")
         const val DEFAULT_PAGE_SIZE = 10
@@ -207,6 +215,37 @@ class DataStoreManager(private val dataStore: DataStore<Preferences>) {
         mutateAccounts { current ->
             current.map { if (it.id == id) it.copy(accessToken = token) else it }
         }
+    }
+
+    val appearance: Flow<AppearancePreferences> = dataStore.data.map { preferences ->
+        val hue = preferences[APPEARANCE_CUSTOM_HUE]?.takeIf { it.isFinite() && it in 0f..360f }
+        val colorTheme = ColorTheme.entries.firstOrNull { it.name == preferences[APPEARANCE_COLOR_THEME] }
+            ?: ColorTheme.SYSTEM
+        AppearancePreferences(
+            themeMode = ThemeMode.entries.firstOrNull { it.name == preferences[APPEARANCE_THEME_MODE] }
+                ?: ThemeMode.SYSTEM,
+            colorTheme = if (colorTheme == ColorTheme.CUSTOM && hue == null) ColorTheme.SYSTEM else colorTheme,
+            customHue = hue?.rem(360f),
+            font = AppFont.entries.firstOrNull { it.name == preferences[APPEARANCE_FONT] } ?: AppFont.SYSTEM
+        )
+    }.distinctUntilChanged()
+
+    suspend fun saveThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[APPEARANCE_THEME_MODE] = mode.name }
+    }
+
+    suspend fun saveColorTheme(theme: ColorTheme, hue: Float? = null) {
+        require(theme != ColorTheme.CUSTOM || (hue != null && hue.isFinite() && hue in 0f..360f))
+        dataStore.edit {
+            it[APPEARANCE_COLOR_THEME] = theme.name
+            if (hue != null && hue.isFinite() && hue in 0f..360f) {
+                it[APPEARANCE_CUSTOM_HUE] = hue % 360f
+            }
+        }
+    }
+
+    suspend fun saveFont(font: AppFont) {
+        dataStore.edit { it[APPEARANCE_FONT] = font.name }
     }
 
     val pageSize: Flow<Int> = dataStore.data.map { preferences ->
