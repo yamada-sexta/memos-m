@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +53,10 @@ fun ProfileHeader(
     userStats: UserStats? = null
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, onClick = onClick
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        onClick = onClick
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(24.dp)) {

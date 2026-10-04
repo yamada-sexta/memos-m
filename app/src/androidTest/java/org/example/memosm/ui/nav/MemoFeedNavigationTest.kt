@@ -198,9 +198,8 @@ class MemoFeedNavigationTest {
             compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             awaitFeed(MemoFeed.EXPLORE)
             scenario.onActivity { activity ->
-                activity.startActivity(android.content.Intent(context, MainActivity::class.java).apply {
+                instrumentation.callActivityOnNewIntent(activity, android.content.Intent(context, MainActivity::class.java).apply {
                     action = DraftWidget.ACTION_OPEN_COMPOSER
-                    flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
                 })
             }
             compose.onNodeWithText(label(R.string.drafts_prompt_start_fresh)).performClick()

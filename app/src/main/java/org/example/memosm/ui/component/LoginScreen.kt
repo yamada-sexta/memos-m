@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,23 +16,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -145,7 +151,7 @@ fun LoginDialog(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoginContent(
     onLoginSuccess: (String, String) -> Unit,
@@ -304,17 +310,34 @@ fun LoginContent(
             }
         }
 
-        SecondaryTabRow(
-            selectedTabIndex = loginMode.ordinal, modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
         ) {
-            Tab(
-                selected = loginMode == LoginMode.PASSWORD,
-                onClick = { loginMode = LoginMode.PASSWORD },
-                text = { Text(stringResource(R.string.login_password)) })
-            Tab(
-                selected = loginMode == LoginMode.TOKEN,
-                onClick = { loginMode = LoginMode.TOKEN },
-                text = { Text(stringResource(R.string.login_token)) })
+            ToggleButton(
+                checked = loginMode == LoginMode.PASSWORD,
+                onCheckedChange = { loginMode = LoginMode.PASSWORD },
+                modifier = Modifier.weight(1f).semantics {
+                    role = Role.RadioButton
+                    selected = loginMode == LoginMode.PASSWORD
+                },
+                enabled = !isLoading,
+                shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
+            ) {
+                Text(stringResource(R.string.login_password))
+            }
+            ToggleButton(
+                checked = loginMode == LoginMode.TOKEN,
+                onCheckedChange = { loginMode = LoginMode.TOKEN },
+                modifier = Modifier.weight(1f).semantics {
+                    role = Role.RadioButton
+                    selected = loginMode == LoginMode.TOKEN
+                },
+                enabled = !isLoading,
+                shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+            ) {
+                Text(stringResource(R.string.login_token))
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
