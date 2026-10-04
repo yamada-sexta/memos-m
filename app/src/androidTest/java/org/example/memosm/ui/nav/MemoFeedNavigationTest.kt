@@ -213,10 +213,14 @@ class MemoFeedNavigationTest {
     )
 
     private fun awaitFeed(feed: MemoFeed) {
-        compose.waitUntil(15_000) {
+        compose.waitUntil(30_000) {
             compose.onAllNodes(hasText(label(feed.labelRes)) and
                 SemanticsMatcher.expectValue(SemanticsProperties.Selected, true) and
-                hasAnyAncestor(hasTestTag("memo_feed_tabs"))).fetchSemanticsNodes().isNotEmpty()
+                hasAnyAncestor(hasTestTag("memo_feed_tabs"))).fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodes(hasText(
+                    if (feed == MemoFeed.MEMOS) "My memo " else "Explore memo ", substring = true
+                ) and hasAnyAncestor(hasTestTag("memo_feed_${feed.name.lowercase()}")))
+                    .fetchSemanticsNodes().isNotEmpty()
         }
         compose.waitForIdle()
     }
