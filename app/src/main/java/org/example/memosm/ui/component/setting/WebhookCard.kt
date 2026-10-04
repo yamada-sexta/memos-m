@@ -49,6 +49,7 @@ fun WebhooksCard(
             SettingsNavigationRow(
                 title = stringResource(R.string.profile_webhooks_add),
                 icon = Icons.Outlined.Add,
+                showChevron = false,
                 onClick = { showCreateDialog = true }
             )
         }

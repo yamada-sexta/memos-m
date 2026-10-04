@@ -209,7 +209,7 @@
     <string name="offline_predownload_running">Caching — %1$s (page %2$d)</string>
     <string name="offline_predownload_phase_text">fetching text…</string>
     <string name="offline_predownload_phase_attachments">downloading attachments…</string>
-    <string name="offline_predownload_done">Cache complete: %1$d memo(s), %2$d attachment(s)</string>
+    <string name="offline_predownload_done">Cached %1$s and %2$s.</string>
     <string name="offline_predownload_failed">Cache failed: %1$s</string>
     <string name="offline_predownload_text_button">Cache All Memo Text</string>
     <string name="offline_predownload_attachments_button">Cache All Attachments</string>
@@ -233,12 +233,12 @@
     <string name="offline_settings_custom">Custom</string>
     <string name="offline_settings_cache_size_hint">Enter size</string>
     <string name="offline_settings_cache_analysis_title">Cache analysis</string>
-    <string name="offline_settings_text_count">%1$d memo(s) cached</string>
     <string name="offline_settings_media_usage">Media cache: %1$s</string>
     <string name="offline_clear_media">Clear Media Cache</string>
     <string name="offline_clear_all">Clear All Caches</string>
     <string name="offline_settings_clear_text">Clear text cache</string>
-    <string name="cache_cleanup_title">Clear Cache</string>
+    <string name="cache_cleanup_title">Clear cache</string>
+    <string name="cache_cleanup_clear" tools:ignore="MissingTranslation">Clear</string>
     <string name="cache_cleanup_manage">Manage Cache</string>
     <string name="cache_cleanup_clear_selected">Clear Selected</string>
     <string name="cache_cleanup_none_selected">Select a cache type to clear</string>
@@ -250,12 +250,14 @@
     <string name="cache_unit_gb">GB</string>
     <string name="recovery_title">Backup &amp; Restore</string>
     <string name="recovery_description">Export the local cache and offline outbox of the active account to a file, or restore from a previous archive.</string>
+    <string name="recovery_export_description" tools:ignore="MissingTranslation">Save cached memos and pending changes to a file</string>
+    <string name="recovery_import_description" tools:ignore="MissingTranslation">Restore cached memos and pending changes from a backup</string>
     <string name="recovery_export">Export</string>
     <string name="recovery_import">Import</string>
     <string name="recovery_exported">Recovery file exported</string>
     <string name="recovery_export_failed">Export failed</string>
     <string name="recovery_import_summary_title">Import complete</string>
-    <string name="recovery_import_summary">%1$d memo(s) and %2$d pending operation(s) restored.</string>
+    <string name="recovery_import_summary">Restored %1$s and %2$s.</string>
     <string name="recovery_import_error_title">Import failed</string>
     <string name="recovery_invalid_file">Could not read the selected file</string>
     <string name="recovery_no_account">No active account</string>
@@ -290,7 +292,7 @@
     <string name="sync_status_phase_attachments">attachments</string>
     <string name="sync_status_pending">%1$d change(s) pending sync</string>
     <string name="sync_status_offline">Offline · using local cache</string>
-    <string name="sync_status_cached">%1$d memo(s) cached · synced %2$s</string>
+    <string name="sync_status_cached">%1$s · synced %2$s</string>
     <string name="sync_status_idle">Up to date</string>
     <string name="sync_panel_title">Sync &amp; Cache</string>
     <string name="sync_panel_last_sync">Last sync: %1$s</string>
@@ -371,7 +373,7 @@
     <string name="settings_summary_offline" tools:ignore="MissingTranslation">Automatic caching, storage limits, clear cache</string>
     <string name="settings_summary_recovery" tools:ignore="MissingTranslation">Export and restore your data</string>
     <string name="settings_summary_audit" tools:ignore="MissingTranslation">Recent sync activity</string>
-    <string name="settings_summary_about" tools:ignore="MissingTranslation">App version, source code, licenses</string>
+    <string name="settings_summary_about" tools:ignore="MissingTranslation">App version, logs, source code, licenses</string>
     <string name="settings_cache_files_used" tools:ignore="MissingTranslation">Used by cached files</string>
     <string name="settings_cache_files_limit" tools:ignore="MissingTranslation">%1$s file cache limit</string>
     <string name="settings_cache_downloads" tools:ignore="MissingTranslation">Automatic caching</string>

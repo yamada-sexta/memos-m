@@ -223,4 +223,8 @@
     <string name="user_stats_widget_last_updated">最終更新: %1$s</string>
     <string name="sync_queue_delete_title">未同期の変更を破棄しますか？</string>
     <string name="sync_queue_delete_message">この未同期の変更を破棄しますか？この操作は取り消せません。</string>
+    <string name="offline_predownload_done">%1$sと%2$sをキャッシュしました。</string>
+    <string name="sync_status_cached">%1$s · 同期 %2$s</string>
+    <string name="recovery_import_summary">%1$sと%2$sを復元しました。</string>
+    <string name="cache_cleanup_clear">消去</string>
 </resources>

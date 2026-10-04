@@ -1,19 +1,14 @@
 package org.example.memosm.ui.component
 
 import android.util.Log
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,8 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -70,34 +65,18 @@ fun CacheCleanupDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.Delete,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.cache_cleanup_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
+        title = { Text(stringResource(R.string.cache_cleanup_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 CleanupCheckRow(
                     label = stringResource(R.string.cache_cleanup_text),
-                    size = stringResource(R.string.offline_settings_text_count, textCacheCount),
+                    size = pluralStringResource(R.plurals.cached_memo_count, textCacheCount, textCacheCount),
                     checked = clearText,
                     onCheckedChange = { clearText = it }
                 )
                 CleanupCheckRow(
                     label = stringResource(R.string.cache_cleanup_attachments),
-                    size = formatBytes(attachmentUsage.bytes) +
-                        if (attachmentUsage.count > 0) " · ${attachmentUsage.count}" else "",
+                    size = formatBytes(attachmentUsage.bytes),
                     checked = clearAttachments,
                     onCheckedChange = { clearAttachments = it }
                 )
@@ -107,14 +86,6 @@ fun CacheCleanupDialog(
                     checked = clearMedia,
                     onCheckedChange = { clearMedia = it }
                 )
-                if (!anySelected) {
-                    Spacer(modifier = Modifier.padding(top = 12.dp))
-                    Text(
-                        stringResource(R.string.cache_cleanup_none_selected),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         },
         confirmButton = {
@@ -138,12 +109,9 @@ fun CacheCleanupDialog(
                         }
                     }
                 },
-                enabled = anySelected,
-                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
+                enabled = anySelected
             ) {
-                Text(stringResource(R.string.cache_cleanup_clear_selected))
+                Text(stringResource(R.string.cache_cleanup_clear))
             }
         },
         dismissButton = {
@@ -164,23 +132,18 @@ private fun CleanupCheckRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = size,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Checkbox(checked = checked, onCheckedChange = null)
+        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = size,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
-

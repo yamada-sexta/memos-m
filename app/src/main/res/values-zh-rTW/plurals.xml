@@ -9,4 +9,16 @@
     <plurals name="drafts_publish_all_success_plural">
         <item quantity="other">已發佈 %1$d 個草稿</item>
     </plurals>
+    <plurals name="cached_memo_count">
+        <item quantity="other">已快取 %1$d 則備忘錄</item>
+    </plurals>
+    <plurals name="memo_count">
+        <item quantity="other">%1$d 則備忘錄</item>
+    </plurals>
+    <plurals name="attachment_count">
+        <item quantity="other">%1$d 個附件</item>
+    </plurals>
+    <plurals name="pending_change_count">
+        <item quantity="other">%1$d 項待同步變更</item>
+    </plurals>
 </resources>

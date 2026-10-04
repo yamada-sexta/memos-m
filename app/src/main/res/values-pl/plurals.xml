@@ -18,4 +18,28 @@
         <item quantity="many">Opublikowano %1$d wersji roboczych</item>
         <item quantity="other">Opublikowano %1$d wersji roboczych</item>
     </plurals>
+    <plurals name="cached_memo_count">
+        <item quantity="one">%1$d notatka w pamięci podręcznej</item>
+        <item quantity="few">%1$d notatki w pamięci podręcznej</item>
+        <item quantity="many">%1$d notatek w pamięci podręcznej</item>
+        <item quantity="other">%1$d notatki w pamięci podręcznej</item>
+    </plurals>
+    <plurals name="memo_count">
+        <item quantity="one">%1$d notatka</item>
+        <item quantity="few">%1$d notatki</item>
+        <item quantity="many">%1$d notatek</item>
+        <item quantity="other">%1$d notatki</item>
+    </plurals>
+    <plurals name="attachment_count">
+        <item quantity="one">%1$d załącznik</item>
+        <item quantity="few">%1$d załączniki</item>
+        <item quantity="many">%1$d załączników</item>
+        <item quantity="other">%1$d załącznika</item>
+    </plurals>
+    <plurals name="pending_change_count">
+        <item quantity="one">%1$d oczekująca zmiana</item>
+        <item quantity="few">%1$d oczekujące zmiany</item>
+        <item quantity="many">%1$d oczekujących zmian</item>
+        <item quantity="other">%1$d oczekującej zmiany</item>
+    </plurals>
 </resources>

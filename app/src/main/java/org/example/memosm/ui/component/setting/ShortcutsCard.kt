@@ -53,6 +53,7 @@ fun ShortcutsCard(
             SettingsNavigationRow(
                 title = stringResource(R.string.profile_shortcuts_add),
                 icon = Icons.Outlined.Add,
+                showChevron = false,
                 onClick = { showCreateDialog = true }
             )
         }

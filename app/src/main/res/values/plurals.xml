@@ -12,4 +12,20 @@
         <item quantity="one">Published %1$d draft</item>
         <item quantity="other">Published %1$d drafts</item>
     </plurals>
+    <plurals name="cached_memo_count">
+        <item quantity="one">%1$d memo cached</item>
+        <item quantity="other">%1$d memos cached</item>
+    </plurals>
+    <plurals name="memo_count">
+        <item quantity="one">%1$d memo</item>
+        <item quantity="other">%1$d memos</item>
+    </plurals>
+    <plurals name="attachment_count">
+        <item quantity="one">%1$d attachment</item>
+        <item quantity="other">%1$d attachments</item>
+    </plurals>
+    <plurals name="pending_change_count">
+        <item quantity="one">%1$d pending change</item>
+        <item quantity="other">%1$d pending changes</item>
+    </plurals>
 </resources>

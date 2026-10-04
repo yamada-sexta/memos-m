@@ -205,7 +205,7 @@
     <string name="offline_predownload_running">缓存中 — %1$s（第 %2$d 页）</string>
     <string name="offline_predownload_phase_text">正在获取文本…</string>
     <string name="offline_predownload_phase_attachments">正在下载附件…</string>
-    <string name="offline_predownload_done">缓存完成：%1$d 条备忘录，%2$d 个附件</string>
+    <string name="offline_predownload_done">已缓存 %1$s和%2$s。</string>
     <string name="offline_predownload_failed">缓存失败：%1$s</string>
     <string name="offline_predownload_text_button">缓存全部文本</string>
     <string name="offline_predownload_attachments_button">缓存全部附件</string>
@@ -229,7 +229,6 @@
     <string name="offline_settings_custom">自定义</string>
     <string name="offline_settings_cache_size_hint">输入大小</string>
     <string name="offline_settings_cache_analysis_title">缓存分析</string>
-    <string name="offline_settings_text_count">已缓存 %1$d 条备忘录</string>
     <string name="offline_settings_media_usage">媒体缓存：%1$s</string>
     <string name="offline_clear_media">清除媒体缓存</string>
     <string name="offline_clear_all">清除全部缓存</string>
@@ -250,7 +249,7 @@
     <string name="sync_status_phase_attachments">附件</string>
     <string name="sync_status_pending">%1$d 项更改待同步</string>
     <string name="sync_status_offline">离线 · 使用本地缓存</string>
-    <string name="sync_status_cached">本地缓存 %1$d 条 · 已同步 %2$s</string>
+    <string name="sync_status_cached">%1$s · 已同步 %2$s</string>
     <string name="sync_status_idle">已是最新</string>
     <string name="sync_panel_title">同步与缓存</string>
     <string name="sync_panel_last_sync">最近同步：%1$s</string>
@@ -328,7 +327,7 @@
     <string name="recovery_exported">恢复文件已导出</string>
     <string name="recovery_export_failed">导出失败</string>
     <string name="recovery_import_summary_title">导入完成</string>
-    <string name="recovery_import_summary">已恢复 %1$d 条备忘录和 %2$d 项待同步操作。</string>
+    <string name="recovery_import_summary">已恢复%1$s和%2$s。</string>
     <string name="recovery_import_error_title">导入失败</string>
     <string name="recovery_invalid_file">无法读取所选文件</string>
     <string name="recovery_no_account">没有活跃账号</string>
@@ -360,4 +359,5 @@
     <string name="profile_notifications">通知</string>
     <string name="profile_notifications_empty">暂无通知</string>
     <string name="common_error_failed_to_load_notifications">无法加载通知</string>
+    <string name="cache_cleanup_clear">清除</string>
 </resources>

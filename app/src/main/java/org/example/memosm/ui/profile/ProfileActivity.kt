@@ -149,7 +149,9 @@ class SettingsActivity : ProfileActivity() {
                 launcher.launch(Intent(this, OpenSourceLicensesActivity::class.java))
             },
             onOpenSection = { destination ->
-                launcher.launch(Intent(this, SettingsActivity::class.java).putExtra(EXTRA_SECTION, destination.name))
+                val activity = if (destination == SettingsSection.AUDIT) SyncLogActivity::class.java
+                    else SettingsActivity::class.java
+                launcher.launch(Intent(this, activity).putExtra(EXTRA_SECTION, destination.name))
             }
         )
     }
@@ -163,5 +165,12 @@ class OpenSourceLicensesActivity : ProfileActivity() {
     @Composable
     override fun Destination(viewModel: MemosViewModel, onBack: () -> Unit) {
         org.example.memosm.ui.nav.OpenSourceLicensesScreen(onBack)
+    }
+}
+
+class SyncLogActivity : ProfileActivity() {
+    @Composable
+    override fun Destination(viewModel: MemosViewModel, onBack: () -> Unit) {
+        org.example.memosm.ui.nav.SyncLogScreen(onBack)
     }
 }

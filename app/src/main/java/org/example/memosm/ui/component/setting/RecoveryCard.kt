@@ -4,31 +4,24 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,12 +32,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +62,7 @@ import java.util.Date
 @Composable
 fun RecoveryCard() {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     // Same Koin access pattern as OutboxSyncWorker / MemosApplication.
     val recoveryService: LocalRecoveryService = remember { GlobalContext.get().get() }
@@ -146,10 +138,10 @@ fun RecoveryCard() {
                 if (deleteAfterwards) withContext(Dispatchers.IO) { source.delete() }
                 dialogText = result.fold(
                     onSuccess = {
-                        importSummaryTitle + "\n" + context.getString(
+                        importSummaryTitle + "\n" + resources.getString(
                             R.string.recovery_import_summary,
-                            it.memoCount,
-                            it.pendingOpCount
+                            resources.getQuantityString(R.plurals.memo_count, it.memoCount, it.memoCount),
+                            resources.getQuantityString(R.plurals.pending_change_count, it.pendingOpCount, it.pendingOpCount)
                         )
                     },
                     onFailure = {
@@ -200,147 +192,86 @@ fun RecoveryCard() {
 
     LaunchedEffect(activeAccountId) { refreshArchives() }
 
-    SettingsSurface {
-        Column(modifier = Modifier.padding(vertical = 16.dp)) {
-            Text(
-                stringResource(R.string.recovery_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.recovery_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        val accountId = activeAccountId
-                        if (accountId.isNullOrBlank()) {
-                            toast(noAccountMessage)
-                            return@OutlinedButton
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            stringResource(R.string.recovery_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+        SettingsGroup {
+            SettingsNavigationRow(
+                title = stringResource(R.string.recovery_export),
+                summary = stringResource(R.string.recovery_export_description),
+                icon = Icons.Outlined.FileUpload,
+                showChevron = false,
+                enabled = !busy,
+                onClick = {
+                    val accountId = activeAccountId
+                    if (accountId.isNullOrBlank()) {
+                        toast(noAccountMessage)
+                        return@SettingsNavigationRow
+                    }
+                    busy = true
+                    scope.launch {
+                        try {
+                            recoveryService.exportAccount(accountId).fold(
+                                onSuccess = {
+                                    pendingExport = it
+                                    exportLauncher.launch(it.name)
+                                },
+                                onFailure = { toast(exportFailedMessage) }
+                            )
+                        } finally {
+                            busy = false
                         }
-                        busy = true
-                        scope.launch {
-                            try {
-                                val result = recoveryService.exportAccount(accountId)
-                                result.fold(
-                                    onSuccess = {
-                                        pendingExport = it
-                                        exportLauncher.launch(it.name)
-                                    },
-                                    onFailure = { toast(exportFailedMessage) }
-                                )
-                            } finally {
-                                busy = false
-                            }
-                        }
-                    },
-                    enabled = !busy
-                ) {
-                    Icon(
-                        Icons.Outlined.Download,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.recovery_export))
-                }
-                OutlinedButton(
-                    onClick = { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
-                    enabled = !busy
-                ) {
-                    Icon(
-                        Icons.Outlined.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.recovery_import))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                stringResource(R.string.recovery_archives_title),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-
-            if (archives.isEmpty()) {
-                Text(
-                    stringResource(R.string.recovery_archives_empty),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                ) {
-                    items(archives, key = { it.absolutePath }) { archive ->
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    archive.name,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            supportingContent = {
-                                Text(formatArchiveMeta(archive))
-                            },
-                            trailingContent = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
-                                        onClick = { importCandidate = archive },
-                                        enabled = !busy
-                                    ) {
-                                        Icon(
-                                            Icons.Outlined.Download,
-                                            contentDescription = stringResource(R.string.recovery_archive_import)
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { deleteCandidate = archive },
-                                        enabled = !busy
-                                    ) {
-                                        Icon(
-                                            Icons.Outlined.Delete,
-                                            contentDescription = stringResource(R.string.common_delete),
-                                            tint = MaterialTheme.colorScheme.error
-                                        )
-                                    }
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
                     }
                 }
-            }
-
-            if (busy) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            )
+            SettingsNavigationRow(
+                title = stringResource(R.string.recovery_import),
+                summary = stringResource(R.string.recovery_import_description),
+                icon = Icons.Outlined.FileDownload,
+                showChevron = false,
+                enabled = !busy,
+                onClick = { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }
+            )
+        }
+        if (busy) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        Text(
+            stringResource(R.string.recovery_archives_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp)
+        )
+        SettingsGroup {
+            if (archives.isEmpty()) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.recovery_archives_empty)) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                )
+            } else {
+                archives.forEach { archive ->
+                    ListItem(
+                        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(enabled = !busy) {
+                            importCandidate = archive
+                        },
+                        headlineContent = { Text(archive.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        supportingContent = { Text(formatArchiveMeta(archive)) },
+                        leadingContent = { Icon(Icons.Outlined.FileDownload, contentDescription = null) },
+                        trailingContent = {
+                            IconButton(onClick = { deleteCandidate = archive }, enabled = !busy) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(R.string.common_delete),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    )
                 }
             }
         }

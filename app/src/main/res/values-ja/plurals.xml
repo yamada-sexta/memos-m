@@ -9,4 +9,16 @@
     <plurals name="drafts_publish_all_success_plural">
         <item quantity="other">%1$d 件の下書きを公開しました</item>
     </plurals>
+    <plurals name="cached_memo_count">
+        <item quantity="other">%1$d 件のメモをキャッシュ済み</item>
+    </plurals>
+    <plurals name="memo_count">
+        <item quantity="other">%1$d 件のメモ</item>
+    </plurals>
+    <plurals name="attachment_count">
+        <item quantity="other">%1$d 件の添付ファイル</item>
+    </plurals>
+    <plurals name="pending_change_count">
+        <item quantity="other">%1$d 件の未同期の変更</item>
+    </plurals>
 </resources>

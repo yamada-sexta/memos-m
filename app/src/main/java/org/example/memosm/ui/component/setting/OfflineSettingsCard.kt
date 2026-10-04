@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -135,7 +136,7 @@ fun OfflineSettingsCard(
             ListItem(
                 modifier = Modifier.clip(RoundedCornerShape(4.dp)),
                 headlineContent = { Text(stringResource(R.string.cache_cleanup_text)) },
-                supportingContent = { Text(stringResource(R.string.offline_settings_text_count, textCacheCount)) },
+                supportingContent = { Text(pluralStringResource(R.plurals.cached_memo_count, textCacheCount, textCacheCount)) },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             )
         }

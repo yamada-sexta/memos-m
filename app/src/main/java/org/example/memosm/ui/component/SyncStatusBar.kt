@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,7 +79,9 @@ fun SyncStatusBar(
 
         SyncStatus.IDLE -> {
             Icons.Outlined.Storage to stringResource(
-                R.string.sync_status_cached, cachedCount, formatSyncTime(lastSyncTime, "HH:mm")
+                R.string.sync_status_cached,
+                pluralStringResource(R.plurals.cached_memo_count, cachedCount, cachedCount),
+                formatSyncTime(lastSyncTime, "HH:mm")
             )
         }
     }

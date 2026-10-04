@@ -12,4 +12,20 @@
         <item quantity="one">%1$d Entwurf veröffentlicht</item>
         <item quantity="other">%1$d Entwürfe veröffentlicht</item>
     </plurals>
+    <plurals name="cached_memo_count">
+        <item quantity="one">%1$d Memo im Cache</item>
+        <item quantity="other">%1$d Memos im Cache</item>
+    </plurals>
+    <plurals name="memo_count">
+        <item quantity="one">%1$d Memo</item>
+        <item quantity="other">%1$d Memos</item>
+    </plurals>
+    <plurals name="attachment_count">
+        <item quantity="one">%1$d Anhang</item>
+        <item quantity="other">%1$d Anhänge</item>
+    </plurals>
+    <plurals name="pending_change_count">
+        <item quantity="one">%1$d ausstehende Änderung</item>
+        <item quantity="other">%1$d ausstehende Änderungen</item>
+    </plurals>
 </resources>

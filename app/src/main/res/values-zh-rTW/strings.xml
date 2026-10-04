@@ -202,7 +202,7 @@
     <string name="offline_predownload_running">快取中 — %1$s（第 %2$d 頁）</string>
     <string name="offline_predownload_phase_text">正在取得文字…</string>
     <string name="offline_predownload_phase_attachments">正在下載附件…</string>
-    <string name="offline_predownload_done">快取完成：%1$d 條備忘錄，%2$d 個附件</string>
+    <string name="offline_predownload_done">已快取 %1$s和%2$s。</string>
     <string name="offline_predownload_failed">快取失敗：%1$s</string>
     <string name="offline_predownload_text_button">快取全部文字</string>
     <string name="offline_predownload_attachments_button">快取全部附件</string>
@@ -226,7 +226,6 @@
     <string name="offline_settings_custom">自訂</string>
     <string name="offline_settings_cache_size_hint">輸入大小</string>
     <string name="offline_settings_cache_analysis_title">快取分析</string>
-    <string name="offline_settings_text_count">已快取 %1$d 則備忘錄</string>
     <string name="offline_settings_media_usage">媒體快取：%1$s</string>
     <string name="offline_clear_media">清除媒體快取</string>
     <string name="offline_clear_all">清除全部快取</string>
@@ -247,7 +246,7 @@
     <string name="sync_status_phase_attachments">附件</string>
     <string name="sync_status_pending">%1$d 項變更待同步</string>
     <string name="sync_status_offline">離線 · 使用本機快取</string>
-    <string name="sync_status_cached">本機快取 %1$d 條 · 已同步 %2$s</string>
+    <string name="sync_status_cached">%1$s · 已同步 %2$s</string>
     <string name="sync_status_idle">已是最新</string>
     <string name="sync_panel_title">同步與快取</string>
     <string name="sync_panel_last_sync">最近同步：%1$s</string>
@@ -298,4 +297,6 @@
     <string name="user_stats_widget_last_updated">最後更新：%1$s</string>
     <string name="sync_queue_delete_title">放棄待同步的變更？</string>
     <string name="sync_queue_delete_message">要放棄這項尚未同步的變更嗎？此動作無法復原。</string>
+    <string name="cache_cleanup_clear">清除</string>
+    <string name="recovery_import_summary">已還原%1$s與%2$s。</string>
 </resources>

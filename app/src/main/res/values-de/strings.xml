@@ -222,4 +222,8 @@
     <string name="user_stats_widget_last_updated">Zuletzt aktualisiert: %1$s</string>
     <string name="sync_queue_delete_title">Ausstehende Änderung verwerfen?</string>
     <string name="sync_queue_delete_message">Diese nicht synchronisierte Änderung verwerfen? Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="offline_predownload_done">%1$s und %2$s zwischengespeichert.</string>
+    <string name="sync_status_cached">%1$s · synchronisiert %2$s</string>
+    <string name="recovery_import_summary">%1$s und %2$s wiederhergestellt.</string>
+    <string name="cache_cleanup_clear">Leeren</string>
 </resources>

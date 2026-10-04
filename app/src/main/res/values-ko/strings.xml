@@ -222,4 +222,8 @@
     <string name="user_stats_widget_last_updated">마지막 업데이트: %1$s</string>
     <string name="sync_queue_delete_title">대기 중인 변경사항을 버리시겠습니까?</string>
     <string name="sync_queue_delete_message">동기화되지 않은 이 변경사항을 버리시겠습니까? 이 작업은 취소할 수 없습니다.</string>
+    <string name="offline_predownload_done">%1$s 및 %2$s 캐시 완료.</string>
+    <string name="sync_status_cached">%1$s · 동기화 %2$s</string>
+    <string name="recovery_import_summary">%1$s 및 %2$s 복원 완료.</string>
+    <string name="cache_cleanup_clear">비우기</string>
 </resources>

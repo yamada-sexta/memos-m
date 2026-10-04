@@ -218,4 +218,8 @@
     <string name="common_publish">Opublikuj</string>
 
     <string name="user_stats_widget_description">Wyświetla statystyki użytkownika.</string>
+    <string name="offline_predownload_done">Zapisano w pamięci podręcznej: %1$s i %2$s.</string>
+    <string name="sync_status_cached">%1$s · synchronizacja %2$s</string>
+    <string name="recovery_import_summary">Przywrócono: %1$s i %2$s.</string>
+    <string name="cache_cleanup_clear">Wyczyść</string>
 </resources>

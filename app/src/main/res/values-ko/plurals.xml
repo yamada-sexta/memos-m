@@ -9,4 +9,16 @@
     <plurals name="drafts_publish_all_success_plural">
         <item quantity="other">초안 %1$d개를 게시했습니다</item>
     </plurals>
+    <plurals name="cached_memo_count">
+        <item quantity="other">메모 %1$d개 캐시됨</item>
+    </plurals>
+    <plurals name="memo_count">
+        <item quantity="other">메모 %1$d개</item>
+    </plurals>
+    <plurals name="attachment_count">
+        <item quantity="other">첨부 파일 %1$d개</item>
+    </plurals>
+    <plurals name="pending_change_count">
+        <item quantity="other">동기화 대기 중인 변경사항 %1$d개</item>
+    </plurals>
 </resources>

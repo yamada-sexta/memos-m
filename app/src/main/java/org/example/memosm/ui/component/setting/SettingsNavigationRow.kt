@@ -20,16 +20,18 @@ internal fun SettingsNavigationRow(
     title: String,
     summary: String? = null,
     icon: ImageVector? = null,
+    showChevron: Boolean = true,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     ListItem(
-        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = onClick),
+        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(enabled = enabled, onClick = onClick),
         headlineContent = { Text(title) },
         supportingContent = summary?.let { { Text(it) } },
         leadingContent = icon?.let { { Icon(it, contentDescription = null) } },
-        trailingContent = {
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
-        },
+        trailingContent = if (showChevron) {
+            { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null) }
+        } else null,
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     )
 }

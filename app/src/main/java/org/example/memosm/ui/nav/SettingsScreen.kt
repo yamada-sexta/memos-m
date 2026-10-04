@@ -48,9 +48,9 @@ fun SettingsScreen(
     Scaffold(
         modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            if (section == SettingsSection.OFFLINE) {
+            if (section == SettingsSection.OFFLINE || section == SettingsSection.AUDIT) {
                 LargeTopAppBar(
-                    title = { Text(stringResource(section.titleRes)) },
+                    title = { Text(stringResource(section?.titleRes ?: R.string.settings_title)) },
                     navigationIcon = { ProfileBackButton(onClick = onBack) },
                     scrollBehavior = scrollBehavior
                 )
@@ -64,6 +64,8 @@ fun SettingsScreen(
     ) { innerPadding ->
         if (section == null) {
             SettingsOverview(onOpenSection = onOpenSection, modifier = Modifier.padding(innerPadding))
+        } else if (section == SettingsSection.AUDIT) {
+            AuditLogContent(modifier = Modifier.fillMaxSize().padding(innerPadding))
         } else {
             LazyColumn(
                 state = listState,
@@ -185,8 +187,13 @@ fun SettingsScreen(
                         )
                     }
                     SettingsSection.RECOVERY -> settingsItem { RecoveryCard() }
-                    SettingsSection.AUDIT -> settingsItem { AuditLogCard() }
-                    SettingsSection.ABOUT -> settingsItem { AboutAppCard(onOpenLicenses) }
+                    SettingsSection.AUDIT -> Unit
+                    SettingsSection.ABOUT -> settingsItem {
+                        AboutAppCard(
+                            onOpenLicenses = onOpenLicenses,
+                            onOpenLogs = { onOpenSection(SettingsSection.AUDIT) }
+                        )
+                    }
                     SettingsSection.INSTANCE -> settingsItem {
                         InstanceCard(uiState.session.instanceProfile ?: InstanceProfile())
                     }

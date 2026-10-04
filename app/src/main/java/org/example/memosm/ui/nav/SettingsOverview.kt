@@ -19,7 +19,7 @@ import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.ImportExport
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Settings
@@ -46,7 +46,7 @@ enum class SettingsSection(@StringRes val titleRes: Int, @StringRes val summaryR
     SHORTCUTS(R.string.profile_shortcuts, R.string.profile_shortcuts_none, Icons.Outlined.Bookmarks),
     WEBHOOKS(R.string.profile_webhooks, R.string.profile_webhooks_none, Icons.Outlined.Link),
     OFFLINE(R.string.offline_settings_title, R.string.settings_summary_offline, Icons.Outlined.CloudDownload),
-    RECOVERY(R.string.recovery_title, R.string.settings_summary_recovery, Icons.Outlined.Restore),
+    RECOVERY(R.string.recovery_title, R.string.settings_summary_recovery, Icons.Outlined.ImportExport),
     AUDIT(R.string.audit_log_title, R.string.settings_summary_audit, Icons.Outlined.History),
     ABOUT(R.string.profile_about, R.string.settings_summary_about, Icons.Outlined.Info),
     INSTANCE(R.string.profile_instance_info, R.string.settings_summary_instance, Icons.Outlined.Dns)
@@ -56,7 +56,7 @@ enum class SettingsSection(@StringRes val titleRes: Int, @StringRes val summaryR
 internal fun SettingsOverview(onOpenSection: (SettingsSection) -> Unit, modifier: Modifier = Modifier) {
     val groups = listOf(
         listOf(SettingsSection.GENERAL, SettingsSection.APPEARANCE, SettingsSection.CONTENT),
-        listOf(SettingsSection.OFFLINE, SettingsSection.RECOVERY, SettingsSection.AUDIT),
+        listOf(SettingsSection.OFFLINE, SettingsSection.RECOVERY),
         listOf(SettingsSection.ABOUT, SettingsSection.INSTANCE)
     )
     LazyColumn(

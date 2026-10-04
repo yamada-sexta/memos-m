@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -239,7 +240,9 @@ fun SyncStatusPanel(
                 is PreDownloadState.Done -> {
                     Text(
                         text = stringResource(
-                            R.string.offline_predownload_done, state.textCount, state.attachmentCount
+                            R.string.offline_predownload_done,
+                            pluralStringResource(R.plurals.memo_count, state.textCount, state.textCount),
+                            pluralStringResource(R.plurals.attachment_count, state.attachmentCount, state.attachmentCount)
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -279,7 +282,7 @@ fun SyncStatusPanel(
             Spacer(modifier = Modifier.height(4.dp))
             CacheAnalysisRow(
                 label = stringResource(R.string.offline_settings_cache_size_text),
-                value = stringResource(R.string.offline_settings_text_count, uiState.textCacheCount)
+                value = pluralStringResource(R.plurals.cached_memo_count, uiState.textCacheCount, uiState.textCacheCount)
             )
             CacheAnalysisRow(
                 label = stringResource(R.string.offline_settings_cache_size),
