@@ -340,7 +340,6 @@
     <string name="recovery_import_confirm_title">导入归档</string>
     <string name="recovery_import_confirm_message">确定导入 %1$s 吗？这可能会覆盖本地数据。</string>
     <string name="audit_log_title">同步日志</string>
-    <string name="audit_log_description">查看最近的同步、上传与备份恢复事件</string>
     <string name="audit_log_view">查看</string>
     <string name="audit_log_empty">暂无日志记录。</string>
     <string name="audit_log_account">账户：%1$s</string>

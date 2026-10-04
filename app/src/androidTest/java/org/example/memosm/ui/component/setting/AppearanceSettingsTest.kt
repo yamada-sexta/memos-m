@@ -3,7 +3,9 @@ package org.example.memosm.ui.component.setting
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertCountEquals
@@ -33,6 +35,9 @@ import org.example.memosm.data.DataStoreManager
 import org.example.memosm.model.AppFont
 import org.example.memosm.model.ColorTheme
 import org.example.memosm.model.ThemeMode
+import org.example.memosm.ui.component.LocalNetworkPermission
+import org.example.memosm.ui.component.LocalNetworkPermissionState
+import org.example.memosm.ui.nav.SettingsPageScaffold
 import org.example.memosm.ui.theme.ProfileTheme
 import org.example.memosm.ui.theme.SavedMemosMTheme
 import org.junit.After
@@ -54,29 +59,35 @@ class AppearanceSettingsTest {
     @Test fun scrollAndSingleChoiceSelectorsWorkWithTheMemoPreviewOnASmallScreen() {
         compose.setContent {
             SavedMemosMTheme(preferences) {
+              CompositionLocalProvider(LocalNetworkPermission provides LocalNetworkPermissionState({ true }, {}, { false })) {
                 ProfileTheme {
                     Box(Modifier.size(width = 360.dp, height = 400.dp)) {
-                        AppearanceSettingsContent(headerScale = 1f, modifier = Modifier.testTag("appearance"), dataStore = preferences) {
+                        SettingsPageScaffold(title = "Appearance", onBack = {}, collapsingHeader = false) { padding ->
+                          AppearanceSettingsContent(headerScale = 1f, modifier = Modifier.padding(padding).testTag("appearance"), dataStore = preferences) {
                             AppSettingsCard(
                                 pageSize = 10, onPageSizeChange = {}, headerScale = 1f, onHeaderScaleChange = {},
                                 linkPreviewEnabled = true, onLinkPreviewEnabledChange = {}, category = AppSettingsCategory.APPEARANCE
                             )
                             Text("End of appearance settings")
+                          }
                         }
                     }
                 }
+              }
             }
         }
         compose.onAllNodesWithText("Theme mode").assertCountEquals(1)
-        compose.onNodeWithContentDescription("Memos").performClick()
-        compose.waitUntil { runBlocking { preferences.appearance.first().colorTheme == ColorTheme.MEMOS } }
         repeat(2) { compose.onNodeWithTag("appearance").performTouchInput { swipeUp() } }
         compose.onNodeWithText("End of appearance settings").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Color theme").performScrollTo().performClick()
+        compose.onNodeWithText("Memos").performScrollTo().performClick()
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(timeoutMillis = 5_000) { runBlocking { preferences.appearance.first().colorTheme == ColorTheme.MEMOS } }
         compose.onNodeWithText("Theme mode").performScrollTo().performClick()
         compose.onNodeWithText("Light").assertIsDisplayed()
         compose.onNodeWithText("Dark").performClick()
         compose.onNodeWithText("Save").performClick()
-        compose.waitUntil { runBlocking { preferences.appearance.first().themeMode == ThemeMode.DARK } }
+        compose.waitUntil(timeoutMillis = 5_000) { runBlocking { preferences.appearance.first().themeMode == ThemeMode.DARK } }
         compose.onNodeWithText("Font").performScrollTo().performClick()
         compose.onNodeWithText("Serif").performClick()
         compose.onNodeWithText("Cancel").performClick()
@@ -84,7 +95,7 @@ class AppearanceSettingsTest {
         compose.onNodeWithText("Font").performClick()
         compose.onNodeWithText("Serif").performClick()
         compose.onNodeWithText("Save").performClick()
-        compose.waitUntil { runBlocking { preferences.appearance.first().font == AppFont.SERIF } }
+        compose.waitUntil(timeoutMillis = 5_000) { runBlocking { preferences.appearance.first().font == AppFont.SERIF } }
         compose.onNodeWithText("Preview").performScrollTo()
         File(context.cacheDir, "appearance-settings-preview.png").outputStream().use {
             compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)

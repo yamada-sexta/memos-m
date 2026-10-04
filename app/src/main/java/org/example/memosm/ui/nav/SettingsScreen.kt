@@ -43,24 +43,12 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
-    Scaffold(
-        modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            if (section == SettingsSection.OFFLINE || section == SettingsSection.AUDIT) {
-                LargeTopAppBar(
-                    title = { Text(stringResource(section?.titleRes ?: R.string.settings_title)) },
-                    navigationIcon = { ProfileBackButton(onClick = onBack) },
-                    scrollBehavior = scrollBehavior
-                )
-            } else {
-                TopAppBar(
-                    title = { Text(stringResource(section?.titleRes ?: R.string.settings_title)) },
-                    navigationIcon = { ProfileBackButton(onClick = onBack) }
-                )
-            }
-        }
+    SettingsPageScaffold(
+        title = stringResource(section?.titleRes ?: R.string.settings_title),
+        onBack = onBack,
+        collapsingHeader = section == SettingsSection.OFFLINE ||
+            section == SettingsSection.AUDIT || section == SettingsSection.RECOVERY,
+        modifier = modifier
     ) { innerPadding ->
         if (section == null) {
             SettingsOverview(onOpenSection = onOpenSection, modifier = Modifier.padding(innerPadding))
@@ -206,6 +194,38 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+/** A collapsing header must own the scroll behavior, otherwise it consumes swipes indefinitely. */
+@Composable
+internal fun SettingsPageScaffold(
+    title: String,
+    onBack: () -> Unit,
+    collapsingHeader: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable (PaddingValues) -> Unit
+) {
+    val scrollBehavior = if (collapsingHeader) TopAppBarDefaults.exitUntilCollapsedScrollBehavior() else null
+    Scaffold(
+        modifier = modifier.fillMaxSize().then(
+            scrollBehavior?.let { Modifier.nestedScroll(it.nestedScrollConnection) } ?: Modifier
+        ),
+        topBar = {
+            if (scrollBehavior != null) {
+                LargeTopAppBar(
+                    title = { Text(title) },
+                    navigationIcon = { ProfileBackButton(onClick = onBack) },
+                    scrollBehavior = scrollBehavior
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(title) },
+                    navigationIcon = { ProfileBackButton(onClick = onBack) }
+                )
+            }
+        },
+        content = content
+    )
 }
 
 private fun LazyListScope.settingsItem(content: @Composable () -> Unit) {

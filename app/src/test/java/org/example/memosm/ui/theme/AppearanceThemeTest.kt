@@ -70,7 +70,7 @@ class AppearanceThemeTest {
                 assertEquals(first.surface, second.surface)
                 assertEquals(first.surfaceContainerHigh, second.surfaceContainerHigh)
                 if (theme == ColorTheme.MONOCHROME) {
-                    for (color in listOf(first.primary, first.primaryContainer, first.secondary, first.tertiary, first.surface)) {
+                    for (color in listOf(first.primary, first.primaryContainer, first.secondary, first.tertiary, first.surface, first.error, first.errorContainer)) {
                         assertEquals(color.red, color.green, 0.002f)
                         assertEquals(color.green, color.blue, 0.002f)
                     }

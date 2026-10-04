@@ -52,7 +52,12 @@ fun appearanceColorScheme(
         isDark = isDark,
         style = PaletteStyle.Monochrome,
         specVersion = ColorSpec.SpecVersion.SPEC_2025
-    )
+    ).let { colors ->
+        colors.copy(
+            error = colors.primary, onError = colors.onPrimary,
+            errorContainer = colors.primaryContainer, onErrorContainer = colors.onPrimaryContainer
+        )
+    }
     ColorTheme.MEMOS -> memosColorScheme(isDark)
     ColorTheme.CUSTOM -> appearance.customHue?.let { hue ->
         dynamicColorScheme(

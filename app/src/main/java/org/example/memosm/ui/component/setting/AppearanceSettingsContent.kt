@@ -208,9 +208,6 @@ internal fun AppearanceSettingsContent(
                 onDismiss = { dialog = null },
                 onSave = { dataStore.saveFont(selected) }
             ) {
-                MemosMTheme(appearance = appearance.copy(font = selected)) {
-                    MemoAppearancePreview(headerScale, compact = true)
-                }
                 Column(Modifier.selectableGroup()) {
                     AppFont.entries.forEach { font ->
                         ChoiceRow(selected = selected == font, onClick = { selected = font }) {
@@ -233,8 +230,14 @@ internal fun AppearanceSettingsContent(
                 }
                 Column(Modifier.selectableGroup()) {
                     ColorTheme.entries.forEach { theme ->
+                        val colors = remember(theme, hue, isDark, wallpaperColors) {
+                            appearanceColorScheme(appearance.copy(colorTheme = theme, customHue = hue), wallpaperColors, isDark)
+                        }
                         ChoiceRow(selected = selected == theme, onClick = { selected = theme }) {
-                            Text(stringResource(theme.labelRes))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                PalettePreview(colors)
+                                Text(stringResource(theme.labelRes))
+                            }
                         }
                     }
                 }
@@ -254,23 +257,13 @@ internal fun AppearanceSettingsContent(
 private fun MemoAppearancePreview(headerScale: Float, compact: Boolean = false) {
     val content = stringResource(R.string.appearance_preview_memo)
     val memo = remember(content) { Memo(content = content, displayTime = Clock.System.now(), pinned = true) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (!compact) {
-            Text(
-                stringResource(R.string.appearance_preview),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 16.dp)
-            )
-        }
-        MemoItem(
-            memo = memo,
-            token = "",
-            headerScale = headerScale,
-            maxHeight = if (compact) 150.dp else androidx.compose.ui.unit.Dp.Unspecified,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-        )
-    }
+    MemoItem(
+        memo = memo,
+        token = "",
+        headerScale = headerScale,
+            maxHeight = if (compact) 150.dp else 240.dp,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    )
 }
 
 @Composable
@@ -287,11 +280,16 @@ private fun PaletteSwatch(
             .semantics { contentDescription = label }.padding(6.dp),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.size(36.dp).clip(CircleShape)) {
-            drawRect(colors.primary)
-            drawRect(colors.secondaryContainer, topLeft = Offset(size.width / 2, 0f), size = Size(size.width / 2, size.height / 2))
-            drawRect(colors.tertiaryContainer, topLeft = Offset(size.width / 2, size.height / 2), size = Size(size.width / 2, size.height / 2))
-        }
+        PalettePreview(colors)
+    }
+}
+
+@Composable
+private fun PalettePreview(colors: ColorScheme) {
+    Canvas(Modifier.size(36.dp).clip(CircleShape)) {
+        drawRect(colors.primary)
+        drawRect(colors.secondaryContainer, topLeft = Offset(size.width / 2, 0f), size = Size(size.width / 2, size.height / 2))
+        drawRect(colors.surface, topLeft = Offset(size.width / 2, size.height / 2), size = Size(size.width / 2, size.height / 2))
     }
 }
 

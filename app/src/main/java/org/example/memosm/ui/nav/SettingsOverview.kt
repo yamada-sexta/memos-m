@@ -39,7 +39,7 @@ import androidx.compose.ui.draw.clip
 import org.example.memosm.R
 import org.example.memosm.ui.component.setting.SettingsGroup
 
-enum class SettingsSection(@StringRes val titleRes: Int, @StringRes val summaryRes: Int, val icon: ImageVector) {
+enum class SettingsSection(@StringRes val titleRes: Int, @StringRes val summaryRes: Int?, val icon: ImageVector) {
     GENERAL(R.string.settings_group_general, R.string.settings_summary_general, Icons.Outlined.Settings),
     APPEARANCE(R.string.settings_appearance, R.string.settings_summary_appearance, Icons.Outlined.Palette),
     CONTENT(R.string.settings_memos, R.string.settings_summary_memos, Icons.Outlined.Description),
@@ -47,7 +47,7 @@ enum class SettingsSection(@StringRes val titleRes: Int, @StringRes val summaryR
     WEBHOOKS(R.string.profile_webhooks, R.string.profile_webhooks_none, Icons.Outlined.Link),
     OFFLINE(R.string.offline_settings_title, R.string.settings_summary_offline, Icons.Outlined.CloudDownload),
     RECOVERY(R.string.recovery_title, R.string.settings_summary_recovery, Icons.Outlined.ImportExport),
-    AUDIT(R.string.audit_log_title, R.string.settings_summary_audit, Icons.Outlined.History),
+    AUDIT(R.string.audit_log_title, null, Icons.Outlined.History),
     ABOUT(R.string.profile_about, R.string.settings_summary_about, Icons.Outlined.Info),
     INSTANCE(R.string.profile_instance_info, R.string.settings_summary_instance, Icons.Outlined.Dns)
 }
@@ -73,7 +73,7 @@ internal fun SettingsOverview(onOpenSection: (SettingsSection) -> Unit, modifier
                             ListItem(
                                 modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { onOpenSection(section) },
                                 headlineContent = { Text(stringResource(section.titleRes)) },
-                                supportingContent = { Text(stringResource(section.summaryRes)) },
+                                supportingContent = section.summaryRes?.let { { Text(stringResource(it)) } },
                                 leadingContent = {
                                     Surface(
                                         modifier = Modifier.size(40.dp),

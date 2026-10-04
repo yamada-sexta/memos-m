@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
@@ -21,7 +20,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
@@ -110,7 +108,9 @@ class MemoCatchTest {
         compose.onNodeWithTag("memo_catch_playfield").assert(
             SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Tray position: 88 percent")
         )
-        compose.onNodeWithTag("memo_catch_playfield").performSemanticsAction(SemanticsActions.CustomActions) { actions ->
+        val actions = compose.onNodeWithTag("memo_catch_playfield")
+            .fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        compose.runOnIdle {
             assertEquals(2, actions.size)
             actions.first().action()
         }

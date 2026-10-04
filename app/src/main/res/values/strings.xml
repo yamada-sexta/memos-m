@@ -270,7 +270,6 @@
     <string name="recovery_import_confirm_title">Import archive</string>
     <string name="recovery_import_confirm_message">Import %1$s? This may overwrite local data.</string>
     <string name="audit_log_title">Sync log</string>
-    <string name="audit_log_description">View recent sync, upload and recovery events</string>
     <string name="audit_log_view">View</string>
     <string name="audit_log_empty">No audit entries recorded yet.</string>
     <string name="audit_log_account">Account: %1$s</string>
@@ -372,7 +371,6 @@
     <string name="settings_summary_network" tools:ignore="MissingTranslation">Local network access</string>
     <string name="settings_summary_offline" tools:ignore="MissingTranslation">Automatic caching, storage limits, clear cache</string>
     <string name="settings_summary_recovery" tools:ignore="MissingTranslation">Export and restore your data</string>
-    <string name="settings_summary_audit" tools:ignore="MissingTranslation">Recent sync activity</string>
     <string name="settings_summary_about" tools:ignore="MissingTranslation">App version, logs, source code, licenses</string>
     <string name="settings_cache_files_used" tools:ignore="MissingTranslation">Used by cached files</string>
     <string name="settings_cache_files_limit" tools:ignore="MissingTranslation">%1$s file cache limit</string>
@@ -381,8 +379,7 @@
     <string name="settings_shortcuts_summary" tools:ignore="MissingTranslation">Manage saved memo filters</string>
     <string name="settings_webhooks_summary" tools:ignore="MissingTranslation">Manage webhook integrations</string>
     <string name="settings_summary_instance" tools:ignore="MissingTranslation">Server version, mode, address</string>
-    <string name="appearance_preview" tools:ignore="MissingTranslation">Preview</string>
-    <string name="appearance_preview_memo" tools:ignore="MissingTranslation"># Make room for ideas\n\nA small thought can become **something great**.\n\n- Capture an idea\n- Come back to it later</string>
+    <string name="appearance_preview_memo" tools:ignore="MissingTranslation">### Ideas for today\n\nA small thought can become **something great**.\n\n- Capture an idea\n- Come back to it later</string>
     <string name="appearance_theme_mode" tools:ignore="MissingTranslation">Theme mode</string>
     <string name="appearance_mode_system" tools:ignore="MissingTranslation">Follow system</string>
     <string name="appearance_mode_light" tools:ignore="MissingTranslation">Light</string>

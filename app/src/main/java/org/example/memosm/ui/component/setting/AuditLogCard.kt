@@ -51,20 +51,12 @@ fun AuditLogContent(modifier: Modifier = Modifier) {
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item(key = "description") {
-            Text(
-                text = stringResource(R.string.audit_log_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 8.dp)
-            )
-        }
         item(key = "filters") {
             Row(
                 modifier = Modifier
                     .widthIn(max = 600.dp)
                     .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 12.dp)
+                    .padding(bottom = 12.dp)
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

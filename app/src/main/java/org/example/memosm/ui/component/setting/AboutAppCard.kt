@@ -152,7 +152,6 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit) {
 
         SettingsNavigationRow(
             title = stringResource(R.string.audit_log_title),
-            summary = stringResource(R.string.settings_summary_audit),
             icon = Icons.Outlined.History,
             onClick = onOpenLogs
         )

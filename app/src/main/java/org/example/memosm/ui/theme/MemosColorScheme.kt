@@ -49,6 +49,18 @@ private val MemosLightColors = lightColorScheme(
     onErrorContainer = Color(0xFF9C433F),
     inverseSurface = Color(0xFF1D1F23),
     inverseOnSurface = Color(0xFFDBDEE2),
+    primaryFixed = Color(0xFFE9E6DC),
+    primaryFixedDim = Color(0xFFDAD9D4),
+    onPrimaryFixed = Color(0xFF305880),
+    onPrimaryFixedVariant = Color(0xFF242011),
+    secondaryFixed = Color(0xFFE9E6DC),
+    secondaryFixedDim = Color(0xFFDAD9D4),
+    onSecondaryFixed = Color(0xFF535146),
+    onSecondaryFixedVariant = Color(0xFF242011),
+    tertiaryFixed = Color(0xFFE9E6DC),
+    tertiaryFixedDim = Color(0xFFDAD9D4),
+    onTertiaryFixed = Color(0xFF28261B),
+    onTertiaryFixedVariant = Color(0xFF242011),
     inversePrimary = Color(0xFF5B97D3)
 )
 
@@ -88,5 +100,17 @@ private val MemosDarkColors = darkColorScheme(
     onErrorContainer = Color(0xFFDBDEE2),
     inverseSurface = Color(0xFFFAF9F5),
     inverseOnSurface = Color(0xFF242011),
+    primaryFixed = Color(0xFFE9E6DC),
+    primaryFixedDim = Color(0xFFDAD9D4),
+    onPrimaryFixed = Color(0xFF305880),
+    onPrimaryFixedVariant = Color(0xFF242011),
+    secondaryFixed = Color(0xFFE9E6DC),
+    secondaryFixedDim = Color(0xFFDAD9D4),
+    onSecondaryFixed = Color(0xFF535146),
+    onSecondaryFixedVariant = Color(0xFF242011),
+    tertiaryFixed = Color(0xFFE9E6DC),
+    tertiaryFixedDim = Color(0xFFDAD9D4),
+    onTertiaryFixed = Color(0xFF28261B),
+    onTertiaryFixedVariant = Color(0xFF242011),
     inversePrimary = Color(0xFF305880)
 )
