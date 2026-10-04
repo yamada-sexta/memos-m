@@ -4,120 +4,109 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-private const val TAG = "ConnectivityObserver"
+/** Keeps capability and per-UID restriction events together, including unvalidated LANs. */
+internal class NetworkAccessTracker<N> {
+    data class Access(val internet: Boolean = false, val validated: Boolean = false,
+        val wifi: Boolean = false, val blocked: Boolean = false)
+    private val networks = mutableMapOf<N, Access>()
+    val online get() = networks.values.any { it.internet && it.validated && !it.blocked }
+    val wifi get() = networks.values.any { it.wifi && !it.blocked }
+    val blocked get() = networks.isNotEmpty() && networks.values.all { it.blocked }
+    fun available(network: N) {
+        // A default-network callback stops observing the previous best network.
+        networks.keys.retainAll(setOf(network))
+        networks.putIfAbsent(network, Access())
+    }
+    fun lost(network: N) { networks.remove(network) }
+    fun capabilities(network: N, internet: Boolean, validated: Boolean, wifi: Boolean) {
+        networks[network] = (networks[network] ?: Access()).copy(internet = internet, validated = validated, wifi = wifi)
+    }
+    fun blocked(network: N, blocked: Boolean) {
+        networks[network] = (networks[network] ?: Access()).copy(blocked = blocked)
+    }
+}
 
-/**
- * Observes the device network state and exposes whether the app is online
- * and whether the active network is Wi-Fi (used to gate pre-downloads).
- *
- * This is the source of truth for offline detection - unlike fetch exceptions,
- * it lets us skip network requests entirely (and their long timeouts) when
- * the device has no connectivity.
- *
- * Online/offline is derived from the set of networks reported by
- * [ConnectivityManager.NetworkCallback] (not from [ConnectivityManager.activeNetwork],
- * which lags behind inside the onLost callback and would leave us "online"
- * after every network is gone).
- */
+/** Device connectivity is a hint; server reachability remains the authority for sync. */
 class ConnectivityObserver(context: Context) {
-
-    private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-    private val _isOnline = MutableStateFlow(checkOnline())
-    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
-
-    private val _isWifi = MutableStateFlow(checkWifi())
-    val isWifi: StateFlow<Boolean> = _isWifi.asStateFlow()
-
+    private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
     private val stateLock = Any()
+    private val tracker = NetworkAccessTracker<Network>()
+    private val _isOnline = MutableStateFlow(false)
+    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+    private val _isWifi = MutableStateFlow(false)
+    val isWifi: StateFlow<Boolean> = _isWifi.asStateFlow()
+    private val _isBlocked = MutableStateFlow(false)
+    val isBlocked: StateFlow<Boolean> = _isBlocked.asStateFlow()
 
-    /** Networks currently reported as available by the system. */
-    private val networks = mutableSetOf<Network>()
+    private fun updateState() {
+        _isBlocked.value = tracker.blocked
+        _isOnline.value = tracker.online
+        _isWifi.value = tracker.wifi
+    }
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            Log.d(TAG, "onAvailable: network=$network")
-            synchronized(stateLock) { networks.add(network) }
+        override fun onAvailable(network: Network) = synchronized(stateLock) {
+            tracker.available(network)
             updateState()
         }
-
-        override fun onLost(network: Network) {
-            Log.d(TAG, "onLost: network=$network")
-            synchronized(stateLock) { networks.remove(network) }
+        override fun onLost(network: Network) = synchronized(stateLock) {
+            tracker.lost(network)
             updateState()
         }
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = synchronized(stateLock) {
+            tracker.capabilities(network,
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+            updateState()
+        }
+        override fun onBlockedStatusChanged(network: Network, blocked: Boolean) = synchronized(stateLock) {
+            Log.d("ConnectivityObserver", "onBlockedStatusChanged: blocked=$blocked")
+            tracker.blocked(network, blocked)
+            updateState()
+        }
+    }
 
-        override fun onCapabilitiesChanged(
-            network: Network, networkCapabilities: NetworkCapabilities
-        ) {
-            // Pre-existing networks (already connected when the callback was
-            // registered) never get onAvailable, but their capabilities still
-            // fire here - treat the active network as "ours" too.
-            val tracked = synchronized(stateLock) { network in networks }
-            if (tracked || network == connectivityManager.activeNetwork) {
-                updateState()
-            }
+    /** Recover a stale restriction hint if Android omitted the unblock callback. */
+    fun refreshBlockedState() {
+        if (!_isBlocked.value) return
+        // activeNetwork is null when the default network is blocked for this UID.
+        // Query outside callbacks; an accessible network proves the restriction ended.
+        val network = connectivityManager.activeNetwork ?: return
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return
+        synchronized(stateLock) {
+            tracker.available(network)
+            tracker.capabilities(network,
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+            tracker.blocked(network, false)
+            updateState()
         }
     }
 
     init {
+        // Seed once outside callbacks. Callback arguments are ordered; synchronous
+        // capability queries inside them can return stale data during policy changes.
+        connectivityManager.activeNetwork?.let { network ->
+            connectivityManager.getNetworkCapabilities(network)?.let { capabilities ->
+                tracker.capabilities(network,
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+                updateState()
+            }
+        }
         try {
-            val request = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                .build()
-            connectivityManager.registerNetworkCallback(request, callback)
-            updateState()
-            // Cold-start race: at app launch the activeNetwork may still be
-            // null (or the callback burst not delivered yet), which would make
-            // the app treat a connected device as offline and serve stale
-            // cache. Re-check shortly after registration.
-            Handler(Looper.getMainLooper()).postDelayed({ updateState() }, 300)
+            // The default network callback also observes unvalidated/local networks.
+            connectivityManager.registerDefaultNetworkCallback(callback)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to register network callback", e)
+            Log.e("ConnectivityObserver", "Failed to register network callback", e)
         }
-    }
-
-    /**
-     * Online/offline = any callback-reported network OR the active network
-     * with the INTERNET capability. The activeNetwork union covers the
-     * cold-start window where the callback set is still empty.
-     */
-    private fun updateState() {
-        val active = connectivityManager.activeNetwork
-        val tracked = synchronized(stateLock) { networks.toSet() }
-        val nets = tracked + (active?.let { setOf(it) } ?: emptySet())
-        _isOnline.value = nets.any { net ->
-            connectivityManager.getNetworkCapabilities(net)?.let { capabilities ->
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            } == true
-        }
-        _isWifi.value = nets.any { net ->
-            connectivityManager.getNetworkCapabilities(net)
-                ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-        }
-    }
-
-    private fun checkOnline(): Boolean {
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-    }
-
-    private fun checkWifi(): Boolean {
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }
 }

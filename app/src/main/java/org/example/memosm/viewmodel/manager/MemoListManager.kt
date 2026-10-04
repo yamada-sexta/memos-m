@@ -109,11 +109,13 @@ class ExploreMemoListManager(
     scope: CoroutineScope,
     private val apiProvider: () -> MemosApi?,
     private val pageSizeProvider: () -> Int,
-    cacheCallbacks: CacheCallbacks<Memo>? = null
+    cacheCallbacks: CacheCallbacks<Memo>? = null,
+    protectedNamesProvider: (() -> Set<String>)? = null
 ) : BaseListManager<Memo>(
     scope,
     cacheCallbacks = cacheCallbacks,
     nameProvider = { it.name },
+    protectedNamesProvider = protectedNamesProvider,
     sortComparator = MEMO_TIME_COMPARATOR
 ) {
 
@@ -145,11 +147,13 @@ class ArchivedMemoListManager(
     private val apiProvider: () -> MemosApi?,
     private val currentUserProvider: () -> User?,
     private val pageSizeProvider: () -> Int,
-    cacheCallbacks: CacheCallbacks<Memo>? = null
+    cacheCallbacks: CacheCallbacks<Memo>? = null,
+    protectedNamesProvider: (() -> Set<String>)? = null
 ) : BaseListManager<Memo>(
     scope,
     cacheCallbacks = cacheCallbacks,
     nameProvider = { it.name },
+    protectedNamesProvider = protectedNamesProvider,
     sortComparator = MEMO_TIME_COMPARATOR
 ) {
 
@@ -201,11 +205,13 @@ class SearchMemoListManager(
     private val apiProvider: () -> MemosApi?,
     private val pageSizeProvider: () -> Int,
     cacheCallbacks: CacheCallbacks<Memo>? = null,
-    private val localSearchProvider: suspend (LocalSearchFilter) -> List<Memo> = { emptyList() }
+    private val localSearchProvider: suspend (LocalSearchFilter) -> List<Memo> = { emptyList() },
+    protectedNamesProvider: (() -> Set<String>)? = null
 ) : BaseListManager<Memo>(
     scope,
     cacheCallbacks = cacheCallbacks,
-    nameProvider = { it.name }
+    nameProvider = { it.name },
+    protectedNamesProvider = protectedNamesProvider
 ) {
 
     private var currentFilter: String? = null
@@ -234,7 +240,7 @@ class SearchMemoListManager(
     fun searchLocal() {
         launchRequest { checkCurrent ->
             try {
-                val items = localSearchProvider(currentLocalFilter)
+                val items = excludeForgotten(localSearchProvider(currentLocalFilter))
                 coroutineContext.ensureActive()
                 checkCurrent()
                 _listState.update {

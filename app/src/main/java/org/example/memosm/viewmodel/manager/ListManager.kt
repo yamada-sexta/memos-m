@@ -4,6 +4,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +21,7 @@ interface ListManager<T> {
 
     // Refresh: true to reload from page 1, false to fetch if empty
     // SoftRefresh: when true, keeps existing items visible during refresh (no reset)
-    fun fetch(refresh: Boolean = false, softRefresh: Boolean = false)
+    fun fetch(refresh: Boolean = false, softRefresh: Boolean = false): Job?
 
     // Load next page if available
     fun loadMore()
@@ -33,8 +35,7 @@ interface ListManager<T> {
  */
 data class CacheCallbacks<T>(
     /**
-     * Called on successful fetch with the merged list of items (the network
-     * page plus any cached items it didn't mention). The cache always merges:
+     * Called with the actual server page, never cached placeholders. The cache merges:
      * a page-1 refresh must not wipe the full-history cache built by the
      * pre-downloader, so implementations upsert the given items rather than
      * replacing the whole cache.
@@ -75,8 +76,9 @@ abstract class BaseListManager<T>(
     @Volatile
     private var generation = 0L
     private val requests = java.util.concurrent.ConcurrentHashMap.newKeySet<Job>()
+    private val removedNames = mutableSetOf<String>()
 
-    protected fun launchRequest(block: suspend CoroutineScope.(() -> Unit) -> Unit) {
+    protected fun launchRequest(block: suspend CoroutineScope.(() -> Unit) -> Unit): Job {
         val expected = generation
         val job = scope.launch {
             val checkCurrent = {
@@ -87,7 +89,11 @@ abstract class BaseListManager<T>(
             block(checkCurrent)
         }
         requests.add(job)
-        job.invokeOnCompletion { requests.remove(job) }
+        job.invokeOnCompletion { cause ->
+            requests.remove(job)
+            if (cause != null && generation == expected) _listState.update { it.copy(isLoading = false) }
+        }
+        return job
     }
 
     // Abstract methods to be implemented by specific managers
@@ -97,16 +103,20 @@ abstract class BaseListManager<T>(
     // Optional: Process item before adding to state (e.g. resolve relative URLs)
     protected open suspend fun processItem(item: T): T = item
 
-    override fun fetch(refresh: Boolean, softRefresh: Boolean) {
+    override fun fetch(refresh: Boolean, softRefresh: Boolean): Job? {
         android.util.Log.d(
             TAG,
             "fetch: refresh=$refresh, softRefresh=$softRefresh, currentItems=${_listState.value.items.size}"
         )
 
-        // If already loading, skip
+        // An explicit refresh supersedes stale reads without blanking the list.
+        if (refresh) {
+            cancelRequests()
+            removedNames.clear()
+        }
         if (_listState.value.isLoading) {
             android.util.Log.d(TAG, "fetch: already loading, skipping")
-            return
+            return null
         }
 
         // If not refreshing and we already have items, we don't need to fetch page 1 again.
@@ -116,7 +126,7 @@ abstract class BaseListManager<T>(
             android.util.Log.d(
                 TAG, "fetch: items exist and not refreshing, skipping"
             )
-            return
+            return null
         }
 
         // Local-first: on refresh, keep the current items visible (no blank
@@ -131,7 +141,7 @@ abstract class BaseListManager<T>(
             _listState.update { it.copy(isLoading = true) }
         }
 
-        loadInternal(pageToken = null)
+        return loadInternal(pageToken = null)
     }
 
     override fun loadMore() {
@@ -148,11 +158,27 @@ abstract class BaseListManager<T>(
 
     override fun reset() {
         android.util.Log.d(TAG, "reset")
+        cancelRequests()
+        removedNames.clear()
+        _listState.update { initialState }
+    }
+
+    /** Cancel suspended reads, keeping the current items and pagination. */
+    fun cancelRequests() {
         generation++
         requests.toList().forEach { it.cancel() }
         requests.clear()
-        _listState.update { initialState }
+        _listState.update { it.copy(isLoading = false) }
     }
+
+    /** Exclude a confirmed deletion from reads already in flight, including cache prefill. */
+    fun forget(name: String) {
+        removedNames.add(name)
+        remove { nameProvider?.invoke(it) == name }
+    }
+
+    protected fun excludeForgotten(items: List<T>): List<T> =
+        items.filterNot { nameProvider?.invoke(it) in removedNames }
 
     /**
      * Load items directly from the local cache without hitting the network.
@@ -164,7 +190,7 @@ abstract class BaseListManager<T>(
         if (cacheCallbacks == null) return
         launchRequest { checkCurrent ->
             try {
-                val cachedItems = cacheCallbacks.getCachedData(null)
+                val cachedItems = cacheCallbacks.getCachedData(null).filterNot { nameProvider?.invoke(it) in removedNames }
                 coroutineContext.ensureActive()
                 checkCurrent()
                 if (cachedItems.isNotEmpty()) {
@@ -233,8 +259,9 @@ abstract class BaseListManager<T>(
         }
     }
 
-    private fun loadInternal(pageToken: String?) {
-        launchRequest { checkCurrent ->
+    private fun loadInternal(pageToken: String?): Job {
+        val startingNames = _listState.value.items.mapNotNull { nameProvider?.invoke(it) }.toSet()
+        return launchRequest { checkCurrent ->
             try {
                 android.util.Log.d(TAG, "loadInternal: pageToken=$pageToken")
 
@@ -267,6 +294,7 @@ abstract class BaseListManager<T>(
                     }
                     coroutineContext.ensureActive()
                     checkCurrent()
+                    cachedPrefill = cachedPrefill.filterNot { np?.invoke(it) in removedNames }
                     if (cachedPrefill.isNotEmpty()) {
                         _listState.update { it.copy(
                             items = sortIfNeeded(cachedPrefill),
@@ -280,12 +308,13 @@ abstract class BaseListManager<T>(
 
                 _listState.update { it.copy(isLoading = true, isOffline = false) }
 
-                val (newItems, rawNextToken) = fetchFromApi(pageToken)
+                val (newItems, rawNextToken) = withTimeoutOrNull(30_000) { fetchFromApi(pageToken) }
+                    ?: throw IOException("List request timed out")
                 coroutineContext.ensureActive()
                 checkCurrent()
                 val nextToken = if (rawNextToken.isNullOrBlank()) null else rawNextToken
 
-                val processedItems = newItems.map { processItem(it) }
+                val processedItems = newItems.map { processItem(it) }.filterNot { np?.invoke(it) in removedNames }
                 coroutineContext.ensureActive()
                 checkCurrent()
 
@@ -362,8 +391,11 @@ abstract class BaseListManager<T>(
                 _listState.update { current ->
                     val finalItems = if (np != null && pageToken == null) {
                         val updatedNames = updatedItems.mapNotNull(np!!).toHashSet()
-                        val localOnly = current.items.filter { np!!(it) !in updatedNames }
                         val protectedNames = protectedNamesProvider?.invoke().orEmpty()
+                        val localOnly = current.items.filter {
+                            val name = np!!(it)
+                            name !in updatedNames && (name !in startingNames || name in protectedNames)
+                        }
                         val merged = if (protectedNames.isEmpty()) {
                             updatedItems
                         } else {
@@ -384,8 +416,13 @@ abstract class BaseListManager<T>(
                     } else {
                         updatedItems
                     }
+                    val protectedNames = protectedNamesProvider?.invoke().orEmpty()
+                    val protectedItems = finalItems.map { item ->
+                        val name = np?.invoke(item)
+                        if (name in protectedNames) current.items.firstOrNull { np?.invoke(it) == name } ?: item else item
+                    }
                     current.copy(
-                        items = finalItems,
+                        items = protectedItems.filterNot { np?.invoke(it) in removedNames },
                         nextPageToken = nextToken,
                         isLoading = false,
                         isOffline = false,
@@ -398,7 +435,8 @@ abstract class BaseListManager<T>(
                 // merges into the cache (see CacheCallbacks.onFetchSuccess).
                 if (cacheCallbacks != null) {
                     try {
-                        cacheCallbacks.onFetchSuccess(updatedItems)
+                        checkCurrent()
+                        cacheCallbacks.onFetchSuccess(processedItems.filterNot { np?.invoke(it) in removedNames })
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -418,9 +456,9 @@ abstract class BaseListManager<T>(
                 // On failure, try to load from cache (only for initial fetch)
                 if (pageToken == null && cacheCallbacks != null) {
                     try {
-                        val cachedItems = cacheCallbacks.getCachedData(null)
-                coroutineContext.ensureActive()
-                checkCurrent()
+                        val cachedItems = cacheCallbacks.getCachedData(null).filterNot { nameProvider?.invoke(it) in removedNames }
+                        coroutineContext.ensureActive()
+                        checkCurrent()
                         if (cachedItems.isNotEmpty()) {
                             android.util.Log.d(
                                 TAG, "Loaded ${cachedItems.size} items from cache"
@@ -430,6 +468,7 @@ abstract class BaseListManager<T>(
                                 isLoading = false,
                                 nextPageToken = null, // All cached pages are already served
                                 isOffline = true,  // Mark as offline/cached data
+                                showingCached = true,
                                 errorMessage = errorMessage
                             ) }
                             return@launchRequest

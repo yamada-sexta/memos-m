@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +59,8 @@ import org.example.memosm.viewmodel.delegates.WebhookDelegate
 import org.example.memosm.viewmodel.delegates.WebhookDelegateImpl
 import org.example.memosm.viewmodel.manager.ArchivedMemoListManager
 import org.example.memosm.viewmodel.manager.AttachmentManager
+import org.example.memosm.viewmodel.manager.BaseListManager
+import org.example.memosm.viewmodel.manager.MemoCacheReconciler
 import org.example.memosm.viewmodel.manager.CacheCallbacks
 import org.example.memosm.viewmodel.manager.CommentListManager
 import org.example.memosm.viewmodel.manager.ExploreMemoListManager
@@ -134,6 +137,7 @@ class MemosViewModel(
             refreshTextCacheCount()
             // Pre-download attachments of what is now visible, for offline viewing.
             preDownloadManager.preloadVisibleAttachments(memos)
+            memoCacheReconciler.noteFetched(memos.mapNotNull { it.name }.toSet())
         }, getCachedData = { limit ->
             val accountId = activeAccountId()
                 ?: return@CacheCallbacks emptyList()
@@ -141,15 +145,7 @@ class MemosViewModel(
                 accountId, CacheListType.USER, limit = limit
             )
         }),
-        protectedNamesProvider = {
-            // Memos with a queued offline UPDATE keep their local (newer)
-            // content until the op is pushed, so a refresh cannot regress them
-            // to stale server content.
-            _uiState.value.pendingOps
-                .filter { it.type == PendingOpType.UPDATE.name }
-                .mapNotNull { it.memoName }
-                .toSet()
-        }
+        protectedNamesProvider = ::pendingMemoNames
     )
 
     private val exploreMemoManager: ExploreMemoListManager =
@@ -157,6 +153,7 @@ class MemosViewModel(
             scope = accountSession.readScope,
             apiProvider = { api },
             pageSizeProvider = { _uiState.value.appSettings.pageSize },
+            protectedNamesProvider = ::pendingMemoNames,
             cacheCallbacks = CacheCallbacks(onFetchSuccess = { memos ->
                 val context = accountSession.current ?: return@CacheCallbacks
                 val accountId = context.account.id
@@ -166,6 +163,7 @@ class MemosViewModel(
                 if (!accountSession.isCurrent(context)) return@CacheCallbacks
                 refreshTextCacheCount()
                 preDownloadManager.preloadVisibleAttachments(memos)
+                memoCacheReconciler.noteFetched(memos.mapNotNull { it.name }.toSet())
             }, getCachedData = { limit ->
                 val accountId = activeAccountId()
                     ?: return@CacheCallbacks emptyList()
@@ -181,6 +179,7 @@ class MemosViewModel(
             apiProvider = { api },
             currentUserProvider = { _uiState.value.session.currUser },
             pageSizeProvider = { _uiState.value.appSettings.pageSize },
+            protectedNamesProvider = ::pendingMemoNames,
             cacheCallbacks = CacheCallbacks(onFetchSuccess = { memos ->
                 val context = accountSession.current ?: return@CacheCallbacks
                 val accountId = context.account.id
@@ -190,6 +189,7 @@ class MemosViewModel(
                 if (!accountSession.isCurrent(context)) return@CacheCallbacks
                 refreshTextCacheCount()
                 preDownloadManager.preloadVisibleAttachments(memos)
+                memoCacheReconciler.noteFetched(memos.mapNotNull { it.name }.toSet())
             }, getCachedData = { limit ->
                 val accountId = activeAccountId()
                     ?: return@CacheCallbacks emptyList()
@@ -208,6 +208,7 @@ class MemosViewModel(
         // searchCachedMemos, so writing a dedicated SEARCH list would only
         // duplicate data and bloat the database without any reader.
         cacheCallbacks = CacheCallbacks(onFetchSuccess = {}, getCachedData = { emptyList() }),
+        protectedNamesProvider = ::pendingMemoNames,
         localSearchProvider = { filter ->
             val accountId = activeAccountId()
             if (accountId == null) emptyList()
@@ -246,7 +247,8 @@ class MemosViewModel(
                 accountId, CacheListType.COMMENT, parentName = parent
             )
         }),
-        isOnlineProvider = { _uiState.value.isOnline }
+        isOnlineProvider = { _uiState.value.isOnline },
+        protectedNamesProvider = ::pendingMemoNames
     )
 
     private val attachmentManager: AttachmentManager =
@@ -273,6 +275,10 @@ class MemosViewModel(
             })
         )
 
+    /** Preserve queued creates and edits in every list until the server acknowledges them. */
+    private fun pendingMemoNames(): Set<String> = _uiState.value.pendingOps
+        .flatMap { listOfNotNull(it.memoName, it.parentName) }.toSet()
+
     private var collectionJob: Job? = null
 
     // Server-reachability state machine (one-shot + periodic probes); bridged
@@ -280,7 +286,11 @@ class MemosViewModel(
     private val reachabilityMonitor = ServerReachabilityMonitor(
         scope = viewModelScope,
         apiProvider = { api },
-        accountIdProvider = { activeAccountId() }
+        accountIdProvider = { activeAccountId() },
+        isBlockedProvider = {
+            connectivityObserver.refreshBlockedState()
+            connectivityObserver.isBlocked.value
+        }
     )
 
     private val _attachmentAspectRatios =
@@ -398,12 +408,11 @@ class MemosViewModel(
         }
 
         override fun removeMemoFromLists(memoName: String) {
-            val isSame = { m: Memo -> m.name == memoName }
-            userMemoManager.remove(isSame)
-            exploreMemoManager.remove(isSame)
-            archivedMemoManager.remove(isSame)
-            searchMemoManager.remove(isSame)
-            commentManager.remove(isSame)
+            userMemoManager.forget(memoName)
+            exploreMemoManager.forget(memoName)
+            archivedMemoManager.forget(memoName)
+            searchMemoManager.forget(memoName)
+            commentManager.forget(memoName)
         }
 
         override fun refreshUserMemos() {
@@ -458,6 +467,16 @@ class MemosViewModel(
         draftManager,
         { _uiState.value.isOnline })
 
+    private var manualRefreshJob: Job? = null
+    private val memoCacheReconciler = MemoCacheReconciler(accountSession, memoCacheRepository) { name ->
+        memoListUpdater.removeMemoFromLists(name)
+        if (_uiState.value.detailPane.selectedMemo?.name == name) {
+            commentManager.clearParent()
+            _uiState.update { it.copy(detailPane = DetailPaneState()) }
+        }
+        refreshTextCacheCount()
+    }
+
     private val unregisterBackupHook = org.example.memosm.data.backup.BackupCoordinator.register { restoring ->
         if (restoring) {
             // Keep the settings destination mounted while its restore coroutine is running.
@@ -465,6 +484,8 @@ class MemosViewModel(
             syncManager.cancelSync()
             preDownloadManager.cancel()
             reachabilityMonitor.cancelProbe()
+            memoCacheReconciler.cancel()
+            manualRefreshJob?.cancel()
         } else {
             attachmentCacheManager.invalidateLocalIndex()
             if (org.example.memosm.data.backup.BackupCoordinator.startupReady.value) {
@@ -497,14 +518,21 @@ class MemosViewModel(
         }
     }
 
-    private fun runRecoverySequence() {
+    private fun runRecoverySequence() = recoverConnection()
+
+    private fun recoverConnection(excludedManager: BaseListManager<*>? = null) {
         if (!org.example.memosm.data.backup.BackupCoordinator.startupReady.value || org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
+        val reachable = reachabilityMonitor.state.value
+        _uiState.update { it.copy(isOnline = reachable.isOnline, connectionState = reachable.connectionState, syncError = reachable.error) }
+        if (!reachable.isOnline) return
         syncManager.pushPendingChanges()
         preDownloadManager.maybeAutoDownload()
+        if (_uiState.value.session.currUser == null) fetchCurrentUser()
         listOf(userMemoManager, exploreMemoManager, archivedMemoManager).forEach { manager ->
-            manager.updateState { it.copy(isOffline = false, errorMessage = null) }
-            if (manager.listState.value.showingCached) manager.fetch(refresh = true)
+            if (manager !== excludedManager && (manager.listState.value.showingCached || manager.listState.value.isOffline))
+                manager.fetch(refresh = true)
         }
+        memoCacheReconciler.start()
     }
 
     // Keep this one as it's used by the delegate directly above
@@ -516,6 +544,8 @@ class MemosViewModel(
         syncManager.cancelSync()
         preDownloadManager.cancel()
         reachabilityMonitor.cancelProbe()
+        memoCacheReconciler.cancel()
+        manualRefreshJob?.cancel()
         userMemoManager.reset()
         exploreMemoManager.reset()
         archivedMemoManager.reset()
@@ -628,25 +658,32 @@ class MemosViewModel(
             }
         }
         viewModelScope.launch {
-            connectivityObserver.isOnline.collect { online ->
-                if (!online) {
-                    reachabilityMonitor.cancelProbe()
-                    _uiState.update {
-                        it.copy(isOnline = false, connectionState = ConnectionState.CHECKING)
+            combine(connectivityObserver.isOnline, connectivityObserver.isBlocked) { online, blocked -> online to blocked }
+                .distinctUntilChanged().collect { (online, blocked) ->
+                    if (!online || blocked) {
+                        reachabilityMonitor.cancelProbe()
+                        _uiState.update {
+                            it.copy(isOnline = false, connectionState = ConnectionState.CHECKING)
+                        }
+                        // Stop active network work promptly; durable Room queue and
+                        // optimistic cache remain intact for the next recovery pass.
+                        syncManager.cancelSync()
+                        preDownloadManager.cancel()
+                        memoCacheReconciler.cancel()
+                        listOf(userMemoManager, exploreMemoManager, archivedMemoManager, searchMemoManager, commentManager, attachmentManager)
+                            .forEach { manager ->
+                                manager.cancelRequests()
+                                manager.updateState { it.copy(isOffline = true, showingCached = it.items.isNotEmpty()) }
+                            }
+                        // Even when the system reports no validated Internet (common on
+                        // emulators using adb reverse, or captive portals the OS hasn't
+                        // validated yet), the server may still be reachable. Probe it
+                        // rather than serving stale cache indefinitely.
+                        reachabilityMonitor.checkNow(::runRecoverySequence)
+                    } else {
+                        reachabilityMonitor.checkNow(::runRecoverySequence)
                     }
-                    // Stop active network work promptly; durable Room queue and
-                    // optimistic cache remain intact for the next recovery pass.
-                    syncManager.cancelSync()
-                    preDownloadManager.cancel()
-                    // Even when the system reports no validated Internet (common on
-                    // emulators using adb reverse, or captive portals the OS hasn't
-                    // validated yet), the server may still be reachable. Probe it
-                    // rather than serving stale cache indefinitely.
-                    reachabilityMonitor.checkNow(::runRecoverySequence)
-                } else {
-                    reachabilityMonitor.checkNow(::runRecoverySequence)
                 }
-            }
         }
         viewModelScope.launch {
             // StateFlow collectors always see the latest value (StateFlow is
@@ -743,7 +780,7 @@ class MemosViewModel(
 
     fun fetchUserMemos(refresh: Boolean = false) {
         if (refresh) {
-            refreshManually(RefreshSource.USerMemos) { userMemoManager.fetch(refresh = true) }
+            refreshManually(RefreshSource.USerMemos, userMemoManager)
             return
         }
         if (!_uiState.value.isOnline) {
@@ -758,7 +795,7 @@ class MemosViewModel(
 
     fun fetchExploreMemos(refresh: Boolean = false) {
         if (refresh) {
-            refreshManually(RefreshSource.ExploreMemos) { exploreMemoManager.fetch(refresh = true) }
+            refreshManually(RefreshSource.ExploreMemos, exploreMemoManager)
             return
         }
         if (!_uiState.value.isOnline) {
@@ -772,7 +809,7 @@ class MemosViewModel(
 
     fun fetchArchivedMemos(refresh: Boolean = false) {
         if (refresh) {
-            refreshManually(RefreshSource.ArchivedMemos) { archivedMemoManager.fetch(refresh = true) }
+            refreshManually(RefreshSource.ArchivedMemos, archivedMemoManager)
             return
         }
         if (!_uiState.value.isOnline) {
@@ -785,9 +822,8 @@ class MemosViewModel(
     fun loadMoreArchivedMemos() = archivedMemoManager.loadMore()
 
     fun fetchSearchMemos(refresh: Boolean = false) {
-        if (refresh) updateRefreshTrigger(RefreshSource.SearchMemos)
-        searchMemoManager.fetch(refresh)
-        if (refresh) clearRefreshingState()
+        if (refresh) refreshManually(RefreshSource.SearchMemos, searchMemoManager)
+        else searchMemoManager.fetch()
     }
 
     fun loadMoreSearchMemos() = searchMemoManager.loadMore()
@@ -805,7 +841,8 @@ class MemosViewModel(
             searchMemoManager.searchLocal()
             return
         }
-        fetchSearchMemos(refresh = true)
+        // Updating a query is a list read; recovery is driven by explicit refresh/foreground events.
+        searchMemoManager.fetch(refresh = true)
     }
 
     // --- Offline / sync actions ---
@@ -815,9 +852,7 @@ class MemosViewModel(
      */
     fun onForeground() {
         if (!org.example.memosm.data.backup.BackupCoordinator.startupReady.value || org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
-        if (!_uiState.value.isOnline) return
-        syncManager.pushPendingChanges()
-        preDownloadManager.maybeAutoDownload()
+        reachabilityMonitor.checkNow(::runRecoverySequence)
     }
 
     /** Reconcile activity-owned changes without emitting a scroll-to-top refresh trigger. */
@@ -943,24 +978,31 @@ class MemosViewModel(
         }
     }
 
-    private fun refreshManually(source: RefreshSource, fetch: () -> Unit) {
+    private fun refreshManually(source: RefreshSource, manager: BaseListManager<*>, softRefresh: Boolean = false) {
+        val context = accountSession.current ?: return
+        manualRefreshJob?.cancel()
         updateRefreshTrigger(source)
-        fetch()
-        syncManager.pushPendingChanges()
-        clearRefreshingState()
-    }
-
-    private fun clearRefreshingState() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = false) }
+        manualRefreshJob = accountSession.readScope.launch {
+            try {
+                reachabilityMonitor.checkNow()?.join()
+                if (!accountSession.isCurrent(context)) return@launch
+                if (connectivityObserver.isBlocked.value) {
+                    manager.loadFromCache()
+                    return@launch
+                }
+                recoverConnection(excludedManager = manager)
+                manager.fetch(refresh = true, softRefresh = softRefresh)?.join()
+            } finally {
+                if (accountSession.isCurrent(context) && kotlinx.coroutines.currentCoroutineContext().isActive) {
+                    _uiState.update { it.copy(isRefreshing = false) }
+                }
+            }
         }
     }
 
     fun fetchAttachments(refresh: Boolean = false) {
         if (refresh) {
-            refreshManually(RefreshSource.Attachments) {
-                attachmentManager.fetch(refresh = true, softRefresh = true)
-            }
+            refreshManually(RefreshSource.Attachments, attachmentManager, softRefresh = true)
             return
         }
         if (!_uiState.value.isOnline) {
@@ -1078,6 +1120,8 @@ class MemosViewModel(
         }
     }
     override fun onCleared() {
+        reachabilityMonitor.stop()
+        memoCacheReconciler.cancel()
         unregisterBackupHook()
         super.onCleared()
     }

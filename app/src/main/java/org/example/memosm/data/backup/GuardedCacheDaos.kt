@@ -8,6 +8,8 @@ import org.example.memosm.data.media.CachedAttachmentMeta
 import org.example.memosm.data.media.CachedAttachmentMetaDao
 
 class GuardedMemoDao(private val delegate: MemoDao) : MemoDao by delegate {
+    override suspend fun deleteMissingMemo(accountId: String, name: String, checkedAt: Long) = BackupCoordinator.withStorageLock { delegate.deleteMissingMemo(accountId, name, checkedAt) }
+    override suspend fun pruneMissingFromList(accountId: String, listType: String, names: List<String>, startedAt: Long) = BackupCoordinator.withStorageLock { delegate.pruneMissingFromList(accountId, listType, names, startedAt) }
     override suspend fun insertMemos(memos: List<CachedMemo>) = BackupCoordinator.withStorageLock { delegate.insertMemos(memos) }
     override suspend fun insertMemo(memo: CachedMemo) = BackupCoordinator.withStorageLock { delegate.insertMemo(memo) }
     override suspend fun deleteMemos(accountId: String, listType: String) = BackupCoordinator.withStorageLock { delegate.deleteMemos(accountId, listType) }

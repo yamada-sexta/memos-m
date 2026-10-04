@@ -401,6 +401,11 @@ class PreDownloadManager(
         state: String?,
         incrementalSince: Long? = null
     ): Int {
+        val startedAt = System.currentTimeMillis()
+        val initialNames = memoCacheRepository.getCachedMemos(accountId, listType).mapNotNull { it.name }.toSet()
+        val seenNames = mutableSetOf<String>()
+        val seenTokens = mutableSetOf<String>()
+        var completeSnapshot = true
         var count = 0
         var pageToken: String? = null
         var page = 1
@@ -427,7 +432,7 @@ class PreDownloadManager(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (useIncremental) {
+                if (useIncremental && e is retrofit2.HttpException && e.code() in listOf(400, 422)) {
                     // Old server versions may reject the update_time filter;
                     // fall back to a full download (still merged, never wiping
                     // memos that were already cached for this list). A
@@ -438,6 +443,9 @@ class PreDownloadManager(
                     effectiveFilter = filter
                     pageToken = null
                     page = 1
+                    count = 0
+                    seenNames.clear()
+                    seenTokens.clear()
                     api.listMemos(
                         pageSize = FULL_PAGE_SIZE,
                         pageToken = null,
@@ -449,18 +457,25 @@ class PreDownloadManager(
                 }
             }
             coroutineContext.ensureActive()
+            // A missing collection field cannot authorize deleting the prior cache.
+            if (response.memos == null) completeSnapshot = false
             val memos = response.memos.orEmpty()
-            // replace=true only for a full (non-incremental) paging run, where
-            // the last page means the whole list has been seen. Incremental runs
-            // merge so older cached memos are never lost.
+            // Merge each page. Never erase history before a full paging run completes.
+            seenNames.addAll(memos.mapNotNull { it.name })
             memoCacheRepository.cacheMemos(
                 accountId, listType, memos,
-                replace = pageToken == null && !useIncremental
+                replace = false
             )
             count += memos.size
             pageToken = response.nextPageToken?.takeIf { it.isNotBlank() }
+            pageToken?.let { check(seenTokens.add(it)) { "Server repeated a pagination token" } }
             page++
-        } while (pageToken != null && memos.isNotEmpty())
+        } while (pageToken != null)
+        coroutineContext.ensureActive()
+        if (!useIncremental && completeSnapshot) {
+            memoCacheRepository.pruneMissingFromList(accountId, listType,
+                (initialNames - seenNames).toList(), startedAt)
+        }
         return count
     }
 

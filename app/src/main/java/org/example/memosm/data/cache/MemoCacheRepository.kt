@@ -11,6 +11,17 @@ private const val TAG = "MemoCacheRepository"
  */
 class MemoCacheRepository(private val memoDao: MemoDao) {
 
+    suspend fun reconciliationCandidates(accountId: String): List<CachedMemoCandidate> =
+        memoDao.reconciliationCandidates(accountId)
+
+    suspend fun removeMissingMemo(accountId: String, candidate: CachedMemoCandidate): Boolean =
+        memoDao.deleteMissingMemo(accountId, candidate.name, candidate.cachedAt) > 0
+
+    /** Only an exhausted, unfiltered paging run may prune the initial list snapshot. */
+    suspend fun pruneMissingFromList(accountId: String, listType: CacheListType, names: List<String>, startedAt: Long) {
+        names.chunked(500).forEach { memoDao.pruneMissingFromList(accountId, listType.name, it, startedAt) }
+    }
+
     /**
      * Cache a list of memos for a specific account and list type.
      *
