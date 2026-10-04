@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -82,126 +83,133 @@ fun NativeMarkdownTable(
         codeFontFamily = FontFamily.Monospace
     )
 
-    Box(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .clip(RoundedCornerShape(tableCornerSize))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, lineColor, RoundedCornerShape(tableCornerSize))
-            .horizontalScroll(rememberScrollState())
-    ) {
-        SubcomposeLayout { constraints ->
-            val columnWidths = IntArray(columnCount)
-            val allRows = listOf(headerCells) + rowCells
+    BoxWithConstraints(modifier = Modifier.padding(vertical = 8.dp)) {
+        // Allow two viewport widths per column to retain horizontal scrolling,
+        // but wrap huge cells before their preferred width becomes unrepresentable.
+        val maxCellWidth = with(density) { (maxWidth * 2).roundToPx() }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(tableCornerSize))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, lineColor, RoundedCornerShape(tableCornerSize))
+                .horizontalScroll(rememberScrollState())
+        ) {
+            SubcomposeLayout { constraints ->
+                val columnWidths = IntArray(columnCount)
+                val totalPadding = tableCellPadding.roundToPx() * 2
+                val cellConstraints = Constraints(
+                    maxWidth = (maxCellWidth - totalPadding).coerceAtLeast(1)
+                )
+                val allRows = listOf(headerCells) + rowCells
 
-            // 1. MEASURE PASS
-            allRows.forEach { row ->
-                row.forEachIndexed { index, cellNode ->
-                    if (index < columnCount) {
-                        val placeable = subcompose("measure_${row.hashCode()}_$index") {
-                            val inlineContentMap =
-                                remember { mutableMapOf<String, InlineTextContent>() }
-                            val styledText = buildAnnotatedString {
-                                appendInlineChildren(
-                                    cellNode,
-                                    content,
-                                    styles,
-                                    context,
-                                    density,
-                                    fontSizePx,
-                                    inlineContentMap,
-                                    onHashtagClick
+                // 1. MEASURE PASS
+                allRows.forEach { row ->
+                    row.forEachIndexed { index, cellNode ->
+                        if (index < columnCount) {
+                            val placeable = subcompose("measure_${row.hashCode()}_$index") {
+                                val inlineContentMap =
+                                    remember { mutableMapOf<String, InlineTextContent>() }
+                                val styledText = buildAnnotatedString {
+                                    appendInlineChildren(
+                                        cellNode,
+                                        content,
+                                        styles,
+                                        context,
+                                        density,
+                                        fontSizePx,
+                                        inlineContentMap,
+                                        onHashtagClick
+                                    )
+                                }
+                                MarkdownText(
+                                    text = styledText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(bottom = 2.dp), // Layout fix
+                                    textAlign = align.getOrElse(index) { TextAlign.Start },
+                                    inlineContent = inlineContentMap
                                 )
-                            }
-                            MarkdownText(
-                                text = styledText,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(bottom = 2.dp), // Layout fix
-                                textAlign = align.getOrElse(index) { TextAlign.Start },
-                                inlineContent = inlineContentMap
-                            )
-                        }.first().measure(Constraints())
+                            }.first().measure(cellConstraints)
 
-                        val totalPadding = tableCellPadding.roundToPx() * 2
-                        columnWidths[index] =
-                            maxOf(columnWidths[index], placeable.width + totalPadding)
+                            columnWidths[index] =
+                                maxOf(columnWidths[index], placeable.width + totalPadding)
+                        }
                     }
                 }
-            }
 
-            val tableWidth = columnWidths.sum()
+                val tableWidth = columnWidths.sum()
 
-            // 2. COMPOSITION PASS
-            val contentPlaceables = subcompose("content") {
-                Column {
-                    allRows.forEachIndexed { rowIndex, row ->
-                        val isHeader = rowIndex == 0
-                        Row(
-                            modifier = Modifier
-                                .width(with(LocalDensity.current) { tableWidth.toDp() })
-                                .background(if (isHeader) headerBackground else Color.Transparent)
-                                .height(IntrinsicSize.Min)
-                        ) {
-                            row.forEachIndexed { columnIndex, cellNode ->
-                                if (columnIndex < columnCount) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(with(LocalDensity.current) { columnWidths[columnIndex].toDp() })
-                                            .padding(tableCellPadding)
-                                            .fillMaxHeight(),
-                                        contentAlignment = when (align.getOrElse(columnIndex) { TextAlign.Start }) {
-                                            TextAlign.Center -> Alignment.Center
-                                            TextAlign.End -> Alignment.CenterEnd
-                                            else -> Alignment.CenterStart
-                                        }
-                                    ) {
-                                        val inlineContentMap =
-                                            remember { mutableMapOf<String, InlineTextContent>() }
-                                        val styledText = buildAnnotatedString {
-                                            appendInlineChildren(
-                                                cellNode,
-                                                content,
-                                                styles,
-                                                context,
-                                                density,
-                                                fontSizePx,
-                                                inlineContentMap,
-                                                onHashtagClick
+                // 2. COMPOSITION PASS
+                val contentPlaceables = subcompose("content") {
+                    Column {
+                        allRows.forEachIndexed { rowIndex, row ->
+                            val isHeader = rowIndex == 0
+                            Row(
+                                modifier = Modifier
+                                    .width(with(LocalDensity.current) { tableWidth.toDp() })
+                                    .background(if (isHeader) headerBackground else Color.Transparent)
+                                    .height(IntrinsicSize.Min)
+                            ) {
+                                row.forEachIndexed { columnIndex, cellNode ->
+                                    if (columnIndex < columnCount) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(with(LocalDensity.current) { columnWidths[columnIndex].toDp() })
+                                                .padding(tableCellPadding)
+                                                .fillMaxHeight(),
+                                            contentAlignment = when (align.getOrElse(columnIndex) { TextAlign.Start }) {
+                                                TextAlign.Center -> Alignment.Center
+                                                TextAlign.End -> Alignment.CenterEnd
+                                                else -> Alignment.CenterStart
+                                            }
+                                        ) {
+                                            val inlineContentMap =
+                                                remember { mutableMapOf<String, InlineTextContent>() }
+                                            val styledText = buildAnnotatedString {
+                                                appendInlineChildren(
+                                                    cellNode,
+                                                    content,
+                                                    styles,
+                                                    context,
+                                                    density,
+                                                    fontSizePx,
+                                                    inlineContentMap,
+                                                    onHashtagClick
+                                                )
+                                            }
+                                            MarkdownText(
+                                                text = styledText,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                textAlign = align.getOrElse(columnIndex) { TextAlign.Start },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                inlineContent = inlineContentMap
                                             )
                                         }
-                                        MarkdownText(
-                                            text = styledText,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            textAlign = align.getOrElse(columnIndex) { TextAlign.Start },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            inlineContent = inlineContentMap
-                                        )
-                                    }
-                                    // VERTICAL LINE: Add if it's not the last column
-                                    if (columnIndex < columnCount - 1) {
-                                        VerticalDivider(
-                                            modifier = Modifier.fillMaxHeight(),
-                                            thickness = 1.dp,
-                                            color = lineColor
-                                        )
+                                        // VERTICAL LINE: Add if it's not the last column
+                                        if (columnIndex < columnCount - 1) {
+                                            VerticalDivider(
+                                                modifier = Modifier.fillMaxHeight(),
+                                                thickness = 1.dp,
+                                                color = lineColor
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
-                        // 2. Force the HorizontalDivider to match the calculated width
-                        if (rowIndex < allRows.lastIndex) {
-                            HorizontalDivider(
-                                modifier = Modifier.width(with(LocalDensity.current) { tableWidth.toDp() }),
-                                thickness = 1.dp,
-                                color = lineColor
-                            )
+                            // 2. Force the HorizontalDivider to match the calculated width
+                            if (rowIndex < allRows.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.width(with(LocalDensity.current) { tableWidth.toDp() }),
+                                    thickness = 1.dp,
+                                    color = lineColor
+                                )
+                            }
                         }
                     }
-                }
-            }.map { it.measure(constraints) }
+                }.map { it.measure(constraints) }
 
-            layout(tableWidth, contentPlaceables.first().height) {
-                contentPlaceables.forEach { it.placeRelative(0, 0) }
+                layout(tableWidth, contentPlaceables.first().height) {
+                    contentPlaceables.forEach { it.placeRelative(0, 0) }
+                }
             }
         }
     }

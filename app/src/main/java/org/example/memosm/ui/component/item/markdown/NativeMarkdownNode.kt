@@ -2,18 +2,13 @@ package org.example.memosm.ui.component.item.markdown
 
 import android.content.Context
 import android.view.View.MeasureSpec
-import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.Checkbox
@@ -35,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.agog.mathdisplay.MTMathView
@@ -478,27 +476,32 @@ fun NativeMarkdownNodeRecursive(node: ASTNode, allowPreview: Boolean = false) {
         }
 
         MarkdownElementTypes.BLOCK_QUOTE -> {
-            // Simple blockquote with left border/padding
-            Row(
+            val borderColor = MaterialTheme.colorScheme.outlineVariant
+            // Draw the border at the measured height instead of asking for the
+            // full intrinsic height, which can exceed Compose's packed limits.
+            Column(
                 modifier = Modifier
                     .padding(vertical = 4.dp)
-                    .height(IntrinsicSize.Min)
-            ) {
-                Spacer(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .background(
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)
+                    .drawBehind {
+                        val borderWidth = 4.dp.toPx()
+                        val radius = 2.dp.toPx()
+                        drawRoundRect(
+                            color = borderColor,
+                            topLeft = Offset(
+                                if (layoutDirection == LayoutDirection.Ltr) 0f
+                                else size.width - borderWidth,
+                                0f
+                            ),
+                            size = Size(borderWidth, size.height),
+                            cornerRadius = CornerRadius(radius, radius)
                         )
-                )
-                Column(modifier = Modifier.padding(start = 8.dp)) {
-                    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-                        node.children.forEach { child ->
-                            if (child.type != MarkdownTokenTypes.BLOCK_QUOTE) {
-                                NativeMarkdownNodeRecursive(child)
-                            }
+                    }
+                    .padding(start = 12.dp)
+            ) {
+                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
+                    node.children.forEach { child ->
+                        if (child.type != MarkdownTokenTypes.BLOCK_QUOTE) {
+                            NativeMarkdownNodeRecursive(child)
                         }
                     }
                 }

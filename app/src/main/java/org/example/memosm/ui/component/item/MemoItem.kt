@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -349,13 +348,7 @@ fun MemoItem(
                         onHashtagClick = onHashtagClick,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 12.dp, end = 16.dp, bottom = 8.dp)
-                            .then(
-                                if (maxHeight != Dp.Unspecified) Modifier.wrapContentHeight(
-                                    unbounded = true,
-                                    align = Alignment.Top
-                                ) else Modifier
-                            ),
+                            .padding(start = 12.dp, end = 16.dp, bottom = 8.dp),
                         headerScale = headerScale
                     )
                 }
