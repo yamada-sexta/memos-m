@@ -1,10 +1,11 @@
 package org.example.memosm.ui
 
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,7 +14,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -51,14 +51,12 @@ import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -70,14 +68,13 @@ import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.launch
 import org.example.memosm.R
 import org.example.memosm.model.Attachment
-import org.example.memosm.model.Location
 import org.example.memosm.model.ShareIntentData
 import org.example.memosm.model.Visibility
 import org.example.memosm.ui.component.ConflictDialog
 import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.LocalNetworkPermission
-import org.example.memosm.ui.component.composer.ComposerMode
-import org.example.memosm.ui.component.composer.MemoComposerScreen
+import org.example.memosm.ui.component.composer.EditorRequest
+import org.example.memosm.ui.component.composer.rememberMemoEditorLauncher
 import org.example.memosm.ui.component.item.media.MemoImage
 import org.example.memosm.ui.component.item.markdown.LocalLinkPreviews
 import org.example.memosm.ui.component.item.markdown.LinkPreviewEnvironment
@@ -165,13 +162,7 @@ private fun MainScreenContent(
     var isNavBarVisible by remember { mutableStateOf(true) }
     var isAddingAccount by remember { mutableStateOf(false) }
 
-    // Share intent composer dialog state
-    var showShareComposerDialog by remember { mutableStateOf(false) }
-    var shareText by remember { mutableStateOf<String?>(null) }
-    var shareUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var shareAttachments by remember { mutableStateOf<List<Attachment>>(emptyList()) }
-    var shareVisibility by remember { mutableStateOf<Visibility?>(null) }
-    var shareLocation by remember { mutableStateOf<Location?>(null) }
+    val openEditor = rememberMemoEditorLauncher(viewModel)
 
     // Track if we've already processed the current share intent
     var processedShareData by remember { mutableStateOf<ShareIntentData?>(null) }
@@ -192,18 +183,11 @@ private fun MainScreenContent(
         // 1. We have share data
         // 2. We haven't already processed this exact share data
         if (shareIntentData != null && !shareIntentData.isEmpty && processedShareData != shareIntentData) {
-            // Create a fresh new draft with just the shared content
-            shareText = shareIntentData.text ?: ""
-            shareUris = shareIntentData.uris
-            shareAttachments = emptyList()
-            shareVisibility = null
-            shareLocation = null
-
-            // Always initialize a new draft session for shared content
-            viewModel.draftDelegate.initializeNewDraftSession()
-
+            val account = uiState.accounts.firstOrNull { it.isActive } ?: return@LaunchedEffect
+            openEditor(EditorRequest(account.id, titleRes = R.string.memo_composer_fab_new_memo,
+                content = shareIntentData.text.orEmpty(), uris = shareIntentData.uris.map { it.toString() },
+                visibility = uiState.session.userSettings?.memoVisibility ?: Visibility.PRIVATE))
             processedShareData = shareIntentData
-            showShareComposerDialog = true
             onShareIntentConsumed()
         }
     }
@@ -233,9 +217,6 @@ private fun MainScreenContent(
         }, onDismiss = { isAddingAccount = false })
     }
 
-    // Share intent composer easing values
-    val enterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
-    val exitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
 
     @Composable
     fun NavigationIcon(
@@ -433,37 +414,4 @@ private fun MainScreenContent(
         )
     }
 
-    // Share intent composer screen (full-screen OVERLAY — must be AFTER Surface for correct z-order)
-    AnimatedVisibility(
-        visible = showShareComposerDialog,
-        enter = slideInVertically(
-            animationSpec = tween(400, easing = enterEasing), initialOffsetY = { it }) + fadeIn(
-            animationSpec = tween(400, easing = enterEasing)
-        ),
-        exit = slideOutVertically(
-            animationSpec = tween(200, easing = exitEasing), targetOffsetY = { it }) + fadeOut(
-            animationSpec = tween(200, easing = exitEasing)
-        )
-    ) {
-        MemoComposerScreen(
-            onDismiss = {
-                showShareComposerDialog = false
-                shareText = null
-                shareUris = emptyList()
-                shareAttachments = emptyList()
-                shareVisibility = null
-                shareLocation = null
-            },
-            onToggleNavBar = toggleNavBar,
-            viewModel = viewModel,
-            hostUrl = uiState.session.hostUrl,
-            title = stringResource(R.string.memo_composer_fab_new_memo),
-            initialContent = shareText ?: "",
-            initialUris = shareUris,
-            initialAttachments = shareAttachments,
-            initialVisibility = shareVisibility,
-            initialLocation = shareLocation,
-            mode = ComposerMode.PUBLISH
-        )
-    }
 }

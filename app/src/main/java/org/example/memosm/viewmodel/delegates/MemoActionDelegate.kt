@@ -68,12 +68,13 @@ interface MemoActionDelegate {
         attachments: List<Attachment>,
         location: Location? = null,
         state: MemoState? = null,
+        onError: () -> Unit = {},
         onSuccess: () -> Unit = {}
     )
 
     fun deleteMemo(memo: Memo, onSuccess: () -> Unit = {})
     fun updateMemoPinned(memo: Memo, pinned: Boolean, onSuccess: () -> Unit = {})
-    fun createComment(parentMemo: Memo, content: String, onSuccess: () -> Unit = {})
+    fun createComment(parentMemo: Memo, content: String, onError: () -> Unit = {}, onSuccess: () -> Unit = {})
     suspend fun uploadAttachment(uri: Uri, context: Context): Attachment?
 
     /** Discard a queued offline upload once nothing references its placeholder anymore. */
@@ -224,7 +225,6 @@ class MemoActionDelegateImpl(
                     if (accountSession.isCurrent(context) && uiState.value.draft.currentEditingDraftId == draftIdToDelete) {
                         draftDelegate.setCurrentEditingDraft(null)
                     }
-                    if (accountSession.isCurrent(context)) onSuccess()
                     if (accountSession.isCurrent(context)) listUpdater.refreshUserMemos()
                     // Keep the local cache fresh for offline browsing.
                     accountId?.let {
@@ -237,6 +237,7 @@ class MemoActionDelegateImpl(
                             )
                         )
                     }
+                    if (accountSession.isCurrent(context)) onSuccess()
                 } else {
                     // No memo came back (e.g. no API bound): report failure so
                     // callers awaiting a result (draft publishing) don't hang.
@@ -311,6 +312,7 @@ class MemoActionDelegateImpl(
         attachments: List<Attachment>,
         location: Location?,
         state: MemoState?,
+        onError: () -> Unit,
         onSuccess: () -> Unit
     ) {
         val context = accountSession.current ?: return
@@ -353,8 +355,6 @@ class MemoActionDelegateImpl(
             try {
                 val updated = api.updateMemo(name, update, mask)
                 if (updated != null) {
-                    if (accountSession.isCurrent(context)) onSuccess()
-
                     // Handle local list moves if state changed
                     val oldState = memo.state ?: MemoState.NORMAL
                     val newState = updated.state ?: MemoState.NORMAL
@@ -365,6 +365,10 @@ class MemoActionDelegateImpl(
 
                     if (accountSession.isCurrent(context)) listUpdater.updateMemoInLists(updated)
                     cacheLocalMemo(context, updated)
+                    if (accountSession.isCurrent(context)) onSuccess()
+                } else if (accountSession.isCurrent(context)) {
+                    reportOperationFailure(context, IllegalStateException("Memo update returned no result"))
+                    onError()
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -375,6 +379,7 @@ class MemoActionDelegateImpl(
                     }
                 } else {
                     reportOperationFailure(context, e)
+                    if (accountSession.isCurrent(context)) onError()
                 }
             }
         }
@@ -497,7 +502,7 @@ class MemoActionDelegateImpl(
         }
     }
 
-    override fun createComment(parentMemo: Memo, content: String, onSuccess: () -> Unit) {
+    override fun createComment(parentMemo: Memo, content: String, onError: () -> Unit, onSuccess: () -> Unit) {
         val context = accountSession.current ?: return
         val connection = context.connection
         val api = connection.api
@@ -525,7 +530,8 @@ class MemoActionDelegateImpl(
             }
 
             try {
-                api.createMemoComment(parentName, comment)
+                val created = api.createMemoComment(parentName, comment)
+                memoCacheRepository.upsertCachedMemo(accountId, created, CacheListType.COMMENT, parentName = parentName)
                 if (accountSession.isCurrent(context)) onSuccess()
                 if (accountSession.isCurrent(context)) commentManager?.fetch(refresh = true)
             } catch (e: CancellationException) {
@@ -537,6 +543,7 @@ class MemoActionDelegateImpl(
                     }
                 } else {
                     reportOperationFailure(context, e)
+                    if (accountSession.isCurrent(context)) onError()
                 }
             }
         }

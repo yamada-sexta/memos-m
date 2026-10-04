@@ -97,6 +97,20 @@ import android.text.format.DateFormat
 import java.util.Date
 import java.util.Locale
 
+/** The map has already loaded its history, so search can filter the same pool offline. */
+internal fun filterLocalSearchMemos(
+    memos: List<Memo>, query: String, tags: Set<String>, start: Long?, end: Long?, order: MemoOrderBy
+): List<Memo> {
+    val matches = memos.filter { memo ->
+        val created = memo.createTime?.toEpochMilliseconds()
+        memo.content.contains(query.trim(), ignoreCase = true) && tags.all { it in memo.tags.orEmpty() } &&
+            (start == null || (created != null && created >= start)) &&
+            (end == null || (created != null && created < end + 86_400_000L))
+    }
+    return if (order == MemoOrderBy.OLDEST) matches.sortedWith(compareBy<Memo> { it.createTime }.thenBy { it.name })
+    else matches.sortedWith(compareByDescending<Memo> { it.createTime }.thenBy { it.name })
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoSearchBar(
@@ -105,7 +119,11 @@ fun MemoSearchBar(
     isExplore: Boolean = false,
     onMemoClick: (Memo) -> Unit,
     onExpandedChange: (Boolean) -> Unit = {},
-    placeholder: String = stringResource(R.string.memo_search_placeholder)
+    placeholder: String = stringResource(R.string.memo_search_placeholder),
+    localMemos: List<Memo>? = null,
+    onLocalResultsChanged: (List<Memo>) -> Unit = {},
+    filterActionLabel: String? = null,
+    extraFilters: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -129,8 +147,10 @@ fun MemoSearchBar(
     // Search results are shared in the view model. Keep them scoped to the
     // active feed, including while a new query is being debounced.
     val currentUserName = uiState.session.currUser?.name
-    val searchMemos = remember(uiState.searchMemoList.list.items, isExplore, currentUserName) {
-        if (isExplore) uiState.searchMemoList.list.items.filter {
+    val searchMemos = remember(localMemos, query, searchSelectedTags, startDateMillis, endDateMillis, orderBy,
+        uiState.searchMemoList.list.items, isExplore, currentUserName) {
+        if (localMemos != null) filterLocalSearchMemos(localMemos, query, searchSelectedTags, startDateMillis, endDateMillis, orderBy)
+        else if (isExplore) uiState.searchMemoList.list.items.filter {
             it.visibility == Visibility.PUBLIC || it.visibility == Visibility.PROTECTED
         } else uiState.searchMemoList.list.items.filter {
             currentUserName != null && it.creator == currentUserName
@@ -139,8 +159,11 @@ fun MemoSearchBar(
 
     // Aggregate tags from the search pool to be context-accurate
     val availableTags =
-        remember(searchMemos, uiState.session.userStats, isExplore) {
-            if (isExplore) {
+        remember(localMemos, searchMemos, uiState.session.userStats, isExplore) {
+            if (localMemos != null) {
+                localMemos.flatMap { it.tags.orEmpty() }.groupingBy { it }.eachCount()
+                    .toList().sortedByDescending { it.second }.toMap()
+            } else if (isExplore) {
                 val tags = mutableMapOf<String, Int>()
                 searchMemos.forEach { memo ->
                     val regex = "#(\\w+)".toRegex()
@@ -156,8 +179,12 @@ fun MemoSearchBar(
         }
 
     // Effect to trigger server-side search whenever filters change
-    LaunchedEffect(query, searchSelectedTags, startDateMillis, endDateMillis, orderBy, expanded, isExplore) {
-        if (expanded) {
+    val resultsCallback by androidx.compose.runtime.rememberUpdatedState(onLocalResultsChanged)
+    LaunchedEffect(localMemos, searchMemos) {
+        if (localMemos != null) resultsCallback(searchMemos)
+    }
+    LaunchedEffect(query, searchSelectedTags, startDateMillis, endDateMillis, orderBy, expanded, isExplore, localMemos) {
+        if (expanded && localMemos == null) {
             // Debounce the search to prevent excessive API calls while typing
             delay(300)
             viewModel.userDelegate.refreshUserStats()
@@ -217,7 +244,10 @@ fun MemoSearchBar(
                 SearchBarDefaults.InputField(
                     query = query,
                     onQueryChange = { query = it },
-                    onSearch = { focusManager.clearFocus() },
+                    onSearch = {
+                        focusManager.clearFocus()
+                        if (filterActionLabel != null) expanded = false
+                    },
                     expanded = expanded,
                     onExpandedChange = {
                         expanded = it
@@ -255,7 +285,7 @@ fun MemoSearchBar(
                             // Sync/cache status icon, hidden while search is expanded.
                             // Lives inside the search bar's own trailing slot so
                             // it is always vertically centered with the input.
-                            androidx.compose.animation.AnimatedVisibility(visible = !expanded) {
+                            androidx.compose.animation.AnimatedVisibility(visible = !expanded && localMemos == null) {
                                 SyncStatusIconButton(
                                     uiState = uiState,
                                     onClick = { showSyncPanel = true }
@@ -280,6 +310,10 @@ fun MemoSearchBar(
                     availableTags = availableTags,
                     filteredMemos = searchMemos,
                     uiState = uiState,
+                    filtersOnly = localMemos != null,
+                    extraFilters = extraFilters,
+                    filterActionLabel = filterActionLabel,
+                    onApplyFilters = { expanded = false; focusManager.clearFocus() },
                     onTagClick = { tag ->
                         searchSelectedTags = if (tag in searchSelectedTags) {
                             searchSelectedTags - tag
@@ -335,7 +369,11 @@ private fun SearchResultContent(
     onEndDateSelected: (Long?) -> Unit,
     onOrderByChange: (MemoOrderBy) -> Unit,
     onMemoClick: (Memo) -> Unit,
-    onContentUpdate: (Memo, String) -> Unit
+    onContentUpdate: (Memo, String) -> Unit,
+    filtersOnly: Boolean = false,
+    extraFilters: @Composable () -> Unit = {},
+    filterActionLabel: String? = null,
+    onApplyFilters: () -> Unit = {}
 ) {
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
@@ -596,7 +634,16 @@ private fun SearchResultContent(
             }
         }
 
-        if (uiState.searchMemoList.list.isOffline) {
+        item { extraFilters() }
+        if (filtersOnly) {
+            if (filterActionLabel != null) item {
+                TextButton(onClick = onApplyFilters, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text(filterActionLabel)
+                }
+            }
+        }
+
+        if (!filtersOnly && uiState.searchMemoList.list.isOffline) {
             item {
                 Box(
                     modifier = Modifier
@@ -618,7 +665,7 @@ private fun SearchResultContent(
             }
         }
 
-        if (uiState.searchMemoList.list.isLoading) {
+        if (!filtersOnly && uiState.searchMemoList.list.isLoading) {
             item {
                 Box(
                     modifier = Modifier
@@ -631,6 +678,7 @@ private fun SearchResultContent(
             }
         }
 
+        if (filtersOnly) return@LazyColumn
         if (filteredMemos.isEmpty() && !uiState.searchMemoList.list.isLoading) {
             item {
                 Box(

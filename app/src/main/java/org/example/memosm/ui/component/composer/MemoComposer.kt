@@ -1,5 +1,7 @@
 package org.example.memosm.ui.component.composer
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
@@ -19,12 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
@@ -73,13 +73,9 @@ fun MemoComposer(
     hostUrl: String,
     mode: ComposerMode,
     isPosting: Boolean = false,
-    initialContent: String = "",
-    initialVisibility: Visibility = Visibility.PRIVATE,
-    initialAttachments: List<Attachment> = emptyList(),
-    initialUris: List<Uri> = emptyList(),
-    initialLocation: Location? = null,
-    onDraftChanged: ((String, Visibility, List<Attachment>, Location?) -> Unit)? = null,
+    editorState: ComposerState,
     onDiscardQueuedUpload: (String) -> Unit = {}
+
 ) {
     // Depending on the Composer Mode there will be different placeholder
     val placeholder = when (mode) {
@@ -90,31 +86,10 @@ fun MemoComposer(
     val context = LocalContext.current
     val fileTooLargeMessage = stringResource(R.string.memo_composer_error_file_too_large)
 
-    // Changed to TextFieldValue for VisualTransformation support.
-    // Keyed on initialContent: the same composition slot is reused when the
-    // edit screen opens for a different memo (e.g. right after a conflict
-    // merge), so without the key the editor would keep the previous content.
-    var contentState by remember(initialContent) {
-        mutableStateOf(
-            androidx.compose.ui.text.input.TextFieldValue(
-                initialContent
-            )
-        )
-    }
-    var visibility by remember { mutableStateOf(initialVisibility) }
-    var location by remember { mutableStateOf(initialLocation) }
-
-    val draftAttachmentsState = remember {
-        // Combine existing attachments (from editing) with new URIs (from share intent)
-        val fromAttachments: List<Pair<Uri, Attachment?>> =
-            initialAttachments.map { Uri.EMPTY to (it as Attachment?) }
-
-
-        val fromUris: List<Pair<Uri, Attachment?>> = initialUris.map { it to null }
-        mutableStateOf(fromAttachments + fromUris)
-    }
-
-    var draftAttachments by draftAttachmentsState
+    var contentState by editorState.content
+    var visibility by editorState.visibility
+    var location by editorState.location
+    var draftAttachments by editorState.attachments
 
     var uploadingUris by remember { mutableStateOf(setOf<Uri>()) }
     var isUploadingCount by remember { mutableIntStateOf(0) }
@@ -126,7 +101,7 @@ fun MemoComposer(
     // Convert initialUris (from share intent) to base64 attachments in background
     // This mirrors the picker flow so they persist when the draft is saved
     LaunchedEffect(Unit) {
-        initialUris.forEach { uri ->
+        draftAttachments.filter { it.second == null }.map { it.first }.forEach { uri ->
             scope.launch {
                 val attachment = uriToBase64Attachment(uri, context)
                 if (attachment != null) {
@@ -159,24 +134,6 @@ fun MemoComposer(
                 }
             }
         }
-    }
-
-    // TRIGGER CACHE UPDATE when local changes occur
-    // Debounced to avoid blocking UI on every keystroke
-    // Only saves attachments that have already been converted to base64 (non-null)
-    LaunchedEffect(contentState.text, visibility, draftAttachments, location) {
-        if (onDraftChanged == null) return@LaunchedEffect
-
-        // Debounce: wait 500ms before saving draft
-        delay(500)
-
-        // Only save attachments that have been converted (non-null Attachment)
-        // Attachments still being converted in background will be saved on next trigger
-        val convertedAttachments = draftAttachments.mapNotNull { (_, attachment) -> attachment }
-
-        onDraftChanged.invoke(
-            contentState.text, visibility, convertedAttachments, location
-        )
     }
 
     // Drag and Drop state
@@ -315,7 +272,8 @@ fun MemoComposer(
             onLocationFounded = { loc ->
                 location = loc
             },
-            onPublishClick = {
+            onPublishClick = publish@{
+                if (isPosting || isUploadingCount > 0) return@publish
                 scope.launch {
                     val pendingUploads = draftAttachments.withIndex().filter { indexedValue ->
                         val pair = indexedValue.value

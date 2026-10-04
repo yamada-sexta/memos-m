@@ -13,8 +13,13 @@
     <string name="map_tile_error">배경 지도를 불러오지 못했습니다.</string>
     <string name="map_fit_all">모든 위치 보기</string>
     <string name="map_no_results">필터와 일치하는 위치가 없습니다.</string>
-    <string name="map_empty">위치가 있는 메모가 아직 없습니다. 지도를 길게 눌러 해당 장소에 메모를 작성하세요.</string>
+    <string name="map_empty">위치가 있는 메모가 없습니다. 지도를 탭하여 메모를 작성하세요.</string>
     <string name="map_close">닫기</string>
     <string name="map_new_here">여기에 새 메모</string>
     <string name="map_open_memo">메모 열기</string>
+    <string name="map_all">전체</string>
+    <string name="map_show_results">지도에 표시</string>
+    <string name="map_draft_here">여기서 초안 작성</string>
+    <string name="map_place_count">이 위치의 메모: %1$d</string>
+    <string name="map_place_empty">이 위치에는 아직 메모가 없습니다.</string>
 </resources>

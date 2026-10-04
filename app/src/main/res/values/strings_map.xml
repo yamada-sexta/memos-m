@@ -13,8 +13,13 @@
     <string name="map_tile_error">Could not load the basemap.</string>
     <string name="map_fit_all">Fit all locations</string>
     <string name="map_no_results">No locations match these filters.</string>
-    <string name="map_empty">No memos with locations yet. Long press the map to write at a place.</string>
+    <string name="map_empty">No memos with locations yet. Tap the map to write at a place.</string>
     <string name="map_close">Close</string>
     <string name="map_new_here">New memo here</string>
     <string name="map_open_memo">Open memo</string>
+    <string name="map_all">All</string>
+    <string name="map_show_results">Show on map</string>
+    <string name="map_draft_here">Draft memo here</string>
+    <string name="map_place_count">Memos here: %1$d</string>
+    <string name="map_place_empty">No memos at this location yet.</string>
 </resources>

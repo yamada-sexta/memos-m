@@ -82,7 +82,7 @@ class BackupServiceTest {
         Fixture().use { source -> Fixture().use { target ->
             source.settings.saveAccounts(listOf(account))
             target.settings.saveAccounts(listOf(account))
-            val types = listOf(CacheListType.MAP_USER, CacheListType.MAP_EXPLORE)
+            val types = listOf(CacheListType.MAP_USER, CacheListType.MAP_EXPLORE, CacheListType.MAP_ALL)
             types.forEachIndexed { index, type ->
                 source.database.memoDao().insertMemo(CachedMemo.fromMemo(
                     memo("memos/map-$index", "mapped memo").copy(location = org.example.memosm.model.Location(

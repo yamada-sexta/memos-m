@@ -1,9 +1,9 @@
 package org.example.memosm.ui.nav
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,12 +43,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -69,8 +67,13 @@ import org.example.memosm.ui.component.GenericMemosListPane
 import org.example.memosm.ui.component.MemoSearchBar
 import org.example.memosm.ui.component.MemosScaffold
 import org.example.memosm.ui.component.SyncStatusBar
-import org.example.memosm.ui.component.composer.ComposerMode
-import org.example.memosm.ui.component.composer.MemoComposerScreen
+import org.example.memosm.ui.component.composer.EditorRequest
+import org.example.memosm.ui.component.composer.rememberMemoEditorLauncher
+import org.example.memosm.ui.profile.DraftsActivity
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import org.example.memosm.ui.component.item.DraftsCard
 import org.example.memosm.ui.component.rememberScrollContext
 import org.example.memosm.viewmodel.MemosViewModel
@@ -98,13 +101,20 @@ fun MemosScreen(
     var isSearchExpanded by remember(activeFeed) { mutableStateOf(false) }
     val density = LocalDensity.current
     var feedHeaderHeight by remember { mutableStateOf(48.dp) }
-    var showComposerDialog by remember { mutableStateOf(false) }
-    var showDraftsScreen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val openEditor = rememberMemoEditorLauncher(viewModel)
+    val draftsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.refreshAfterEditor()
+    }
+    val composeNew: () -> Unit = {
+        uiState.accounts.firstOrNull { it.isActive }?.let { account ->
+            openEditor(EditorRequest(account.id, titleRes = R.string.memo_composer_fab_new_memo,
+                visibility = uiState.session.userSettings?.memoVisibility ?: org.example.memosm.model.Visibility.PRIVATE))
+        }
+    }
     var showDraftPrompt by remember { mutableStateOf(false) }
     var isFabExpanded by remember { mutableStateOf(true) }
 
-    // Track if we should start fresh (skip draft loading)
-    var startFresh by remember { mutableStateOf(false) }
 
     // FAB expansion based on scroll direction
     val scrollContext = rememberScrollContext(listState = listState)
@@ -125,9 +135,7 @@ fun MemosScreen(
             if (uiState.draft.drafts.isNotEmpty()) {
                 showDraftPrompt = true
             } else {
-                viewModel.draftDelegate.initializeNewDraftSession()
-                startFresh = true
-                showComposerDialog = true
+                composeNew()
             }
             onComposerOpened()
         }
@@ -169,7 +177,7 @@ fun MemosScreen(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize().testTag("memo_feed_pager"),
-                userScrollEnabled = !isSearchExpanded && !showComposerDialog && !showDraftsScreen && !showDraftPrompt,
+                userScrollEnabled = !isSearchExpanded && !showDraftPrompt,
                 key = { MemoFeed.entries[it] }
             ) { page ->
                 val feed = MemoFeed.entries[page]
@@ -182,7 +190,7 @@ fun MemosScreen(
                         listState = memosListState,
                         onMemoClick = onMemoClick,
                         contentPadding = contentPadding,
-                        onDraftsCardClick = { showDraftsScreen = true },
+                        onDraftsCardClick = { draftsLauncher.launch(Intent(context, DraftsActivity::class.java)) },
                         onHashtagClick = { tag -> viewModel.shortcutDelegate.toggleHashtagFilter(tag) },
                         isActive = activeFeed == feed
                     )
@@ -243,9 +251,7 @@ fun MemosScreen(
                             showDraftPrompt = true
                         } else {
                             // Start fresh with a new draft session ID
-                            viewModel.draftDelegate.initializeNewDraftSession()
-                            startFresh = true
-                            showComposerDialog = true
+                            composeNew()
                         }
                     },
                     expanded = isFabExpanded,
@@ -281,11 +287,11 @@ fun MemosScreen(
                         showDraftPrompt = false
                         // Load latest draft
                         val latestDraft = viewModel.draftDelegate.getLatestDraft()
-                        if (latestDraft != null) {
-                            viewModel.draftDelegate.setCurrentEditingDraft(latestDraft.id)
-                        }
-                        startFresh = false
-                        showComposerDialog = true
+                        val account = uiState.accounts.firstOrNull { it.isActive }
+                        if (latestDraft != null && account != null) {
+                            openEditor(EditorRequest(account.id, titleRes = R.string.memo_composer_fab_new_memo,
+                                draft = latestDraft))
+                        } else composeNew()
                     }) {
                     Text(stringResource(R.string.drafts_prompt_continue))
                 }
@@ -295,69 +301,13 @@ fun MemosScreen(
                     onClick = {
                         showDraftPrompt = false
                         // Start fresh with a new draft session ID
-                        viewModel.draftDelegate.initializeNewDraftSession()
-                        startFresh = true
-                        showComposerDialog = true
+                        composeNew()
                     }) {
                     Text(stringResource(R.string.drafts_prompt_start_fresh))
                 }
             })
     }
 
-    // Drafts screen (full-screen)
-    // Material Expressive easing
-    val enterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
-    val exitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
-
-    // Composer screen (full-screen with animation)
-    AnimatedVisibility(
-        visible = showComposerDialog, enter = slideInVertically(
-            animationSpec = tween(400, easing = enterEasing), initialOffsetY = { it }) + fadeIn(
-            animationSpec = tween(400, easing = enterEasing)
-        ), exit = slideOutVertically(
-            animationSpec = tween(200, easing = exitEasing), targetOffsetY = { it }) + fadeOut(
-            animationSpec = tween(200, easing = exitEasing)
-        )
-    ) {
-        val latestDraft = if (!startFresh) viewModel.draftDelegate.getLatestDraft() else null
-        val currentDraftId = uiState.draft.currentEditingDraftId
-        val draftToLoad = if (!startFresh && currentDraftId != null) {
-            uiState.draft.drafts.find { it.id == currentDraftId }
-        } else if (!startFresh) {
-            latestDraft
-        } else {
-            null
-        }
-
-        MemoComposerScreen(
-            onDismiss = {
-                showComposerDialog = false
-                startFresh = false
-            },
-            onToggleNavBar = onToggleNavBar,
-            viewModel = viewModel,
-            hostUrl = uiState.session.hostUrl,
-            title = stringResource(R.string.memo_composer_fab_new_memo),
-            initialContent = draftToLoad?.content ?: "",
-            initialAttachments = draftToLoad?.attachments ?: emptyList(),
-            initialVisibility = draftToLoad?.visibility,
-            initialLocation = draftToLoad?.location,
-            mode = ComposerMode.PUBLISH
-        )
-    }
-
-    AnimatedVisibility(
-        visible = showDraftsScreen, enter = slideInVertically(
-            animationSpec = tween(400, easing = enterEasing), initialOffsetY = { it }) + fadeIn(
-            animationSpec = tween(400, easing = enterEasing)
-        ), exit = slideOutVertically(
-            animationSpec = tween(200, easing = exitEasing), targetOffsetY = { it }) + fadeOut(
-            animationSpec = tween(200, easing = exitEasing)
-        )
-    ) {
-        DraftsScreen(
-            viewModel = viewModel, onDismiss = { showDraftsScreen = false })
-    }
 }
 
 @Composable

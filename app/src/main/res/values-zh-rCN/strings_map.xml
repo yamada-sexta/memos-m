@@ -13,8 +13,13 @@
     <string name="map_tile_error">无法加载底图。</string>
     <string name="map_fit_all">显示所有位置</string>
     <string name="map_no_results">没有符合筛选条件的位置。</string>
-    <string name="map_empty">暂无带位置的笔记。长按地图即可在该位置写笔记。</string>
+    <string name="map_empty">还没有带位置的备忘录。点击地图即可在指定位置撰写。</string>
     <string name="map_close">关闭</string>
     <string name="map_new_here">在此新建笔记</string>
     <string name="map_open_memo">打开笔记</string>
+    <string name="map_all">全部</string>
+    <string name="map_show_results">在地图上显示</string>
+    <string name="map_draft_here">在此起草备忘录</string>
+    <string name="map_place_count">此处的备忘录：%1$d</string>
+    <string name="map_place_empty">此位置还没有备忘录。</string>
 </resources>

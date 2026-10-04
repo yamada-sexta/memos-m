@@ -13,8 +13,13 @@
     <string name="map_tile_error">Nie udało się wczytać mapy.</string>
     <string name="map_fit_all">Pokaż wszystkie lokalizacje</string>
     <string name="map_no_results">Żadne lokalizacje nie pasują do tych filtrów.</string>
-    <string name="map_empty">Brak notatek z lokalizacją. Przytrzymaj mapę, aby napisać notatkę w wybranym miejscu.</string>
+    <string name="map_empty">Brak notatek z lokalizacją. Dotknij mapy, aby napisać w wybranym miejscu.</string>
     <string name="map_close">Zamknij</string>
     <string name="map_new_here">Nowa notatka tutaj</string>
     <string name="map_open_memo">Otwórz notatkę</string>
+    <string name="map_all">Wszystkie</string>
+    <string name="map_show_results">Pokaż na mapie</string>
+    <string name="map_draft_here">Utwórz szkic tutaj</string>
+    <string name="map_place_count">Notatki tutaj: %1$d</string>
+    <string name="map_place_empty">Brak notatek w tej lokalizacji.</string>
 </resources>

@@ -13,8 +13,13 @@
     <string name="map_tile_error">無法載入底圖。</string>
     <string name="map_fit_all">顯示所有位置</string>
     <string name="map_no_results">沒有符合篩選條件的位置。</string>
-    <string name="map_empty">尚無附位置的筆記。長按地圖即可在該位置撰寫筆記。</string>
+    <string name="map_empty">還沒有帶位置的備忘錄。點選地圖即可在指定位置撰寫。</string>
     <string name="map_close">關閉</string>
     <string name="map_new_here">在此新增筆記</string>
     <string name="map_open_memo">開啟筆記</string>
+    <string name="map_all">全部</string>
+    <string name="map_show_results">在地圖上顯示</string>
+    <string name="map_draft_here">在此起草備忘錄</string>
+    <string name="map_place_count">此處的備忘錄：%1$d</string>
+    <string name="map_place_empty">此位置還沒有備忘錄。</string>
 </resources>

@@ -291,7 +291,7 @@ class DraftManager(private val context: Context) {
     /**
      * Save or update a draft using streaming JSON writing.
      */
-    suspend fun saveDraft(accountId: String, draft: Draft): Unit = withContext(Dispatchers.IO) {
+    suspend fun saveDraft(accountId: String, draft: Draft, strict: Boolean = false): Unit = withContext(Dispatchers.IO) {
         withDraftLock {
             try {
                 val drafts = getDraftsInternal(accountId).toMutableList()
@@ -306,7 +306,10 @@ class DraftManager(private val context: Context) {
                 }
 
                 saveDraftsInternal(accountId, drafts)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (strict) throw e
                 Log.e(TAG, "Error saving draft for account $accountId", e)
             }
         }

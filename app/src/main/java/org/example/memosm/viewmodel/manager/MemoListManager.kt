@@ -214,18 +214,22 @@ class SearchMemoListManager(
     protectedNamesProvider = protectedNamesProvider
 ) {
 
+    var hasActiveQuery: Boolean = false
+        private set
     private var currentFilter: String? = null
     private var currentOrderBy: MemoOrderBy? = null
     private var currentLocalFilter: LocalSearchFilter = LocalSearchFilter()
 
     override fun reset() {
         super.reset()
+        hasActiveQuery = false
         currentFilter = null
         currentOrderBy = null
         currentLocalFilter = LocalSearchFilter()
     }
 
     fun updateFilter(filter: String?, orderBy: MemoOrderBy?) {
+        hasActiveQuery = true
         currentFilter = filter
         currentOrderBy = orderBy
     }

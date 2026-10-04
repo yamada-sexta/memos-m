@@ -174,8 +174,16 @@ class MemoMapManager(
             val map = state.value.memoMap
             val scope = map.scope
             val creator = state.value.session.currUser?.name
-            val listType = if (scope == MapScope.MEMOS) CacheListType.MAP_USER else CacheListType.MAP_EXPLORE
-            val feedType = if (scope == MapScope.MEMOS) CacheListType.USER else CacheListType.EXPLORE
+            val listType = when (scope) {
+                MapScope.MEMOS -> CacheListType.MAP_USER
+                MapScope.EXPLORE -> CacheListType.MAP_EXPLORE
+                MapScope.ALL -> CacheListType.MAP_ALL
+            }
+            val fallbackTypes = when (scope) {
+                MapScope.MEMOS -> listOf(CacheListType.USER, CacheListType.MAP_ALL)
+                MapScope.EXPLORE -> listOf(CacheListType.EXPLORE, CacheListType.MAP_ALL)
+                MapScope.ALL -> listOf(CacheListType.USER, CacheListType.EXPLORE, CacheListType.MAP_USER, CacheListType.MAP_EXPLORE)
+            }
             val viewFilter = map.savedView?.filter?.takeIf { it.isNotBlank() }
             val online = context.networkReady && state.value.connectionState == ConnectionState.ONLINE
             val startedAt = System.currentTimeMillis()
@@ -186,7 +194,7 @@ class MemoMapManager(
             )) }
             try {
                 val cached = cache.getCachedMemos(context.account.id, listType)
-                val feed = cache.getCachedMemos(context.account.id, feedType)
+                val feed = fallbackTypes.flatMap { cache.getCachedMemos(context.account.id, it) }
                 if (!session.isCurrent(context) || revision != loadRevision) return@launch
                 val local = (cached + feed).groupBy { it.name }.values.map { copies ->
                     copies.maxBy { it.updateTime ?: it.createTime ?: kotlin.time.Instant.DISTANT_PAST }
@@ -210,9 +218,11 @@ class MemoMapManager(
                 }
                 if (viewFilter == null) publish(local)
                 if (!online) return@launch
-                val scopeFilter = if (scope == MapScope.MEMOS) {
-                    context.api.buildMemoCreatorFilter(state.value.session.currUser) ?: return@launch
-                } else "visibility in ['PUBLIC', 'PROTECTED']"
+                val scopeFilter = when (scope) {
+                    MapScope.MEMOS -> context.api.buildMemoCreatorFilter(state.value.session.currUser) ?: return@launch
+                    MapScope.EXPLORE -> "visibility in ['PUBLIC', 'PROTECTED']"
+                    MapScope.ALL -> null // The server enforces access; include every memo this account can read.
+                }
                 val filter = listOfNotNull(scopeFilter, "has_location", viewFilter).joinToString(" && ") { "($it)" }
                 val received = linkedMapOf<String, Memo>()
                 val tokens = mutableSetOf<String>()

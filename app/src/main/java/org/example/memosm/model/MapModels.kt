@@ -1,7 +1,18 @@
 package org.example.memosm.model
 
 enum class MapCapability { UNKNOWN, SUPPORTED, UNSUPPORTED }
-enum class MapScope { MEMOS, EXPLORE }
+enum class MapScope { MEMOS, EXPLORE, ALL }
+
+/** A pin may represent one place or all the places in a cluster. */
+data class MapPlace(val location: Location, val memoLocations: List<Location> = listOf(location))
+
+fun memosAtMapPlace(memos: List<Memo>, place: MapPlace): List<Memo> {
+    val coordinates = place.memoLocations.filter { it.hasValidCoordinates() }
+        .map { it.latitude to it.longitude }.toSet()
+    return memos.distinctBy { it.name }.filter {
+        it.location.hasValidCoordinates() && (it.location!!.latitude to it.location.longitude) in coordinates
+    }
+}
 
 /** A successful capability check belongs to an instance, never just an API adapter. */
 data class MapSupport(
@@ -23,6 +34,8 @@ fun Memo.belongsOnMap(scope: MapScope, creator: String?): Boolean =
         state != MemoState.ARCHIVED && when (scope) {
             MapScope.MEMOS -> creator != null && this.creator == creator
             MapScope.EXPLORE -> visibility == Visibility.PUBLIC || visibility == Visibility.PROTECTED
+            MapScope.ALL -> (creator != null && this.creator == creator) ||
+                visibility == Visibility.PUBLIC || visibility == Visibility.PROTECTED
         }
 
 /** Keep the newest memo first; pins and the selection panel share this ordering. */

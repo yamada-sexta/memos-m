@@ -896,6 +896,30 @@ class MemosViewModel(
         }
     }
 
+    /** Refresh activity-owned edits without resetting navigation or scroll state. */
+    fun refreshAfterEditor() {
+        val context = accountSession.current ?: return
+        draftDelegate.loadDraftsForAccount(context.account.id)
+        refreshAfterProfileDetails()
+        viewModelScope.launch {
+            val selected = _uiState.value.detailPane.selectedMemo
+            selected?.name?.let { name ->
+                memoCacheRepository.getCachedMemo(context.account.id, name)?.let { updated ->
+                    if (accountSession.isCurrent(context)) updateMemoInState(updated)
+                }
+            }
+            if (!accountSession.isCurrent(context)) return@launch
+            if (_uiState.value.isOnline) {
+                if (searchMemoManager.hasActiveQuery) searchMemoManager.fetch(refresh = true)
+                if (selected != null) commentManager.fetch(refresh = true)
+            } else {
+                if (searchMemoManager.hasActiveQuery) searchMemoManager.searchLocal()
+                commentManager.loadFromCache()
+            }
+            memoMapManager.refreshIfOpen()
+        }
+    }
+
     /**
      * Remove a single queued offline write (user abandons it).
      */

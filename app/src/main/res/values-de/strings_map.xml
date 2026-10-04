@@ -13,8 +13,13 @@
     <string name="map_tile_error">Die Basiskarte konnte nicht geladen werden.</string>
     <string name="map_fit_all">Alle Orte anzeigen</string>
     <string name="map_no_results">Keine Orte entsprechen diesen Filtern.</string>
-    <string name="map_empty">Noch keine Notizen mit Ort. Halte die Karte gedrückt, um an einem Ort zu schreiben.</string>
+    <string name="map_empty">Noch keine Memos mit Standort. Tippe auf die Karte, um hier zu schreiben.</string>
     <string name="map_close">Schließen</string>
     <string name="map_new_here">Neue Notiz hier</string>
     <string name="map_open_memo">Notiz öffnen</string>
+    <string name="map_all">Alle</string>
+    <string name="map_show_results">Auf Karte anzeigen</string>
+    <string name="map_draft_here">Memo hier entwerfen</string>
+    <string name="map_place_count">Memos hier: %1$d</string>
+    <string name="map_place_empty">An diesem Ort gibt es noch keine Memos.</string>
 </resources>

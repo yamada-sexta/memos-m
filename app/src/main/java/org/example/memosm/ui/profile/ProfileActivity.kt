@@ -44,6 +44,7 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 
 /** Each destination owns its UI lifetime; persisted repositories carry changes between activities. */
 abstract class ProfileActivity : ComponentActivity() {
+    protected open val requiredAccountId: String? = null
     private val dataStore: DataStoreManager by inject()
     private val viewModel: MemosViewModel by viewModel()
 
@@ -66,7 +67,7 @@ abstract class ProfileActivity : ComponentActivity() {
 
                     LaunchedEffect(active?.id, active?.hostUrl, active?.accessToken) {
                         if (accounts != null) {
-                            if (active == null) finish()
+                            if (active == null || (requiredAccountId != null && active.id != requiredAccountId)) finish()
                             else {
                                 permission.ensureAccess(active.hostUrl)
                                 viewModel.userDelegate.updateCurrentAccountInList()
@@ -79,7 +80,7 @@ abstract class ProfileActivity : ComponentActivity() {
                         previouslyGranted = permission.granted
                     }
                     val boundAccount = uiState.accounts.firstOrNull { it.isActive }
-                    val accountMatches = active != null && boundAccount?.id == active.id &&
+                    val accountMatches = active != null && (requiredAccountId == null || active.id == requiredAccountId) && boundAccount?.id == active.id &&
                         uiState.session.hostUrl == active.hostUrl && uiState.session.token == active.accessToken
 
                     CompositionLocalProvider(

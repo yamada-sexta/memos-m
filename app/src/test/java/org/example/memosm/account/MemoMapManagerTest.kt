@@ -31,6 +31,31 @@ import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MemoMapManagerTest {
+    @Test fun `all scope combines own and explore caches offline without foreign private memos`() = runTest {
+        val h = Harness(this) { _, _ -> error("Offline map must not call the API") }
+        h.supported()
+        h.state.value = h.state.value.copy(connectionState = ConnectionState.OFFLINE)
+        h.cache(memo("own"), CacheListType.USER)
+        h.cache(memo("shared", creator = "users/2", visibility = Visibility.PUBLIC), CacheListType.MAP_EXPLORE)
+        h.cache(memo("foreign-private", creator = "users/2"), CacheListType.MAP_ALL)
+        h.manager.selectScope(MapScope.ALL); runCurrent()
+        assertEquals(setOf("memos/own", "memos/shared"), h.state.value.memoMap.memos.map { it.name }.toSet())
+        h.manager.selectScope(MapScope.EXPLORE); runCurrent()
+        assertEquals(listOf("memos/shared"), h.state.value.memoMap.memos.map { it.name })
+    }
+
+    @Test fun `all scope fetches full accessible location history into its own cache`() = runTest {
+        var filter: String? = null
+        val h = Harness(this) { _, args ->
+            filter = args[4] as String?
+            ListMemosResponse(listOf(memo("own"), memo("shared", creator = "users/2", visibility = Visibility.PROTECTED)), null)
+        }
+        h.supported(); h.manager.selectScope(MapScope.ALL); runCurrent()
+        assertEquals("(has_location)", filter)
+        assertEquals(2, h.state.value.memoMap.memos.size)
+        assertEquals(2, h.rows.count { it.listType == CacheListType.MAP_ALL.name })
+    }
+
     private fun memo(id: String, latitude: Double = 0.0, creator: String = "users/1",
         visibility: Visibility = Visibility.PRIVATE) = Memo(name = "memos/$id", content = id,
         creator = creator, visibility = visibility, state = MemoState.NORMAL, location = Location(latitude = latitude, longitude = 0.0))

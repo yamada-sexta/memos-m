@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import okhttp3.OkHttpClient
 import org.example.memosm.model.Location
 import org.example.memosm.model.Memo
+import org.example.memosm.model.MapPlace
 import org.example.memosm.model.hasValidCoordinates
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -116,14 +117,12 @@ internal fun NativeMemoMap(
     selection: Location? = null,
     panelSize: IntSize = IntSize.Zero,
     desktop: Boolean = false,
-    onPlace: (Location) -> Unit,
-    onDismiss: () -> Unit,
+    onPlace: (MapPlace) -> Unit,
     onTileError: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val placeCallback by rememberUpdatedState(onPlace)
-    val dismissCallback by rememberUpdatedState(onDismiss)
     val errorCallback by rememberUpdatedState(onTileError)
     val currentMemos by rememberUpdatedState(memos)
     val currentColor by rememberUpdatedState(color)
@@ -174,23 +173,27 @@ internal fun NativeMemoMap(
                 val features = map.queryRenderedFeatures(map.projection.toScreenLocation(location), PIN_LAYER)
                 val feature = features.firstOrNull()
                 when {
-                    feature == null -> dismissCallback()
+                    feature == null -> placeCallback(MapPlace(Location(latitude = location.latitude, longitude = location.longitude)))
                     feature.hasProperty("cluster_id") -> {
                         val source = map.style?.getSourceAs<GeoJsonSource>(MEMO_SOURCE)
-                        val zoom = source?.getClusterExpansionZoom(feature)?.toDouble() ?: (map.cameraPosition.zoom + 2)
                         val point = feature.geometry() as? Point
-                        if (point != null) map.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                            LatLng(point.latitude(), point.longitude()), zoom.coerceAtMost(19.0)))
+                        if (point != null && source != null) {
+                            val leaves = source.getClusterLeaves(feature, currentMemos.size.toLong(), 0)
+                                .features().orEmpty().mapNotNull { leaf -> (leaf.geometry() as? Point)?.let {
+                                    Location(latitude = it.latitude(), longitude = it.longitude())
+                                } }
+                            placeCallback(MapPlace(Location(latitude = point.latitude(), longitude = point.longitude()), leaves))
+                        }
                     }
                     else -> {
                         val point = feature.geometry() as? Point
-                        if (point != null) placeCallback(Location(latitude = point.latitude(), longitude = point.longitude()))
+                        if (point != null) placeCallback(MapPlace(Location(latitude = point.latitude(), longitude = point.longitude())))
                     }
                 }
                 true
             }
             map.addOnMapLongClickListener { location ->
-                placeCallback(Location(latitude = location.latitude, longitude = location.longitude)); true
+                placeCallback(MapPlace(Location(latitude = location.latitude, longitude = location.longitude))); true
             }
             ready = true
         }

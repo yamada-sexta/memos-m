@@ -1,9 +1,10 @@
 package org.example.memosm.ui.component
 
 import DeleteConfirmationDialog
+
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,12 +50,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
@@ -72,8 +71,9 @@ import org.example.memosm.model.Memo
 import org.example.memosm.model.MemoState
 import org.example.memosm.model.User
 import org.example.memosm.ui.MemoKey
-import org.example.memosm.ui.component.composer.MemoEditScreen
-import org.example.memosm.ui.component.composer.MemoComposerScreen
+import org.example.memosm.ui.component.composer.ComposerMode
+import org.example.memosm.ui.component.composer.EditorRequest
+import org.example.memosm.ui.component.composer.rememberMemoEditorLauncher
 import org.example.memosm.ui.component.item.MemoItem
 import org.example.memosm.viewmodel.MemosViewModel
 
@@ -175,27 +175,20 @@ fun MemosScaffold(
 
     val showSearchBar = showNavBarByScroll
 
-    var memoToEdit by remember { mutableStateOf<Memo?>(null) }
-    var memoToComment by remember { mutableStateOf<Memo?>(null) }
-    
-    // Hold onto the memo object while the exit animation plays
-    var activeMemoToEdit by remember { mutableStateOf<Memo?>(null) }
-    LaunchedEffect(memoToEdit) {
-        if (memoToEdit != null) {
-            activeMemoToEdit = memoToEdit
+    val openEditor = rememberMemoEditorLauncher(viewModel)
+    val editMemo: (Memo) -> Unit = { memo ->
+        uiState.accounts.firstOrNull { it.isActive }?.let { account ->
+            openEditor(EditorRequest(account.id, ComposerMode.UPDATE, R.string.memo_dialog_edit_title, memo = memo))
         }
     }
-    
-    var activeMemoToComment by remember { mutableStateOf<Memo?>(null) }
-    LaunchedEffect(memoToComment) {
-        if (memoToComment != null) {
-            activeMemoToComment = memoToComment
+    val commentMemo: (Memo) -> Unit = { memo ->
+        uiState.accounts.firstOrNull { it.isActive }?.let { account ->
+            openEditor(EditorRequest(account.id, ComposerMode.COMMENT, R.string.memo_detail_add_comment, parentMemo = memo))
         }
     }
-
     CompositionLocalProvider(
-        LocalMemoEditor provides { memoToEdit = it },
-        LocalMemoCommenter provides { memoToComment = it }
+        LocalMemoEditor provides editMemo,
+        LocalMemoCommenter provides commentMemo
     ) {
         Box(Modifier.fillMaxSize()) {
             Scaffold(
@@ -315,66 +308,9 @@ fun MemosScaffold(
                     })
                 }
 
-                val enterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
-                val exitEasing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)
-
-                AnimatedVisibility(
-                    visible = memoToEdit != null,
-                    enter = slideInVertically(
-                        animationSpec = tween(400, easing = enterEasing),
-                        initialOffsetY = { it }) + fadeIn(
-                        animationSpec = tween(400, easing = enterEasing)
-                    ),
-                    exit = slideOutVertically(
-                        animationSpec = tween(200, easing = exitEasing),
-                        targetOffsetY = { it }) + fadeOut(
-                        animationSpec = tween(200, easing = exitEasing)
-                    )
-                ) {
-                    // Render the newest memo synchronously: memoToEdit updates
-                    // in the same frame the dialog opens, while activeMemoToEdit
-                    // lags one LaunchedEffect behind (kept only for the exit
-                    // animation). Using the fresh value avoids the editor
-                    // initializing with the previously edited memo's content.
-                    val editMemo = memoToEdit ?: activeMemoToEdit
-                    if (editMemo != null) {
-                        MemoEditScreen(
-                            memo = editMemo,
-                            onDismiss = { memoToEdit = null },
-                            viewModel = viewModel,
-                            hostUrl = uiState.session.hostUrl,
-                            onToggleNavBar = if (isNavBarVisible) onToggleNavBar else null
-                        )
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = memoToComment != null,
-                    enter = slideInVertically(
-                        animationSpec = tween(400, easing = enterEasing),
-                        initialOffsetY = { it }) + fadeIn(
-                        animationSpec = tween(400, easing = enterEasing)
-                    ),
-                    exit = slideOutVertically(
-                        animationSpec = tween(200, easing = exitEasing),
-                        targetOffsetY = { it }) + fadeOut(
-                        animationSpec = tween(200, easing = exitEasing)
-                    )
-                ) {
-                    activeMemoToComment?.let { parentMemo ->
-                        MemoComposerScreen(
-                            onDismiss = { memoToComment = null },
-                            onToggleNavBar = if (isNavBarVisible) onToggleNavBar else null,
-                            viewModel = viewModel,
-                            hostUrl = uiState.session.hostUrl,
-                            title = stringResource(R.string.memo_detail_add_comment),
-                            parentMemo = parentMemo,
-                        )
-                    }
-                }
-            }
         }
     }
+}
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
