@@ -47,13 +47,27 @@ class MemosApplication : Application(), SingletonImageLoader.Factory {
 
         // Initialize Room database and cache repository
         val database = MemoCacheDatabase.getInstance(this)
-        memoCacheRepository = MemoCacheRepository(database.memoDao())
+        memoCacheRepository = MemoCacheRepository(org.example.memosm.data.backup.GuardedMemoDao(database.memoDao()))
+
+        // Complete incoming or interrupted restores before creating sessions or scheduling work.
+        val backup = org.koin.core.context.GlobalContext.get().get<org.example.memosm.data.backup.BackupService>()
+        kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+            backup.recoverInterruptedRestore().onFailure {
+                org.example.memosm.data.backup.BackupCoordinator.recoveryError.value = "Restore was interrupted. Retry to finish restoring your data."
+            }
+            if (org.example.memosm.data.backup.BackupCoordinator.recoveryError.value == null) {
+                backup.restoreNativeIfPresent().onFailure {
+                    org.example.memosm.data.backup.BackupCoordinator.recoveryError.value = "Android restored an incomplete backup. Retry to finish restoring your data."
+                }
+            }
+        }
 
         // Re-arm the durable outbox replay for every known account. The
         // one-time network-constrained request enqueued with each op is not
         // re-armed across process death once consumed, so startup schedules
         // the periodic fallback (schedule() enqueues both).
         MainScope().launch {
+            if (org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return@launch
             val koin = org.koin.core.context.GlobalContext.get()
             val scheduler = koin.get<SyncWorkScheduler>()
             koin.get<DataStoreManager>().getAccounts().forEach { scheduler.schedule(it.id) }

@@ -127,3 +127,12 @@ Contributions are welcome in the form of code, bug reports, or feature suggestio
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=yamada-sexta/memos-m&type=date&legend=top-left)](https://www.star-history.com/#yamada-sexta/memos-m&type=date&legend=top-left)
+
+## Backup and restore
+
+Export configurable `.mmbackup` files with MessagePack, gzip, and optional password protection.
+Restore selected accounts, settings, cached server data, media, and unpublished drafts. Queued
+edits are optional and unchecked by default; restored edits are kept for review and never sync
+automatically. Android Auto Backup restores account information during device setup, while
+direct device transfer also preserves caches and drafts. The server remains authoritative.
+See [backup format and verification](docs/backup.md) for details.

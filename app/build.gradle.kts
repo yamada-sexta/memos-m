@@ -133,6 +133,7 @@ androidComponents {
 
 
 dependencies {
+    implementation(libs.msgpack.core)
     coreLibraryDesugaring(libs.android.desugarJdkLibs)
 
     // ----------------------------

@@ -2,7 +2,9 @@ package org.example.memosm.ui.component.setting
 
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -22,13 +24,9 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -79,12 +77,14 @@ internal fun AppearanceSettingsContent(
     headerScale: Float,
     modifier: Modifier = Modifier,
     dataStore: DataStoreManager = remember { GlobalContext.get().get() },
+    linkPreviewPreference: @Composable () -> Unit = {},
     otherPreferences: @Composable () -> Unit
 ) {
     val appearance by dataStore.appearance.collectAsStateWithLifecycle(initialValue = AppearancePreferences())
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val saveError = stringResource(R.string.appearance_save_error)
+    val colorThemeLabel = stringResource(R.string.appearance_choose_color)
     val isDark = appearance.themeMode.isDark(isSystemInDarkTheme())
     val wallpaperColors = systemColorScheme(isDark)
     val lightWallpaperColors = systemColorScheme(isDark = false)
@@ -107,69 +107,64 @@ internal fun AppearanceSettingsContent(
     ) {
         Column(Modifier.widthIn(max = 600.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             MemoAppearancePreview(headerScale = headerScale)
-            SettingsSurface {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        stringResource(when (appearance.colorTheme) {
-                            ColorTheme.SYSTEM -> R.string.appearance_device_colors
-                            ColorTheme.MONOCHROME -> R.string.appearance_monochrome
-                            ColorTheme.MEMOS -> R.string.appearance_memos
-                            ColorTheme.CUSTOM -> R.string.appearance_custom_colors
-                        }),
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = { dialog = AppearanceDialog.COLOR }) {
-                        Icon(Icons.Outlined.Palette, contentDescription = stringResource(R.string.appearance_choose_color))
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)
-                        .horizontalScroll(rememberScrollState()).selectableGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PaletteSwatch(
-                        colors = wallpaperColors,
-                        label = stringResource(R.string.appearance_device_colors),
-                        selected = appearance.colorTheme == ColorTheme.SYSTEM,
-                        onClick = { save { dataStore.saveColorTheme(ColorTheme.SYSTEM) } }
-                    )
-                    val monochrome = remember(wallpaperColors, isDark) {
-                        appearanceColorScheme(appearance.copy(colorTheme = ColorTheme.MONOCHROME), wallpaperColors, isDark)
-                    }
-                    PaletteSwatch(
-                        colors = monochrome,
-                        label = stringResource(R.string.appearance_monochrome),
-                        selected = appearance.colorTheme == ColorTheme.MONOCHROME,
-                        onClick = { save { dataStore.saveColorTheme(ColorTheme.MONOCHROME) } }
-                    )
-                    val memosColors = remember(isDark) {
-                        appearanceColorScheme(appearance.copy(colorTheme = ColorTheme.MEMOS), wallpaperColors, isDark)
-                    }
-                    PaletteSwatch(
-                        colors = memosColors,
-                        label = stringResource(R.string.appearance_memos),
-                        selected = appearance.colorTheme == ColorTheme.MEMOS,
-                        onClick = { save { dataStore.saveColorTheme(ColorTheme.MEMOS) } }
-                    )
-                    repeat(5) { index ->
-                        val hue = (wallpaperHue + index * 60f) % 360f
-                        val colors = remember(hue, isDark, wallpaperColors) {
-                            appearanceColorScheme(appearance.copy(colorTheme = ColorTheme.CUSTOM, customHue = hue), wallpaperColors, isDark)
-                        }
-                        PaletteSwatch(
-                            colors = colors,
-                            label = stringResource(R.string.appearance_color_option, index + 1),
-                            selected = appearance.colorTheme == ColorTheme.CUSTOM && appearance.customHue?.let { abs(it - hue) < 0.01f } == true,
-                            onClick = { save { dataStore.saveColorTheme(ColorTheme.CUSTOM, hue) } }
+            SettingsGroup {
+                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .clickable(role = Role.Button, onClick = { dialog = AppearanceDialog.COLOR })
+                            .semantics { contentDescription = colorThemeLabel }
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            colorThemeLabel,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f)
                         )
                     }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)
+                            .horizontalScroll(rememberScrollState()).selectableGroup(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PaletteSwatch(
+                            colors = wallpaperColors,
+                            label = stringResource(R.string.appearance_device_colors),
+                            selected = appearance.colorTheme == ColorTheme.SYSTEM,
+                            onClick = { save { dataStore.saveColorTheme(ColorTheme.SYSTEM) } }
+                        )
+                        val monochrome = remember(wallpaperColors, isDark) {
+                            appearanceColorScheme(appearance.copy(colorTheme = ColorTheme.MONOCHROME), wallpaperColors, isDark)
+                        }
+                        PaletteSwatch(
+                            colors = monochrome,
+                            label = stringResource(R.string.appearance_monochrome),
+                            selected = appearance.colorTheme == ColorTheme.MONOCHROME,
+                            onClick = { save { dataStore.saveColorTheme(ColorTheme.MONOCHROME) } }
+                        )
+                        val memosColors = remember(isDark) {
+                            appearanceColorScheme(appearance.copy(colorTheme = ColorTheme.MEMOS), wallpaperColors, isDark)
+                        }
+                        PaletteSwatch(
+                            colors = memosColors,
+                            label = stringResource(R.string.appearance_memos),
+                            selected = appearance.colorTheme == ColorTheme.MEMOS,
+                            onClick = { save { dataStore.saveColorTheme(ColorTheme.MEMOS) } }
+                        )
+                        repeat(5) { index ->
+                            val hue = (wallpaperHue + index * 60f) % 360f
+                            val colors = remember(hue, isDark, wallpaperColors) {
+                                appearanceColorScheme(appearance.copy(colorTheme = ColorTheme.CUSTOM, customHue = hue), wallpaperColors, isDark)
+                            }
+                            PaletteSwatch(
+                                colors = colors,
+                                label = stringResource(R.string.appearance_color_option, index + 1),
+                                selected = appearance.colorTheme == ColorTheme.CUSTOM && appearance.customHue?.let { abs(it - hue) < 0.01f } == true,
+                                onClick = { save { dataStore.saveColorTheme(ColorTheme.CUSTOM, hue) } }
+                            )
+                        }
+                    }
                 }
-            }
-            SettingsGroup {
                 SettingsNavigationRow(
                     title = stringResource(R.string.appearance_theme_mode),
                     summary = stringResource(appearance.themeMode.labelRes),
@@ -182,6 +177,7 @@ internal fun AppearanceSettingsContent(
                 )
                 otherPreferences()
             }
+            SettingsGroup { linkPreviewPreference() }
         }
     }
     when (dialog) {
@@ -261,7 +257,7 @@ private fun MemoAppearancePreview(headerScale: Float, compact: Boolean = false) 
         memo = memo,
         token = "",
         headerScale = headerScale,
-            maxHeight = if (compact) 150.dp else 240.dp,
+        maxHeight = if (compact) 150.dp else androidx.compose.ui.unit.Dp.Unspecified,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     )
 }

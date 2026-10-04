@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Do not restore credentials, cache state or pending cloud writes blindly. -->
 <data-extraction-rules>
     <cloud-backup disableIfNoEncryptionCapabilities="true">
-        <exclude domain="database" path="memo_cache_database" />
-        <exclude domain="sharedpref" path="." />
-        <exclude domain="file" path="." />
+        <include domain="file" path="native_backup/accounts.mmbackup" />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="database" path="memo_cache_database" />
-        <exclude domain="sharedpref" path="." />
-        <exclude domain="file" path="." />
+        <include domain="file" path="native_backup/device.mmbackup" />
     </device-transfer>
 </data-extraction-rules>

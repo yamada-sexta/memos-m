@@ -33,6 +33,7 @@ slf4j = "2.0.19"
 core = "1.7.0"
 
 [libraries]
+msgpack-core = { module = "org.msgpack:msgpack-core", version = "0.9.12" }
 material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
 android-desugarJdkLibs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 androidmath = { module = "com.github.gregcockroft:AndroidMath", version.ref = "androidmath" }

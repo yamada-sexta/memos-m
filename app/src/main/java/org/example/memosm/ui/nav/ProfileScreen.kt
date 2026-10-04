@@ -311,6 +311,7 @@ private fun ProfileListPane(
                     Box(itemModifier) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
                             onClick = onShowNotifications
                         ) {
                             ListItem(
@@ -339,6 +340,7 @@ private fun ProfileListPane(
                     Box(itemModifier) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
                             onClick = onShowArchived
                         ) {
                             ListItem(
@@ -355,6 +357,7 @@ private fun ProfileListPane(
                     Box(itemModifier) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
                             onClick = onShowSettings
                         ) {
                             ListItem(

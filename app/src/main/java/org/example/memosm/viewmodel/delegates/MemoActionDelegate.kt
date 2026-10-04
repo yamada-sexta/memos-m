@@ -174,14 +174,20 @@ class MemoActionDelegateImpl(
         // timeout cannot create a duplicate server-side. Callers with their own
         // stable identity (e.g. draft publishing) can supply [memoId].
         val clientId = memoId ?: UUID.randomUUID().toString()
-        val memo = Memo(
+        var memo = Memo(
             content = content,
             visibility = visibility,
             attachments = attachments,
             location = location
         )
         scope.launch {
-            if (accountId != null && !wasOnline) {
+            try {
+                val prepared = attachmentManager?.prepareRestoredDraftAttachments(memo.attachments.orEmpty()) ?: memo.attachments.orEmpty()
+                memo = memo.copy(attachments = prepared.ifEmpty { null })
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { reportOperationFailure(context, error); if (accountSession.isCurrent(context)) onError(); return@launch }
+            val attachmentsPending = memo.attachments.orEmpty().any { it.name.isNullOrBlank() && it.clientId != null }
+            if (accountId != null && (!wasOnline || attachmentsPending)) {
                 // Offline: queue the create and show the memo locally right away.
                 val tempName = "offline-$clientId"
                 // Stamp local timestamps so the optimistic memo sorts to the

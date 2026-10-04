@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -64,6 +63,7 @@ fun DraftsScreen(
 
     // Predictive Back Animation State
     val scale = remember { Animatable(1f) }
+    val screenShape = MaterialTheme.shapes.large
 
     PredictiveBackHandler { progress ->
         try {
@@ -82,7 +82,7 @@ fun DraftsScreen(
     Scaffold(modifier = Modifier.graphicsLayer {
         scaleX = scale.value
         scaleY = scale.value
-        shape = RoundedCornerShape(28.dp)
+        shape = screenShape
         clip = true
     }, topBar = {
         TopAppBar(title = { Text(stringResource(R.string.drafts_title)) }, navigationIcon = {

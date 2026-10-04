@@ -1,5 +1,7 @@
 package org.example.memosm.ui.component
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandHorizontally
@@ -82,6 +84,8 @@ import kotlinx.coroutines.delay
 import org.example.memosm.R
 import org.example.memosm.api.MemoOrderBy
 import org.example.memosm.model.Memo
+import org.example.memosm.ui.nav.SettingsSection
+import org.example.memosm.ui.profile.SettingsActivity
 import org.example.memosm.ui.component.item.MemoItem
 import org.example.memosm.viewmodel.MemosUiState
 import org.example.memosm.viewmodel.MemosViewModel
@@ -101,6 +105,10 @@ fun MemoSearchBar(
     placeholder: String = stringResource(R.string.memo_search_placeholder)
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val cacheSettings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.refreshAfterProfileDetails()
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -271,12 +279,13 @@ fun MemoSearchBar(
             SyncStatusPanel(
                 uiState = uiState,
                 onDismiss = { showSyncPanel = false },
-                onSyncNow = { viewModel.syncNow() },
                 onPreDownloadText = { viewModel.preDownloadNow() },
                 onPreDownloadAttachments = { viewModel.preDownloadAllAttachments() },
                 onDeleteOp = { opId -> viewModel.deletePendingOp(opId) },
-                onClearTextCache = { viewModel.clearTextCache() },
-                onClearAttachmentCache = { viewModel.clearAttachmentCache() }
+                onManageCache = {
+                    showSyncPanel = false
+                    cacheSettings.launch(SettingsActivity.createIntent(context, SettingsSection.OFFLINE))
+                }
             )
         }
     }
@@ -386,7 +395,7 @@ private fun SearchResultContent(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                     ),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = MaterialTheme.shapes.large
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
@@ -446,7 +455,7 @@ private fun SearchResultContent(
                                                 )
                                             }
                                         },
-                                        shape = RoundedCornerShape(8.dp),
+                                        shape = MaterialTheme.shapes.medium,
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -567,7 +576,7 @@ private fun SearchResultContent(
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
                     ) {
                         Text(
@@ -653,7 +662,7 @@ private fun DateSelectorCard(
     Card(
         modifier = modifier, colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        ), shape = RoundedCornerShape(12.dp), onClick = onClick
+        ), shape = MaterialTheme.shapes.large, onClick = onClick
     ) {
         Row(
             modifier = Modifier

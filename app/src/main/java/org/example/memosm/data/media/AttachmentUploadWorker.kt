@@ -24,7 +24,7 @@ class AttachmentUploadWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result = org.example.memosm.data.backup.BackupCoordinator.withStorageLock { withContext(Dispatchers.IO) {
         val accountId = inputData.getString(ACCOUNT_ID) ?: return@withContext Result.failure()
         val dataStore = org.koin.core.context.GlobalContext.get().get<DataStoreManager>()
         val account = dataStore.getAccounts().firstOrNull { it.id == accountId }
@@ -54,6 +54,8 @@ class AttachmentUploadWorker(
             // rethrows transient failures, so any exception here means retry.
             Result.retry()
         }
+    }
+
     }
 
     companion object {

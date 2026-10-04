@@ -10,12 +10,12 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -68,6 +68,7 @@ fun MemoComposerScreen(
 
     // Predictive Back Animation State
     val scale = remember { Animatable(1f) }
+    val screenShape = MaterialTheme.shapes.large
 
     PredictiveBackHandler { progress ->
         try {
@@ -84,7 +85,7 @@ fun MemoComposerScreen(
         modifier = Modifier.graphicsLayer {
             scaleX = scale.value
             scaleY = scale.value
-            shape = RoundedCornerShape(28.dp)
+            shape = screenShape
             clip = true
         },
         topBar = {

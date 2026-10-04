@@ -23,6 +23,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.example.memosm.data.DataStoreManager
@@ -67,6 +69,22 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalNetworkPermission provides networkPermission) {
                     val scope = rememberCoroutineScope()
 
+                    val recoveryError by org.example.memosm.data.backup.BackupCoordinator.recoveryError.collectAsState()
+                    if (recoveryError != null) {
+                        androidx.compose.foundation.layout.Column(
+                            Modifier.fillMaxSize().padding(24.dp),
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            androidx.compose.material3.Text(recoveryError!!)
+                            androidx.compose.material3.Button(onClick = {
+                                scope.launch {
+                                    val backup = org.koin.core.context.GlobalContext.get().get<org.example.memosm.data.backup.BackupService>()
+                                    backup.recoverInterruptedRestore().onSuccess { backup.restoreNativeIfPresent() }
+                                }
+                            }) { androidx.compose.material3.Text(getString(R.string.backup_recovery_retry)) }
+                        }
+                    } else {
                     // Observe accounts instead of single credentials
                     val accounts by dataStoreManager.accounts.collectAsState(initial = null)
 
@@ -129,6 +147,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                    }
                 }
             }
         }
@@ -138,7 +157,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // App is in the foreground again: flush queued offline writes and
         // top up the local cache.
-        viewModel.onForeground()
+        if (org.example.memosm.data.backup.BackupCoordinator.recoveryError.value == null) viewModel.onForeground()
     }
 
     /**

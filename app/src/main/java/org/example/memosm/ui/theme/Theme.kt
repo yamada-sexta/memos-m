@@ -82,7 +82,12 @@ fun MemosMTheme(
         appearanceColorScheme(appearance, systemColors, isDark)
     }
     val typography = remember(appearance.font) { typographyFor(appearance.font) }
-    MaterialTheme(colorScheme = colors, typography = typography, content = content)
+    MaterialTheme(
+        colorScheme = colors,
+        typography = typography,
+        shapes = MemosShapes,
+        content = content
+    )
 }
 
 /** Each activity observes the same saved preferences, including changes made in another activity. */
@@ -113,6 +118,7 @@ fun ProfileTheme(content: @Composable () -> Unit) {
     MaterialExpressiveTheme(
         colorScheme = colors,
         typography = MaterialTheme.typography,
+        shapes = MaterialTheme.shapes,
         motionScheme = MotionScheme.expressive(),
         content = content
     )

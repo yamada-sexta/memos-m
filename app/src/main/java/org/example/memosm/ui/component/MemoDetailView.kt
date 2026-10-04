@@ -24,7 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -108,7 +108,9 @@ fun MemoDetailView(
 
     Surface(
         modifier = modifier.fillMaxSize(),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        shape = MaterialTheme.shapes.large.copy(
+            bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)
+        ),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
     ) {
@@ -242,7 +244,7 @@ fun MemoDetailView(
                     if (comments.isOffline && !comments.isLoading) {
                         item(key = "comments_cached_hint") {
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = MaterialTheme.shapes.medium,
                                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
                                 modifier = Modifier
                                     .fillMaxWidth()

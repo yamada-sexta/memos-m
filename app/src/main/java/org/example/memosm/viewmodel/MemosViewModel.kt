@@ -464,6 +464,19 @@ class MemosViewModel(
         draftManager,
         { _uiState.value.isOnline })
 
+    private val unregisterBackupHook = org.example.memosm.data.backup.BackupCoordinator.register { restoring ->
+        if (restoring) {
+            // Keep the settings destination mounted while its restore coroutine is running.
+            accountSession.clear()
+            syncManager.cancelSync()
+            preDownloadManager.cancel()
+            reachabilityMonitor.cancelProbe()
+        } else {
+            attachmentCacheManager.invalidateLocalIndex()
+            switchAccountInternal(dataStoreManager.getAccounts().firstOrNull { it.isActive })
+        }
+    }
+
     init {
         userDelegate.updateCurrentAccountInList()
         appSettingsDelegate.loadPageSize()
@@ -485,6 +498,7 @@ class MemosViewModel(
     }
 
     private fun runRecoverySequence() {
+        if (org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
         syncManager.syncNow()
         preDownloadManager.maybeAutoDownload()
         listOf(userMemoManager, exploreMemoManager, archivedMemoManager).forEach { manager ->
@@ -495,6 +509,7 @@ class MemosViewModel(
 
     // Keep this one as it's used by the delegate directly above
     private suspend fun switchAccountInternal(account: Account?) {
+        if (account != null && (org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null)) return
         _sessionReady.value = false
         _linkPreviews.value = null
         accountSession.clear()
@@ -727,56 +742,44 @@ class MemosViewModel(
     }
 
     fun fetchUserMemos(refresh: Boolean = false) {
-        if (!_uiState.value.isOnline) {
-            // Offline: serve cached data immediately instead of timing out.
-            if (refresh) updateRefreshTrigger(RefreshSource.USerMemos)
-            userMemoManager.loadFromCache()
-            if (refresh) clearRefreshingState()
+        if (refresh) {
+            refreshManually(RefreshSource.USerMemos) { userMemoManager.fetch(refresh = true) }
             return
         }
-        if (refresh) updateRefreshTrigger(RefreshSource.USerMemos)
-        userMemoManager.fetch(refresh)
-        if (refresh) {
-            clearRefreshingState()
-            // Pull-to-refresh is an explicit user action: bypass the backoff.
-            syncManager.syncNow(force = true)
+        if (!_uiState.value.isOnline) {
+            // Offline: serve cached data immediately instead of timing out.
+            userMemoManager.loadFromCache()
+            return
         }
+        userMemoManager.fetch()
     }
 
     fun loadMoreUserMemos() = userMemoManager.loadMore()
 
     fun fetchExploreMemos(refresh: Boolean = false) {
-        if (!_uiState.value.isOnline) {
-            if (refresh) updateRefreshTrigger(RefreshSource.ExploreMemos)
-            exploreMemoManager.loadFromCache()
-            if (refresh) clearRefreshingState()
+        if (refresh) {
+            refreshManually(RefreshSource.ExploreMemos) { exploreMemoManager.fetch(refresh = true) }
             return
         }
-        if (refresh) updateRefreshTrigger(RefreshSource.ExploreMemos)
-        exploreMemoManager.fetch(refresh)
-        if (refresh) {
-            clearRefreshingState()
-            // Pull-to-refresh is an explicit user action: bypass the backoff.
-            syncManager.syncNow(force = true)
+        if (!_uiState.value.isOnline) {
+            exploreMemoManager.loadFromCache()
+            return
         }
+        exploreMemoManager.fetch()
     }
 
     fun loadMoreExploreMemos() = exploreMemoManager.loadMore()
 
     fun fetchArchivedMemos(refresh: Boolean = false) {
-        if (!_uiState.value.isOnline) {
-            if (refresh) updateRefreshTrigger(RefreshSource.ArchivedMemos)
-            archivedMemoManager.loadFromCache()
-            if (refresh) clearRefreshingState()
+        if (refresh) {
+            refreshManually(RefreshSource.ArchivedMemos) { archivedMemoManager.fetch(refresh = true) }
             return
         }
-        if (refresh) updateRefreshTrigger(RefreshSource.ArchivedMemos)
-        archivedMemoManager.fetch(refresh)
-        if (refresh) {
-            clearRefreshingState()
-            // Pull-to-refresh is an explicit user action: bypass the backoff.
-            syncManager.syncNow(force = true)
+        if (!_uiState.value.isOnline) {
+            archivedMemoManager.loadFromCache()
+            return
         }
+        archivedMemoManager.fetch()
     }
 
     fun loadMoreArchivedMemos() = archivedMemoManager.loadMore()
@@ -838,8 +841,7 @@ class MemosViewModel(
     }
 
     /**
-     * User-triggered sync (banner, sync buttons, pull-to-refresh):
-     * force bypasses the retry backoff / permanent-failure guards.
+     * User-triggered sync attempts the server and bypasses retry guards.
      */
     fun syncNow() {
         syncManager.syncNow(force = true)
@@ -947,6 +949,13 @@ class MemosViewModel(
         }
     }
 
+    private fun refreshManually(source: RefreshSource, fetch: () -> Unit) {
+        updateRefreshTrigger(source)
+        fetch()
+        syncManager.syncNow(force = true)
+        clearRefreshingState()
+    }
+
     private fun clearRefreshingState() {
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = false) }
@@ -954,16 +963,18 @@ class MemosViewModel(
     }
 
     fun fetchAttachments(refresh: Boolean = false) {
-        if (!_uiState.value.isOnline) {
-            // Offline: serve cached metadata immediately instead of timing out.
-            if (refresh) updateRefreshTrigger(RefreshSource.Attachments)
-            attachmentManager.loadFromCache()
-            if (refresh) clearRefreshingState()
+        if (refresh) {
+            refreshManually(RefreshSource.Attachments) {
+                attachmentManager.fetch(refresh = true, softRefresh = true)
+            }
             return
         }
-        if (refresh) updateRefreshTrigger(RefreshSource.Attachments)
-        attachmentManager.fetch(refresh = refresh, softRefresh = refresh)
-        if (refresh) clearRefreshingState()
+        if (!_uiState.value.isOnline) {
+            // Offline: serve cached metadata immediately instead of timing out.
+            attachmentManager.loadFromCache()
+            return
+        }
+        attachmentManager.fetch()
     }
 
     fun loadMoreAttachments() {
@@ -1072,4 +1083,9 @@ class MemosViewModel(
             current + (scale to scaleMap)
         }
     }
+    override fun onCleared() {
+        unregisterBackupHook()
+        super.onCleared()
+    }
+
 }

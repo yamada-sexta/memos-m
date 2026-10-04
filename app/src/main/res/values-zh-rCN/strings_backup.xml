@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_description">备份账户、偏好设置、离线副本和草稿。恢复的缓存不会覆盖服务器数据。</string>
+    <string name="backup_export_description">选择要保存为 .mmbackup 文件的账户和数据</string>
+    <string name="backup_import_description">选择要恢复的账户和本地数据</string>
+    <string name="backup_android_description">当加密备份可用时，Android 会自动备份账户信息。设备间直接传输还包括设置、缓存、已下载的媒体和草稿。</string>
+    <string name="backup_choose_export">选择要备份的内容</string>
+    <string name="backup_choose_restore">选择要恢复的内容</string>
+    <string name="backup_accounts_heading">账户</string>
+    <string name="backup_contents_heading">内容</string>
+    <string name="backup_category_accounts">账户信息和登录令牌</string>
+    <string name="backup_category_settings">应用偏好设置</string>
+    <string name="backup_category_cache">缓存的笔记和服务器数据</string>
+    <string name="backup_category_media">已下载的媒体</string>
+    <string name="backup_category_drafts">草稿及其本地附件</string>
+    <string name="backup_category_queued">排队中的编辑（可选）</string>
+    <string name="backup_password_protection">使用密码保护</string>
+    <string name="backup_credentials_description">账户备份包含登录令牌。密码保护为可选项。请将备份保存在他人无法访问的位置。</string>
+    <string name="backup_password">备份密码</string>
+    <string name="backup_repeat_password">再次输入密码</string>
+    <string name="backup_replace_title">替换选中的本地数据？</string>
+    <string name="backup_replace_description">仅替换选中的账户和类别。其他账户和未选中的类别保持不变。服务器数据不会更改。</string>
+    <string name="backup_restore_summary">已恢复 %1$d 个账户、%2$d 条缓存笔记、%3$d 份草稿和 %4$d 个媒体文件。选中的排队编辑已单独保存以供检查。</string>
+    <string name="backup_legacy_explanation">此旧版备份只能恢复缓存。排队操作和服务器确认前的本地编辑会被忽略，因此不会更改服务器数据。</string>
+    <string name="backup_edit_review_title">已恢复的排队编辑</string>
+    <string name="backup_edit_review_description">恢复的排队编辑不会自动同步。请将笔记编辑保存为草稿，自行检查并发布。删除和回应请使用常规笔记操作。</string>
+    <string name="backup_save_as_draft">保存为草稿</string>
+    <string name="backup_edit_saved_draft">已保存为未发布的草稿。请打开草稿进行检查。</string>
+    <string name="backup_restore_before_login">恢复备份</string>
+    <string name="backup_recovery_retry">重试恢复</string>
+</resources>

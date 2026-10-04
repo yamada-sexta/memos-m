@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+<resources xmlns:tools="http://schemas.android.com/tools">
         <string name="common_unknown_error">Unknown error</string>
     <string name="common_no_active_account">No active account found</string>
     <string name="common_operation_failed">The operation could not be completed. Please try again.</string>

@@ -9,5 +9,7 @@ object AccountSyncCoordinator {
     private val locks = ConcurrentHashMap<String, Mutex>()
 
     suspend fun <T> withAccountLock(accountId: String, action: suspend () -> T): T =
-        locks.getOrPut(accountId) { Mutex() }.withLock { action() }
+        org.example.memosm.data.backup.BackupCoordinator.withStorageLock {
+            locks.getOrPut(accountId) { Mutex() }.withLock { action() }
+        }
 }

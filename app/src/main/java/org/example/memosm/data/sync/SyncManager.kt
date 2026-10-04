@@ -107,23 +107,24 @@ class SyncManager(
 
     /**
      * Attempt to replay all queued ops for the active account.
-     * No-op when offline or already syncing.
+     * Automatic attempts are skipped when offline; overlapping attempts are skipped.
      *
-     * [force] bypasses the retry guards (permanently-failed ops and the
-     * exponential backoff window) - used for explicit user actions
-     * (Sync Now button, pull-to-refresh, conflict resolved).
+     * [force] bypasses the previous reachability assessment and retry guards
+     * (permanently-failed ops and exponential backoff) for explicit user actions.
      */
     fun syncNow(force: Boolean = false) {
-        if (!isOnlineProvider() || _isSyncing.value) return
+        if ((!force && !isOnlineProvider()) || _isSyncing.value) return
         val context = accountSession.current ?: return
         if (!context.networkReady) return
         val accountId = context.account.id
         val user = currentUserProvider()
         syncJob?.cancel()
+        // Claim the attempt before launching so consecutive gestures cannot
+        // cancel and replace a replay that has not started running yet.
+        _isSyncing.value = true
         syncJob = scope.launch {
-            if (!accountSession.isCurrent(context)) return@launch
-            _isSyncing.value = true
             try {
+                if (!accountSession.isCurrent(context)) return@launch
                 AccountSyncCoordinator.withAccountLock(accountId) {
                     if (!accountSession.isCurrent(context)) return@withAccountLock
                     var ops = repository.getOps(accountId)

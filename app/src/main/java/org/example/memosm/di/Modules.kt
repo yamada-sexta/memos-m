@@ -43,17 +43,17 @@ val appModule = module {
         )
     }
 
-    single { DataStoreManager(get()) }
+    single { DataStoreManager(get(), onAccountsChanged = { android.app.backup.BackupManager(androidContext()).dataChanged() }) }
 
     single { DraftManager(androidContext()) }
 
     // Room
     single { MemoCacheDatabase.getInstance(androidContext()) }
-    single { get<MemoCacheDatabase>().memoDao() }
+    single<org.example.memosm.data.cache.MemoDao> { org.example.memosm.data.backup.GuardedMemoDao(get<MemoCacheDatabase>().memoDao()) }
     single { get<MemoCacheDatabase>().pendingOpDao() }
-    single { get<MemoCacheDatabase>().cachedAttachmentDao() }
+    single<CachedAttachmentDao> { org.example.memosm.data.backup.GuardedAttachmentDao(get<MemoCacheDatabase>().cachedAttachmentDao()) }
     single { get<MemoCacheDatabase>().attachmentUploadDao() }
-    single { get<MemoCacheDatabase>().cachedAttachmentMetaDao() }
+    single<org.example.memosm.data.media.CachedAttachmentMetaDao> { org.example.memosm.data.backup.GuardedAttachmentMetaDao(get<MemoCacheDatabase>().cachedAttachmentMetaDao()) }
     // The audit log lives in its own database so it survives cache-DB corruption.
     single { AuditDatabase.getInstance(androidContext()) }
     single { get<AuditDatabase>().syncAuditDao() }
@@ -61,7 +61,8 @@ val appModule = module {
     single { SyncRepository(get()) }
     single { SyncAuditLogger(get()) }
     single { AttachmentUploadQueue(androidContext(), get(), get()) }
-    single { LocalRecoveryService(androidContext(), get(), get(), get()) }
+    single { org.example.memosm.data.backup.BackupService(androidContext(), get(), get(), get()) }
+    single { LocalRecoveryService(get(), get()) }
     single<SyncWorkScheduler> { WorkManagerSyncWorkScheduler(androidContext()) }
 
     // Network state monitoring

@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,7 +59,8 @@ fun SettingsScreen(
         } else if (section == SettingsSection.APPEARANCE) {
             AppearanceSettingsContent(
                 headerScale = uiState.appSettings.headerScale,
-                modifier = Modifier.fillMaxSize().padding(innerPadding)
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                linkPreviewPreference = { AppPreferenceRows(viewModel, AppSettingsCategory.LINK_PREVIEWS) }
             ) {
                 AppPreferenceRows(viewModel, AppSettingsCategory.APPEARANCE)
             }
@@ -205,7 +208,17 @@ internal fun SettingsPageScaffold(
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit
 ) {
-    val scrollBehavior = if (collapsingHeader) TopAppBarDefaults.exitUntilCollapsedScrollBehavior() else null
+    val scrollBehavior = if (collapsingHeader) {
+        val collapsedOffset = with(LocalDensity.current) {
+            (TopAppBarDefaults.LargeAppBarCollapsedHeight - TopAppBarDefaults.LargeAppBarExpandedHeight).toPx()
+        }
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
+            state = rememberTopAppBarState(
+                initialHeightOffsetLimit = collapsedOffset,
+                initialHeightOffset = collapsedOffset
+            )
+        )
+    } else null
     Scaffold(
         modifier = modifier.fillMaxSize().then(
             scrollBehavior?.let { Modifier.nestedScroll(it.nestedScrollConnection) } ?: Modifier

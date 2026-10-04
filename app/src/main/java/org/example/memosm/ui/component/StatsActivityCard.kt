@@ -77,7 +77,7 @@ fun StatsActivityCard(
         }
     }
 
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         @Suppress("COMPOSE_APPLIER_CALL_MISMATCH") BoxWithConstraints(modifier = Modifier.padding(16.dp)) {
             val isWide = maxWidth > 500.dp
 

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_description">Twórz kopie zapasowe kont, ustawień, kopii offline i szkiców. Przywrócona pamięć podręczna nigdy nie nadpisuje danych na serwerze.</string>
+    <string name="backup_export_description">Wybierz konta i dane do zapisania w pliku .mmbackup</string>
+    <string name="backup_import_description">Wybierz konta i dane lokalne do przywrócenia</string>
+    <string name="backup_android_description">Android automatycznie tworzy kopię zapasową informacji o kontach, gdy dostępna jest szyfrowana kopia zapasowa. Bezpośredni transfer między urządzeniami obejmuje też ustawienia, pamięć podręczną, pobrane multimedia i szkice.</string>
+    <string name="backup_choose_export">Wybierz dane do kopii zapasowej</string>
+    <string name="backup_choose_restore">Wybierz dane do przywrócenia</string>
+    <string name="backup_accounts_heading">Konta</string>
+    <string name="backup_contents_heading">Zawartość</string>
+    <string name="backup_category_accounts">Informacje o kontach i tokeny logowania</string>
+    <string name="backup_category_settings">Ustawienia aplikacji</string>
+    <string name="backup_category_cache">Notatki i dane serwera w pamięci podręcznej</string>
+    <string name="backup_category_media">Pobrane multimedia</string>
+    <string name="backup_category_drafts">Szkice i ich lokalne załączniki</string>
+    <string name="backup_category_queued">Zmiany w kolejce (opcjonalnie)</string>
+    <string name="backup_password_protection">Chroń hasłem</string>
+    <string name="backup_credentials_description">Kopie zapasowe kont zawierają tokeny logowania. Ochrona hasłem jest opcjonalna. Przechowuj kopię zapasową w miejscu niedostępnym dla innych.</string>
+    <string name="backup_password">Hasło kopii zapasowej</string>
+    <string name="backup_repeat_password">Powtórz hasło</string>
+    <string name="backup_replace_title">Zastąpić wybrane dane lokalne?</string>
+    <string name="backup_replace_description">Zastąpione zostaną tylko wybrane konta i kategorie. Pozostałe konta i niezaznaczone kategorie pozostaną bez zmian. Dane na serwerze nie zostaną zmienione.</string>
+    <string name="backup_restore_summary">Przywrócono: konta — %1$d, notatki w pamięci podręcznej — %2$d, szkice — %3$d, pliki multimedialne — %4$d. Wybrane zmiany z kolejki zapisano osobno do sprawdzenia.</string>
+    <string name="backup_legacy_explanation">Z tej starszej kopii zapasowej można przywrócić tylko pamięć podręczną. Operacje w kolejce i lokalne zmiany oczekujące na potwierdzenie są pomijane, aby nie zmieniły danych na serwerze.</string>
+    <string name="backup_edit_review_title">Przywrócone zmiany z kolejki</string>
+    <string name="backup_edit_review_description">Przywrócone zmiany z kolejki nigdy nie synchronizują się automatycznie. Zapisz edycje notatek jako szkice, aby samodzielnie je sprawdzić i opublikować. Do usuwania notatek i dodawania reakcji użyj zwykłych funkcji notatek.</string>
+    <string name="backup_save_as_draft">Zapisz jako szkic</string>
+    <string name="backup_edit_saved_draft">Zapisano jako nieopublikowany szkic. Otwórz Szkice, aby go sprawdzić.</string>
+    <string name="backup_restore_before_login">Przywróć kopię zapasową</string>
+    <string name="backup_recovery_retry">Ponów przywracanie</string>
+</resources>

@@ -212,7 +212,7 @@ fun NotificationsScreen(
 
 @Composable
 private fun NotificationCard(notification: UserNotification) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         ListItem(
             headlineContent = {
                 Text(

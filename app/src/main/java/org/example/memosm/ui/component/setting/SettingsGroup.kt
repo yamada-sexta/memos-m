@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,7 +15,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)),
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large),
         verticalArrangement = Arrangement.spacedBy(2.dp),
         content = content
     )
@@ -26,7 +25,7 @@ fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
 fun SettingsSurface(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(content = content)

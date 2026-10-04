@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.ArrowDropDown
@@ -122,7 +121,7 @@ fun MemoComposerBottomBar(
         verticalAlignment = Alignment.CenterVertically) {
         // "Everything else" Card — pill when empty, rounded card when content is present
         val hasContent = draftAttachments.isNotEmpty() || location != null
-        val cardShape = if (hasContent) RoundedCornerShape(28.dp) else CircleShape
+        val cardShape = if (hasContent) MaterialTheme.shapes.large else CircleShape
         Card(
             modifier = Modifier.weight(1f), shape = cardShape, colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -160,7 +159,7 @@ fun MemoComposerBottomBar(
                                             .fillMaxSize()
                                             .background(
                                                 Color.Black.copy(alpha = 0.3f),
-                                                RoundedCornerShape(8.dp)
+                                                MaterialTheme.shapes.medium
                                             ), contentAlignment = Alignment.Center
                                     ) {
                                         CircularProgressIndicator(

@@ -37,10 +37,10 @@ class OutboxSyncWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result = org.example.memosm.data.backup.BackupCoordinator.withStorageLock { withContext(Dispatchers.IO) {
         val accountId = inputData.getString(ACCOUNT_ID) ?: return@withContext Result.failure()
         syncAccount(accountId)
-    }
+    } }
 
     private suspend fun syncAccount(accountId: String): Result = coroutineScope {
         val koin = org.koin.core.context.GlobalContext.get()

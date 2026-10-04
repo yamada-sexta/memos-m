@@ -22,7 +22,7 @@ import java.io.FileWriter
 import kotlin.time.Instant
 
 /**
- * Manages draft storage in the app's cache directory using streaming JSON parsing.
+ * Manages durable draft storage in the app's private files directory using streaming JSON parsing.
  * Uses GSON's JsonReader/JsonWriter to avoid loading entire JSON into memory,
  * which prevents OOM errors when drafts contain large base64-encoded attachments.
  *
@@ -40,15 +40,24 @@ class DraftManager(private val context: Context) {
     }
 
     private fun getDraftsDir(): File {
-        val dir = File(context.cacheDir, DRAFTS_DIR)
-        if (!dir.exists()) {
-            dir.mkdirs()
-        }
+        val dir = File(context.filesDir, DRAFTS_DIR)
+        check(dir.exists() || dir.mkdirs()) { "Could not open draft storage" }
         return dir
     }
 
     private fun getDraftsFile(accountId: String): File {
-        return File(getDraftsDir(), draftsFileName(accountId))
+        require(accountId.isNotBlank() && !accountId.contains('/') && !accountId.contains('\\') && accountId != "." && accountId != "..") { "Invalid draft account" }
+        val target = File(getDraftsDir(), draftsFileName(accountId))
+        val legacy = File(File(context.cacheDir, DRAFTS_DIR), draftsFileName(accountId))
+        if (!target.exists() && legacy.exists()) {
+            if (!legacy.renameTo(target)) {
+                val temp = File(target.parentFile, ".${target.name}.migration")
+                legacy.inputStream().use { input -> temp.outputStream().use { output -> input.copyTo(output); output.fd.sync() } }
+                check(temp.renameTo(target)) { "Could not migrate drafts" }
+                legacy.delete()
+            }
+        }
+        return target
     }
 
     /**
@@ -56,10 +65,10 @@ class DraftManager(private val context: Context) {
      * Reads one draft at a time to minimize memory usage.
      */
     suspend fun getDrafts(accountId: String): List<Draft> = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        withDraftLock {
             try {
                 val file = getDraftsFile(accountId)
-                if (!file.exists()) return@withContext emptyList()
+                if (!file.exists()) return@withDraftLock emptyList()
 
                 val drafts = mutableListOf<Draft>()
 
@@ -83,6 +92,13 @@ class DraftManager(private val context: Context) {
                 emptyList()
             }
         }
+    }
+
+    private suspend fun <T> withDraftLock(action: suspend () -> T): T =
+        org.example.memosm.data.backup.BackupCoordinator.withStorageLock { mutex.withLock { action() } }
+
+    suspend fun replaceDrafts(accountId: String, drafts: List<Draft>): Unit = withContext(Dispatchers.IO) {
+        withDraftLock { saveDraftsInternal(accountId, drafts) }
     }
 
     /**
@@ -268,7 +284,7 @@ class DraftManager(private val context: Context) {
      * Save or update a draft using streaming JSON writing.
      */
     suspend fun saveDraft(accountId: String, draft: Draft): Unit = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        withDraftLock {
             try {
                 val drafts = getDraftsInternal(accountId).toMutableList()
                 val existingIndex = drafts.indexOfFirst { it.id == draft.id }
@@ -293,7 +309,7 @@ class DraftManager(private val context: Context) {
      */
     suspend fun deleteDraft(accountId: String, draftId: String): Unit =
         withContext(Dispatchers.IO) {
-            mutex.withLock {
+            withDraftLock {
                 try {
                     val drafts = getDraftsInternal(accountId).toMutableList()
                     val removed = drafts.removeAll { it.id == draftId }
@@ -310,7 +326,7 @@ class DraftManager(private val context: Context) {
      * Clear all drafts for an account.
      */
     suspend fun clearDrafts(accountId: String): Unit = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        withDraftLock {
             try {
                 val file = getDraftsFile(accountId)
                 if (file.exists()) {
@@ -330,7 +346,7 @@ class DraftManager(private val context: Context) {
      */
     suspend fun draftsContain(accountId: String, needle: String): Boolean =
         withContext(Dispatchers.IO) {
-            mutex.withLock {
+            withDraftLock {
                 try {
                     val file = getDraftsFile(accountId)
                     file.exists() && file.readText().contains(needle)
@@ -383,7 +399,10 @@ class DraftManager(private val context: Context) {
     private fun saveDraftsInternal(accountId: String, drafts: List<Draft>) {
         val file = getDraftsFile(accountId)
 
-        JsonWriter(BufferedWriter(FileWriter(file))).use { writer ->
+        val temp = File(file.parentFile, ".${file.name}.tmp")
+        try {
+        val output = temp.outputStream()
+        JsonWriter(BufferedWriter(java.io.OutputStreamWriter(output, Charsets.UTF_8))).use { writer ->
             writer.setIndent("") // Compact output
 
             writer.beginArray()
@@ -391,7 +410,11 @@ class DraftManager(private val context: Context) {
                 writeDraft(writer, draft)
             }
             writer.endArray()
+            writer.flush()
+            output.fd.sync()
         }
+        check(temp.renameTo(file)) { "Could not save drafts" }
+        } finally { temp.delete() }
     }
 
     /**

@@ -38,10 +38,10 @@
     <string name="profile_app_settings_page_size_hint">Items per page</string>
     <string name="profile_app_settings_link_previews">Link previews</string>
     <string name="profile_app_settings_link_previews_description">Show preview cards for standalone webpage links</string>
-    <string name="profile_app_settings_header_scale">Header Scale</string>
+    <string name="profile_app_settings_header_scale">Heading size</string>
     <string name="profile_app_settings_header_scale_format">%.1fx</string>
-    <string tools:ignore="MissingTranslation" name="profile_notifications">Notifications</string>
-    <string tools:ignore="MissingTranslation" name="profile_notifications_empty">No notification</string>
+    <string name="profile_notifications">Notifications</string>
+    <string name="profile_notifications_empty">No notifications</string>
     <string name="profile_archived">Archived</string>
     <string name="profile_shortcuts">Shortcuts</string>
     <string name="profile_shortcuts_none">No shortcuts configured</string>
@@ -171,7 +171,7 @@
     <string name="common_error_failed_to_load_explore">Unable to load explore</string>
     <string name="common_error_failed_to_load_profile">Unable to load profile</string>
     <string name="common_error_failed_to_load_attachments">Unable to load attachments</string>
-    <string tools:ignore="MissingTranslation" name="common_error_failed_to_load_notifications">Unable to load notifications</string>
+    <string name="common_error_failed_to_load_notifications">Unable to load notifications</string>
     <string name="offline_title">Offline</string>
     <string name="offline_cached_data_message">Showing cached data. Pull to refresh.</string>
     <string name="notifications_last_updated">Last updated: %1$s</string>
@@ -181,7 +181,7 @@
     <string name="offline_banner_title">Offline mode · showing cached data</string>
     <string name="offline_banner_cached">Offline · using local cache</string>
     <string name="offline_banner_syncing">Offline · syncing…</string>
-    <string name="offline_banner_pending">%1$d change(s) pending sync</string>
+    <string name="offline_banner_pending">Changes awaiting sync: %1$d</string>
     <string name="offline_conflict_title">Sync Conflict</string>
     <string name="offline_conflict_description">This memo was edited elsewhere while you were offline. Choose what to keep:</string>
     <string name="offline_conflict_local">Local version</string>
@@ -202,7 +202,7 @@
     <string name="offline_sync_status_online">Online</string>
     <string name="offline_sync_status_offline">Offline</string>
     <string name="offline_sync_last_time">Last sync: %1$s</string>
-    <string name="offline_sync_pending_count">%1$d change(s) queued</string>
+    <string name="offline_sync_pending_count">Queued changes: %1$d</string>
     <string name="offline_sync_now">Sync Now</string>
     <string name="offline_sync_queue_title">Pending changes</string>
     <string name="offline_sync_delete_op">Discard change</string>
@@ -238,8 +238,8 @@
     <string name="offline_clear_all">Clear All Caches</string>
     <string name="offline_settings_clear_text">Clear text cache</string>
     <string name="cache_cleanup_title">Clear cache</string>
-    <string name="cache_cleanup_clear" tools:ignore="MissingTranslation">Clear</string>
-    <string name="cache_cleanup_manage">Manage Cache</string>
+    <string name="cache_cleanup_clear">Clear</string>
+    <string name="cache_cleanup_manage">Clear cache</string>
     <string name="cache_cleanup_clear_selected">Clear Selected</string>
     <string name="cache_cleanup_none_selected">Select a cache type to clear</string>
     <string name="cache_cleanup_text">Text cache</string>
@@ -250,8 +250,8 @@
     <string name="cache_unit_gb">GB</string>
     <string name="recovery_title">Backup &amp; Restore</string>
     <string name="recovery_description">Export the local cache and offline outbox of the active account to a file, or restore from a previous archive.</string>
-    <string name="recovery_export_description" tools:ignore="MissingTranslation">Save cached memos and pending changes to a file</string>
-    <string name="recovery_import_description" tools:ignore="MissingTranslation">Restore cached memos and pending changes from a backup</string>
+    <string name="recovery_export_description">Save cached memos and pending changes to a file</string>
+    <string name="recovery_import_description">Restore cached memos and pending changes from a backup</string>
     <string name="recovery_export">Export</string>
     <string name="recovery_import">Import</string>
     <string name="recovery_exported">Recovery file exported</string>
@@ -289,13 +289,13 @@
     <string name="sync_status_predownload">Caching: %1$s</string>
     <string name="sync_status_phase_text">text</string>
     <string name="sync_status_phase_attachments">attachments</string>
-    <string name="sync_status_pending">%1$d change(s) pending sync</string>
+    <string name="sync_status_pending">Changes awaiting sync: %1$d</string>
     <string name="sync_status_offline">Offline · using local cache</string>
     <string name="sync_status_cached">%1$s · synced %2$s</string>
     <string name="sync_status_idle">Up to date</string>
     <string name="sync_panel_title">Sync &amp; Cache</string>
     <string name="sync_panel_last_sync">Last sync: %1$s</string>
-    <string name="sync_panel_queue">%1$d change(s) pending sync</string>
+    <string name="sync_panel_queue">Changes awaiting sync: %1$d</string>
     <string name="sync_queue_expand">Expand queued change</string>
     <string name="sync_queue_collapse">Collapse queued change</string>
     <string name="sync_queue_target">Target</string>
@@ -361,55 +361,85 @@
 
     <string name="user_stats_widget_description">Displays user statistics.</string>
     <string name="user_stats_widget_last_updated">Last updated: %1$s</string>
-    <!-- New category descriptions intentionally fall back to English until translated. -->
-    <string name="settings_appearance" tools:ignore="MissingTranslation">Appearance</string>
-    <string name="settings_memos" tools:ignore="MissingTranslation">Memos</string>
-    <string name="settings_network" tools:ignore="MissingTranslation">Network</string>
-    <string name="settings_summary_general" tools:ignore="MissingTranslation">Language, default visibility, page size</string>
-    <string name="settings_summary_appearance" tools:ignore="MissingTranslation">Colors, fonts, link previews, heading size</string>
-    <string name="settings_summary_memos" tools:ignore="MissingTranslation">Shortcuts, webhooks</string>
-    <string name="settings_summary_network" tools:ignore="MissingTranslation">Local network access</string>
-    <string name="settings_summary_offline" tools:ignore="MissingTranslation">Automatic caching, storage limits, clear cache</string>
-    <string name="settings_summary_recovery" tools:ignore="MissingTranslation">Export and restore your data</string>
-    <string name="settings_summary_about" tools:ignore="MissingTranslation">App version, logs, source code, licenses</string>
-    <string name="settings_cache_files_used" tools:ignore="MissingTranslation">Used by cached files</string>
-    <string name="settings_cache_files_limit" tools:ignore="MissingTranslation">%1$s file cache limit</string>
-    <string name="settings_cache_downloads" tools:ignore="MissingTranslation">Automatic caching</string>
-    <string name="settings_cache_limits" tools:ignore="MissingTranslation">Storage limits</string>
-    <string name="settings_shortcuts_summary" tools:ignore="MissingTranslation">Manage saved memo filters</string>
-    <string name="settings_webhooks_summary" tools:ignore="MissingTranslation">Manage webhook integrations</string>
-    <string name="settings_summary_instance" tools:ignore="MissingTranslation">Server version, mode, address</string>
-    <string name="appearance_preview_memo" tools:ignore="MissingTranslation">### Ideas for today\n\nA small thought can become **something great**.\n\n- Capture an idea\n- Come back to it later</string>
-    <string name="appearance_theme_mode" tools:ignore="MissingTranslation">Theme mode</string>
-    <string name="appearance_mode_system" tools:ignore="MissingTranslation">Follow system</string>
-    <string name="appearance_mode_light" tools:ignore="MissingTranslation">Light</string>
-    <string name="appearance_mode_dark" tools:ignore="MissingTranslation">Dark</string>
-    <string name="appearance_custom_colors" tools:ignore="MissingTranslation">Your custom colors</string>
-    <string name="appearance_memos" tools:ignore="MissingTranslation">Memos</string>
-    <string name="appearance_custom" tools:ignore="MissingTranslation">Custom</string>
-    <string name="appearance_monochrome" tools:ignore="MissingTranslation">Monochrome</string>
-    <string name="appearance_device_colors" tools:ignore="MissingTranslation">Follow system</string>
-    <string name="appearance_choose_color" tools:ignore="MissingTranslation">Color theme</string>
-    <string name="appearance_color_option" tools:ignore="MissingTranslation">Color option %1$d</string>
-    <string name="appearance_color_hint" tools:ignore="MissingTranslation">Slide to choose your accent color</string>
-    <string name="appearance_font" tools:ignore="MissingTranslation">Font</string>
-    <string name="appearance_font_system" tools:ignore="MissingTranslation">System default</string>
-    <string name="appearance_font_sans" tools:ignore="MissingTranslation">Sans serif</string>
-    <string name="appearance_font_serif" tools:ignore="MissingTranslation">Serif</string>
-    <string name="appearance_font_mono" tools:ignore="MissingTranslation">Monospace</string>
-    <string name="appearance_save_error" tools:ignore="MissingTranslation">Could not save appearance. Try again.</string>
-    <!-- Hidden About-screen game. English fallback until translations are contributed. -->
-    <string name="memo_catch_title" tools:ignore="MissingTranslation">Memo Catch</string>
-    <string name="memo_catch_instruction" tools:ignore="MissingTranslation">Drag the tray to catch the falling memos.</string>
-    <string name="memo_catch_welcome" tools:ignore="MissingTranslation">You found a little distraction!</string>
-    <string name="memo_catch_play" tools:ignore="MissingTranslation">Play</string>
-    <string name="memo_catch_replay" tools:ignore="MissingTranslation">Play again</string>
-    <string name="memo_catch_resume" tools:ignore="MissingTranslation">Resume</string>
-    <string name="memo_catch_paused" tools:ignore="MissingTranslation">Taking a little break</string>
-    <string name="memo_catch_finished" tools:ignore="MissingTranslation">Nice catch!</string>
-    <string name="memo_catch_score" tools:ignore="MissingTranslation">Score: %1$d</string>
-    <string name="memo_catch_time" tools:ignore="MissingTranslation">%1$d s left</string>
-    <string name="memo_catch_tray_position" tools:ignore="MissingTranslation">Tray position: %1$d percent</string>
-    <string name="memo_catch_move_left" tools:ignore="MissingTranslation">Move tray left</string>
-    <string name="memo_catch_move_right" tools:ignore="MissingTranslation">Move tray right</string>
+    <!-- Settings categories and descriptions. -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_memos">Memos</string>
+    <string name="settings_network">Network</string>
+    <string name="settings_summary_general">Language, default visibility, page size</string>
+    <string name="settings_summary_appearance">Colors, fonts, link previews, heading size</string>
+    <string name="settings_summary_memos">Shortcuts, webhooks</string>
+    <string name="settings_summary_network">Local network access</string>
+    <string name="settings_summary_offline">Automatic caching, storage limits, clear cache</string>
+    <string name="settings_summary_recovery">Export and restore your data</string>
+    <string name="settings_summary_about">App version, logs, source code, licenses</string>
+    <string name="settings_cache_files_used">Used by cached files</string>
+    <string name="settings_cache_files_limit">%1$s file cache limit</string>
+    <string name="settings_cache_downloads">Automatic caching</string>
+    <string name="settings_cache_limits">Storage limits</string>
+    <string name="settings_shortcuts_summary">Manage saved memo filters</string>
+    <string name="settings_webhooks_summary">Manage webhook integrations</string>
+    <string name="settings_summary_instance">Server version, mode, address</string>
+    <string name="appearance_preview_memo"># Title\n\n## Heading\n\n### Subheading\n\nA small thought can become **something great**.\n\n- Capture an idea\n- Come back to it later</string>
+    <string name="appearance_theme_mode">Theme mode</string>
+    <string name="appearance_mode_system">Follow system</string>
+    <string name="appearance_mode_light">Light</string>
+    <string name="appearance_mode_dark">Dark</string>
+    <string name="appearance_custom_colors">Your custom colors</string>
+    <string name="appearance_memos">Memos</string>
+    <string name="appearance_custom">Custom</string>
+    <string name="appearance_monochrome">Monochrome</string>
+    <string name="appearance_device_colors">Follow system</string>
+    <string name="appearance_choose_color">Color theme</string>
+    <string name="appearance_color_option">Color option %1$d</string>
+    <string name="appearance_color_hint">Slide to choose your accent color</string>
+    <string name="appearance_font">Font</string>
+    <string name="appearance_font_system">System default</string>
+    <string name="appearance_font_sans">Sans serif</string>
+    <string name="appearance_font_serif">Serif</string>
+    <string name="appearance_font_mono">Monospace</string>
+    <string name="appearance_save_error">Could not save appearance. Try again.</string>
+    <!-- Hidden About-screen game. -->
+    <string name="memo_catch_title">Memo Catch</string>
+    <string name="memo_catch_instruction">Drag the tray to catch the falling memos.</string>
+    <string name="memo_catch_welcome">You found a little distraction!</string>
+    <string name="memo_catch_play">Play</string>
+    <string name="memo_catch_replay">Play again</string>
+    <string name="memo_catch_resume">Resume</string>
+    <string name="memo_catch_paused">Taking a little break</string>
+    <string name="memo_catch_finished">Nice catch!</string>
+    <string name="memo_catch_score">Score: %1$d</string>
+    <string name="memo_catch_time">%1$d s left</string>
+    <string name="memo_catch_tray_position">Tray position: %1$d percent</string>
+    <string name="memo_catch_move_left">Move tray left</string>
+    <string name="memo_catch_move_right">Move tray right</string>
+
+    <string name="backup_description" tools:ignore="MissingTranslation">Back up accounts, preferences, offline copies, and drafts. Restored caches never overwrite the server.</string>
+    <string name="backup_export_description" tools:ignore="MissingTranslation">Choose accounts and data to save as a .mmbackup file</string>
+    <string name="backup_import_description" tools:ignore="MissingTranslation">Choose which accounts and local data to restore</string>
+    <string name="backup_android_description" tools:ignore="MissingTranslation">Android automatically backs up account information when encrypted backup is available. Direct device transfer also includes settings, caches, downloaded media, and drafts.</string>
+    <string name="backup_choose_export" tools:ignore="MissingTranslation">Choose what to back up</string>
+    <string name="backup_choose_restore" tools:ignore="MissingTranslation">Choose what to restore</string>
+    <string name="backup_accounts_heading" tools:ignore="MissingTranslation">Accounts</string>
+    <string name="backup_contents_heading" tools:ignore="MissingTranslation">Contents</string>
+    <string name="backup_category_accounts" tools:ignore="MissingTranslation">Account information and login tokens</string>
+    <string name="backup_category_settings" tools:ignore="MissingTranslation">App preferences</string>
+    <string name="backup_category_cache" tools:ignore="MissingTranslation">Cached memos and server data</string>
+    <string name="backup_category_media" tools:ignore="MissingTranslation">Downloaded media</string>
+    <string name="backup_category_drafts" tools:ignore="MissingTranslation">Drafts and their local attachments</string>
+    <string name="backup_category_queued" tools:ignore="MissingTranslation">Queued edits (optional)</string>
+    <string name="backup_password_protection" tools:ignore="MissingTranslation">Protect with a password</string>
+    <string name="backup_credentials_description" tools:ignore="MissingTranslation">Account backups contain login tokens. Password protection is optional. Keep your backup in a private location.</string>
+    <string name="backup_password" tools:ignore="MissingTranslation">Backup password</string>
+    <string name="backup_repeat_password" tools:ignore="MissingTranslation">Repeat password</string>
+    <string name="backup_replace_title" tools:ignore="MissingTranslation">Replace selected local data?</string>
+    <string name="backup_replace_description" tools:ignore="MissingTranslation">Only selected accounts and categories will be replaced. Other accounts and unchecked categories stay as they are. Server data will not be changed.</string>
+    <string name="backup_restore_summary" tools:ignore="MissingTranslation">Restored %1$d accounts, %2$d cached memos, %3$d drafts, and %4$d media files. Selected queued edits are saved separately for review.</string>
+    <string name="backup_legacy_explanation" tools:ignore="MissingTranslation">This older backup can restore its cache only. Queued operations and optimistic edits are ignored so they cannot change the server.</string>
+    <string name="backup_edit_review_title" tools:ignore="MissingTranslation">Restored queued edits</string>
+    <string name="backup_edit_review_description" tools:ignore="MissingTranslation">Restored queued edits never sync automatically. Save memo edits as drafts to review and publish them yourself. Use the normal memo controls for deletions and reactions.</string>
+    <string name="backup_save_as_draft" tools:ignore="MissingTranslation">Save as draft</string>
+    <string name="backup_edit_saved_draft" tools:ignore="MissingTranslation">Saved as an unpublished draft. Open Drafts to review it.</string>
+    <string name="backup_restore_before_login" tools:ignore="MissingTranslation">Restore a backup</string>
+    <string name="backup_recovery_retry" tools:ignore="MissingTranslation">Retry restore</string>
+    <string name="sync_panel_manage_cache">Manage cache</string>
 </resources>

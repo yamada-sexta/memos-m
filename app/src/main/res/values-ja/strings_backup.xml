@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_description">アカウント、設定、オフラインコピー、下書きをバックアップします。復元したキャッシュがサーバーのデータを上書きすることはありません。</string>
+    <string name="backup_export_description">.mmbackup ファイルに保存するアカウントとデータを選択</string>
+    <string name="backup_import_description">復元するアカウントとローカルデータを選択</string>
+    <string name="backup_android_description">暗号化バックアップが利用可能な場合、Android はアカウント情報を自動的にバックアップします。端末間の直接転送には、設定、キャッシュ、ダウンロードしたメディア、下書きも含まれます。</string>
+    <string name="backup_choose_export">バックアップするデータを選択</string>
+    <string name="backup_choose_restore">復元するデータを選択</string>
+    <string name="backup_accounts_heading">アカウント</string>
+    <string name="backup_contents_heading">内容</string>
+    <string name="backup_category_accounts">アカウント情報とログイントークン</string>
+    <string name="backup_category_settings">アプリの設定</string>
+    <string name="backup_category_cache">キャッシュされたメモとサーバーデータ</string>
+    <string name="backup_category_media">ダウンロードしたメディア</string>
+    <string name="backup_category_drafts">下書きとそのローカル添付ファイル</string>
+    <string name="backup_category_queued">待機中の編集（任意）</string>
+    <string name="backup_password_protection">パスワードで保護</string>
+    <string name="backup_credentials_description">アカウントのバックアップにはログイントークンが含まれます。パスワード保護は任意です。バックアップは他人がアクセスできない場所に保管してください。</string>
+    <string name="backup_password">バックアップのパスワード</string>
+    <string name="backup_repeat_password">パスワードを再入力</string>
+    <string name="backup_replace_title">選択したローカルデータを置き換えますか？</string>
+    <string name="backup_replace_description">選択したアカウントとカテゴリのみが置き換えられます。他のアカウントや未選択のカテゴリはそのまま残ります。サーバーデータは変更されません。</string>
+    <string name="backup_restore_summary">アカウント %1$d 件、キャッシュされたメモ %2$d 件、下書き %3$d 件、メディアファイル %4$d 件を復元しました。選択した待機中の編集は、確認用に別途保存されます。</string>
+    <string name="backup_legacy_explanation">この古い形式のバックアップからはキャッシュのみ復元できます。待機中の操作と未確定のローカル編集は無視されるため、サーバーのデータには影響しません。</string>
+    <string name="backup_edit_review_title">復元した待機中の編集</string>
+    <string name="backup_edit_review_description">復元した待機中の編集は自動同期されません。メモの編集は下書きとして保存し、自分で確認して公開してください。削除やリアクションには通常のメモ操作を使用してください。</string>
+    <string name="backup_save_as_draft">下書きとして保存</string>
+    <string name="backup_edit_saved_draft">未公開の下書きとして保存しました。「下書き」を開いて確認してください。</string>
+    <string name="backup_restore_before_login">バックアップを復元</string>
+    <string name="backup_recovery_retry">復元を再試行</string>
+</resources>

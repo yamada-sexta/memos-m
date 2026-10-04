@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_description">備份帳戶、偏好設定、離線副本和草稿。還原的快取不會覆寫伺服器資料。</string>
+    <string name="backup_export_description">選擇要儲存為 .mmbackup 檔案的帳戶和資料</string>
+    <string name="backup_import_description">選擇要還原的帳戶和本機資料</string>
+    <string name="backup_android_description">加密備份可用時，Android 會自動備份帳戶資訊。裝置間直接傳輸也包含設定、快取、已下載的媒體和草稿。</string>
+    <string name="backup_choose_export">選擇要備份的內容</string>
+    <string name="backup_choose_restore">選擇要還原的內容</string>
+    <string name="backup_accounts_heading">帳戶</string>
+    <string name="backup_contents_heading">內容</string>
+    <string name="backup_category_accounts">帳戶資訊和登入權杖</string>
+    <string name="backup_category_settings">應用程式偏好設定</string>
+    <string name="backup_category_cache">快取的筆記和伺服器資料</string>
+    <string name="backup_category_media">已下載的媒體</string>
+    <string name="backup_category_drafts">草稿及其本機附件</string>
+    <string name="backup_category_queued">佇列中的編輯（選用）</string>
+    <string name="backup_password_protection">使用密碼保護</string>
+    <string name="backup_credentials_description">帳戶備份包含登入權杖。密碼保護為選用項目。請將備份保存在他人無法存取的位置。</string>
+    <string name="backup_password">備份密碼</string>
+    <string name="backup_repeat_password">再次輸入密碼</string>
+    <string name="backup_replace_title">取代選取的本機資料？</string>
+    <string name="backup_replace_description">只會取代選取的帳戶和類別。其他帳戶和未選取的類別保持不變。伺服器資料不會變更。</string>
+    <string name="backup_restore_summary">已還原 %1$d 個帳戶、%2$d 則快取筆記、%3$d 份草稿和 %4$d 個媒體檔案。選取的佇列編輯已另外儲存以供檢查。</string>
+    <string name="backup_legacy_explanation">此舊版備份只能還原快取。佇列中的操作和伺服器確認前的本機編輯會被忽略，因此不會變更伺服器資料。</string>
+    <string name="backup_edit_review_title">已還原的佇列編輯</string>
+    <string name="backup_edit_review_description">還原的佇列編輯不會自動同步。請將筆記編輯儲存為草稿，自行檢查並發布。刪除和回應請使用一般筆記操作。</string>
+    <string name="backup_save_as_draft">儲存為草稿</string>
+    <string name="backup_edit_saved_draft">已儲存為未發布的草稿。請開啟草稿進行檢查。</string>
+    <string name="backup_restore_before_login">還原備份</string>
+    <string name="backup_recovery_retry">重試還原</string>
+</resources>

@@ -138,6 +138,22 @@ class AttachmentManager(
         }
     }
 
+    /** Called only by an explicit publish action. Restoring a draft never invokes this method. */
+    suspend fun prepareRestoredDraftAttachments(attachments: List<Attachment>): List<Attachment> {
+        return attachments.map { attachment ->
+            if (!attachment.name.isNullOrBlank() || attachment.clientId != null || attachment.localPath == null) return@map attachment
+            val account = accountSession.current ?: error("No active account")
+            val app = MemosApplication.instance
+            val file = java.io.File(attachment.localPath).canonicalFile
+            val root = java.io.File(app.filesDir, "restored_backup_files").canonicalFile
+            require(file.isFile && file.path.startsWith(root.path + java.io.File.separator)) { "Draft attachment is missing" }
+            val queue = uploadQueueProvider() ?: error("Uploads are unavailable")
+            val clientId = queue.enqueue(account.account.id, Uri.fromFile(file), attachment.filename,
+                attachment.mimeType ?: attachment.type, file.length()) ?: error("Could not prepare draft attachment")
+            attachment.copy(clientId = clientId, localPath = queue.stagedFile(clientId).absolutePath)
+        }
+    }
+
     /**
      * Stage the bytes and persist a durable upload row so the attachment is
      * retried after connectivity returns (even across process death). Tells the

@@ -133,6 +133,11 @@ class AttachmentCacheManager(
      */
     private val indexWarmed = AtomicBoolean(false)
 
+    fun invalidateLocalIndex() {
+        localIndex.clear()
+        indexWarmed.set(false)
+    }
+
     private fun indexKey(accountId: String, attachmentName: String): String =
         "$accountId\u0000$attachmentName"
 

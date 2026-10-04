@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_description">Konten, Einstellungen, Offline-Kopien und Entwürfe sichern. Wiederhergestellte Cache-Daten überschreiben niemals den Server.</string>
+    <string name="backup_export_description">Konten und Daten für eine .mmbackup-Datei auswählen</string>
+    <string name="backup_import_description">Konten und lokale Daten zum Wiederherstellen auswählen</string>
+    <string name="backup_android_description">Android sichert Kontoinformationen automatisch, wenn eine verschlüsselte Sicherung verfügbar ist. Bei der direkten Geräteübertragung werden auch Einstellungen, Cache-Daten, heruntergeladene Medien und Entwürfe übertragen.</string>
+    <string name="backup_choose_export">Zu sichernde Daten auswählen</string>
+    <string name="backup_choose_restore">Wiederherzustellende Daten auswählen</string>
+    <string name="backup_accounts_heading">Konten</string>
+    <string name="backup_contents_heading">Inhalt</string>
+    <string name="backup_category_accounts">Kontoinformationen und Anmeldetokens</string>
+    <string name="backup_category_settings">App-Einstellungen</string>
+    <string name="backup_category_cache">Zwischengespeicherte Notizen und Serverdaten</string>
+    <string name="backup_category_media">Heruntergeladene Medien</string>
+    <string name="backup_category_drafts">Entwürfe und ihre lokalen Anhänge</string>
+    <string name="backup_category_queued">Ausstehende Änderungen (optional)</string>
+    <string name="backup_password_protection">Mit Passwort schützen</string>
+    <string name="backup_credentials_description">Kontosicherungen enthalten Anmeldetokens. Passwortschutz ist optional. Bewahre die Sicherung an einem privaten Ort auf.</string>
+    <string name="backup_password">Sicherungspasswort</string>
+    <string name="backup_repeat_password">Passwort wiederholen</string>
+    <string name="backup_replace_title">Ausgewählte lokale Daten ersetzen?</string>
+    <string name="backup_replace_description">Nur ausgewählte Konten und Kategorien werden ersetzt. Andere Konten und nicht ausgewählte Kategorien bleiben unverändert. Serverdaten werden nicht geändert.</string>
+    <string name="backup_restore_summary">Wiederhergestellt: %1$d Konten, %2$d zwischengespeicherte Notizen, %3$d Entwürfe und %4$d Mediendateien. Ausgewählte ausstehende Änderungen werden separat zur Überprüfung gespeichert.</string>
+    <string name="backup_legacy_explanation">Aus dieser älteren Sicherung kann nur der Cache wiederhergestellt werden. Ausstehende Vorgänge und vorläufige lokale Änderungen werden ignoriert, damit sie den Server nicht verändern.</string>
+    <string name="backup_edit_review_title">Wiederhergestellte ausstehende Änderungen</string>
+    <string name="backup_edit_review_description">Wiederhergestellte ausstehende Änderungen werden niemals automatisch synchronisiert. Speichere bearbeitete Notizen als Entwürfe, um sie selbst zu prüfen und zu veröffentlichen. Für Löschungen und Reaktionen verwende die normalen Notizfunktionen.</string>
+    <string name="backup_save_as_draft">Als Entwurf speichern</string>
+    <string name="backup_edit_saved_draft">Als unveröffentlichter Entwurf gespeichert. Öffne die Entwürfe, um ihn zu überprüfen.</string>
+    <string name="backup_restore_before_login">Sicherung wiederherstellen</string>
+    <string name="backup_recovery_retry">Wiederherstellung erneut versuchen</string>
+</resources>

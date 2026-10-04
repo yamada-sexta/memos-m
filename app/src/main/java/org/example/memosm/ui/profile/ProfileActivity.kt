@@ -2,6 +2,7 @@ package org.example.memosm.ui.profile
 
 import android.os.Bundle
 import android.content.Intent
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -149,15 +150,19 @@ class SettingsActivity : ProfileActivity() {
                 launcher.launch(Intent(this, OpenSourceLicensesActivity::class.java))
             },
             onOpenSection = { destination ->
-                val activity = if (destination == SettingsSection.AUDIT) SyncLogActivity::class.java
-                    else SettingsActivity::class.java
-                launcher.launch(Intent(this, activity).putExtra(EXTRA_SECTION, destination.name))
+                launcher.launch(createIntent(this, destination))
             }
         )
     }
 
-    private companion object {
-        const val EXTRA_SECTION = "settings_section"
+    companion object {
+        private const val EXTRA_SECTION = "settings_section"
+
+        fun createIntent(context: Context, section: SettingsSection): Intent {
+            val activity = if (section == SettingsSection.AUDIT) SyncLogActivity::class.java
+                else SettingsActivity::class.java
+            return Intent(context, activity).putExtra(EXTRA_SECTION, section.name)
+        }
     }
 }
 
