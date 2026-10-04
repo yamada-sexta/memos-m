@@ -30,6 +30,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "GIT_HASH", "\"${gitShortHash.get()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -100,6 +101,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 

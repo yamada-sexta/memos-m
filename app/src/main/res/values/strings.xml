@@ -69,6 +69,7 @@
 
     <string name="profile_about">About MemosM</string>
     <string name="profile_about_version">App Version</string>
+    <string name="profile_about_git_hash">Git Hash</string>
     <string name="profile_about_version_copied">Version copied to clipboard</string>
     <string name="profile_about_repo">Source Code</string>
     <string name="profile_about_repo_url" translatable="false">https://github.com/yamada-sexta/memos-m</string>
@@ -211,8 +212,6 @@
     <string name="offline_predownload_phase_attachments">downloading attachments…</string>
     <string name="offline_predownload_done">Cached %1$s and %2$s.</string>
     <string name="offline_predownload_failed">Cache failed: %1$s</string>
-    <string name="offline_predownload_text_button">Cache All Memo Text</string>
-    <string name="offline_predownload_attachments_button">Cache All Attachments</string>
     <string name="offline_attachment_cache_usage">Attachment cache: %1$s</string>
     <string name="offline_clear_attachments">Clear Attachment Cache</string>
     <string name="offline_clear_text">Clear Text Cache</string>
@@ -447,4 +446,8 @@
     <string name="sync_time_never">Never</string>
     <string name="setup_show">Show setup</string>
     <string name="setup_get_started">Get started with</string>
+    <string name="cache_now">Cache now</string>
+    <string name="cache_now_running_text">Caching text…</string>
+    <string name="cache_now_running_attachments">Caching attachments…</string>
+    <string name="cache_text">Text</string>
 </resources>

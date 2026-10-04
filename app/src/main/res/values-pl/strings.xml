@@ -67,6 +67,7 @@
 
     <string name="profile_about">Informacje o MemosM</string>
     <string name="profile_about_version">Wersja aplikacji</string>
+    <string name="profile_about_git_hash">Hash Git</string>
     <string name="profile_about_version_copied">Skopiowano wersję do schowka</string>
     <string name="profile_about_repo">Kod źródłowy</string>
     <string name="profile_about_issues">Zgłoś problem</string>
@@ -310,12 +311,10 @@
     <string name="offline_op_reaction_delete">Usuń reakcję</string>
     <string name="offline_op_reaction_upsert">Dodaj reakcję</string>
     <string name="offline_op_update">Edytuj notatkę</string>
-    <string name="offline_predownload_attachments_button">Zapisz wszystkie załączniki w pamięci podręcznej</string>
     <string name="offline_predownload_failed">Nie udało się zapisać w pamięci podręcznej: %1$s</string>
     <string name="offline_predownload_phase_attachments">Pobieranie załączników…</string>
     <string name="offline_predownload_phase_text">Pobieranie tekstu…</string>
     <string name="offline_predownload_running">Zapisywanie w pamięci podręcznej — %1$s (strona %2$d)</string>
-    <string name="offline_predownload_text_button">Zapisz treść wszystkich notatek w pamięci podręcznej</string>
     <string name="offline_saved_message">Zapisano offline — po odzyskaniu połączenia nastąpi automatyczna synchronizacja</string>
     <string name="offline_settings_cache_analysis_title">Analiza pamięci podręcznej</string>
     <string name="offline_settings_cache_size">Limit pamięci podręcznej załączników</string>
@@ -410,4 +409,8 @@
     <string name="sync_time_never">Nigdy</string>
     <string name="setup_show">Pokaż konfigurację</string>
     <string name="setup_get_started">Zacznij korzystać z</string>
+    <string name="cache_now">Zapisz teraz w pamięci podręcznej</string>
+    <string name="cache_now_running_text">Zapisywanie tekstu w pamięci podręcznej…</string>
+    <string name="cache_now_running_attachments">Zapisywanie załączników w pamięci podręcznej…</string>
+    <string name="cache_text">Tekst</string>
 </resources>

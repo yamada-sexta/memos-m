@@ -51,6 +51,7 @@
 
     <string name="profile_about">MemosMについて</string>
     <string name="profile_about_version">アプリバージョン</string>
+    <string name="profile_about_git_hash">Gitハッシュ</string>
     <string name="profile_about_version_copied">バージョンをコピーしました</string>
     <string name="profile_about_repo">ソースコード</string>
     <string name="profile_about_issues">問題を報告</string>
@@ -347,12 +348,10 @@
     <string name="offline_op_reaction_delete">リアクションを削除</string>
     <string name="offline_op_reaction_upsert">リアクションを追加</string>
     <string name="offline_op_update">メモを編集</string>
-    <string name="offline_predownload_attachments_button">すべての添付ファイルをキャッシュ</string>
     <string name="offline_predownload_failed">キャッシュに失敗しました: %1$s</string>
     <string name="offline_predownload_phase_attachments">添付ファイルをダウンロード中…</string>
     <string name="offline_predownload_phase_text">テキストを取得中…</string>
     <string name="offline_predownload_running">キャッシュ中 — %1$s（%2$d ページ）</string>
-    <string name="offline_predownload_text_button">すべてのメモ本文をキャッシュ</string>
     <string name="offline_saved_message">オフラインで保存しました。オンラインに戻ると自動で同期されます</string>
     <string name="offline_settings_cache_analysis_title">キャッシュの分析</string>
     <string name="offline_settings_cache_size">添付ファイルのキャッシュ上限</string>
@@ -455,4 +454,8 @@
     <string name="sync_time_never">未同期</string>
     <string name="setup_show">セットアップを表示</string>
     <string name="setup_get_started">さあ、始めましょう</string>
+    <string name="cache_now">今すぐキャッシュ</string>
+    <string name="cache_now_running_text">テキストをキャッシュ中…</string>
+    <string name="cache_now_running_attachments">添付ファイルをキャッシュ中…</string>
+    <string name="cache_text">テキスト</string>
 </resources>

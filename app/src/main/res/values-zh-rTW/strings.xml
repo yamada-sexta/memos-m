@@ -64,6 +64,7 @@
 
     <string name="profile_about">關於 MemosM</string>
     <string name="profile_about_version">應用程式版本</string>
+    <string name="profile_about_git_hash">Git 雜湊</string>
     <string name="profile_about_version_copied">已將版本號複製到剪貼簿</string>
     <string name="profile_about_repo">原始碼</string>
     <string name="profile_about_issues">回報問題</string>
@@ -204,8 +205,6 @@
     <string name="offline_predownload_phase_attachments">正在下載附件…</string>
     <string name="offline_predownload_done">已快取 %1$s和%2$s。</string>
     <string name="offline_predownload_failed">快取失敗：%1$s</string>
-    <string name="offline_predownload_text_button">快取全部文字</string>
-    <string name="offline_predownload_attachments_button">快取全部附件</string>
     <string name="offline_attachment_cache_usage">附件快取：%1$s</string>
     <string name="offline_clear_attachments">清除附件快取</string>
     <string name="offline_clear_text">清除文字快取</string>
@@ -453,4 +452,8 @@
     <string name="sync_time_never">從未同步</string>
     <string name="setup_show">顯示初始設定</string>
     <string name="setup_get_started">開始使用</string>
+    <string name="cache_now">立即快取</string>
+    <string name="cache_now_running_text">正在快取文字…</string>
+    <string name="cache_now_running_attachments">正在快取附件…</string>
+    <string name="cache_text">文字</string>
 </resources>

@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 
 /** The row owns the switch semantics so its label and state are announced together. */
 @Composable
@@ -25,7 +26,8 @@ internal fun SettingToggleRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     description: String? = null,
-    icon: ImageVector? = null
+    icon: ImageVector? = null,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh
 ) {
     ListItem(
         modifier = Modifier.clip(RoundedCornerShape(4.dp)).toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
@@ -41,6 +43,6 @@ internal fun SettingToggleRow(
                 } else null
             )
         },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = containerColor)
     )
 }

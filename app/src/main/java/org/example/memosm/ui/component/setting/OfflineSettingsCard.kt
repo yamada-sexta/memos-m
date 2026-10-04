@@ -1,7 +1,7 @@
 package org.example.memosm.ui.component.setting
 
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -21,11 +21,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenu
@@ -43,6 +45,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -51,6 +54,7 @@ import kotlin.math.ceil
 import org.example.memosm.R
 import org.example.memosm.data.media.AttachmentCacheManager
 import org.example.memosm.ui.component.CacheCleanupDialog
+import org.example.memosm.data.sync.PreDownloadState
 import java.util.Locale
 
 /** Storage overview with grouped download preferences and cache limit editors. */
@@ -72,10 +76,13 @@ fun OfflineSettingsCard(
     onThemeCacheMaxMbChange: (Int) -> Unit,
     textCacheCount: Int,
     attachmentCacheUsage: AttachmentCacheManager.Usage,
+    preDownloadState: PreDownloadState,
+    onCacheNow: (Boolean, Boolean) -> Unit,
     onClearTextCache: () -> Unit,
     onClearAttachmentCache: () -> Unit
 ) {
     var showCleanup by rememberSaveable { mutableStateOf(false) }
+    var showCacheNow by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
     var mediaBytes by remember { mutableStateOf<Long?>(null) }
@@ -86,6 +93,7 @@ fun OfflineSettingsCard(
     val fileLimitBytes = if (attachmentCacheMaxMb > 0 && themeCacheMaxMb > 0) {
         (attachmentCacheMaxMb.toLong() + themeCacheMaxMb) * 1024L * 1024L
     } else null
+    val caching = preDownloadState as? PreDownloadState.Running
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(
@@ -114,13 +122,41 @@ fun OfflineSettingsCard(
                 )
             }
         }
-        FilledTonalButton(
-            onClick = { showCleanup = true },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
-        ) {
-            Icon(Icons.Outlined.Delete, contentDescription = null)
-            Spacer(Modifier.width(12.dp))
-            Text(stringResource(R.string.cache_cleanup_title))
+        SettingsGroup {
+            SettingsNavigationRow(
+                title = stringResource(
+                    when (caching?.phase) {
+                        PreDownloadState.Running.Phase.TEXT -> R.string.cache_now_running_text
+                        PreDownloadState.Running.Phase.ATTACHMENTS -> R.string.cache_now_running_attachments
+                        null -> R.string.cache_now
+                    }
+                ),
+                icon = Icons.Outlined.Download,
+                showChevron = false,
+                enabled = caching == null,
+                supportingContent = if (caching != null) {
+                    {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else null,
+                onClick = { showCacheNow = true }
+            )
+            SettingsNavigationRow(
+                title = stringResource(R.string.cache_cleanup_title),
+                icon = Icons.Outlined.Delete,
+                showChevron = false,
+                onClick = { showCleanup = true }
+            )
+        }
+        if (preDownloadState is PreDownloadState.Failed) {
+            Text(
+                stringResource(R.string.offline_predownload_failed, preDownloadState.message),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
         }
         SettingsGroup {
             CacheUsageRow(
@@ -181,6 +217,50 @@ fun OfflineSettingsCard(
                 onChange = onThemeCacheMaxMbChange
             )
         }
+    }
+
+    if (showCacheNow) {
+        var cacheText by rememberSaveable { mutableStateOf(true) }
+        var cacheAttachments by rememberSaveable { mutableStateOf(true) }
+        AlertDialog(
+            onDismissRequest = { showCacheNow = false },
+            icon = { Icon(Icons.Outlined.Download, contentDescription = null) },
+            title = { Text(stringResource(R.string.cache_now)) },
+            text = {
+                Column {
+                    SettingToggleRow(
+                        label = stringResource(R.string.cache_text),
+                        icon = Icons.Outlined.Description,
+                        checked = cacheText,
+                        containerColor = Color.Transparent,
+                        onCheckedChange = { cacheText = it }
+                    )
+                    SettingToggleRow(
+                        label = stringResource(R.string.nav_attachments),
+                        icon = Icons.Outlined.AttachFile,
+                        checked = cacheAttachments,
+                        containerColor = Color.Transparent,
+                        onCheckedChange = { cacheAttachments = it }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onCacheNow(cacheText, cacheAttachments)
+                        showCacheNow = false
+                    },
+                    enabled = cacheText || cacheAttachments,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                ) { Text(stringResource(R.string.cache_now)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showCacheNow = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                ) { Text(stringResource(R.string.common_cancel)) }
+            }
+        )
     }
 
     if (showCleanup) {

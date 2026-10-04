@@ -51,6 +51,7 @@
 
     <string name="profile_about">Über MemosM</string>
     <string name="profile_about_version">App-Version</string>
+    <string name="profile_about_git_hash">Git-Hash</string>
     <string name="profile_about_repo">Quellcode</string>
     <string name="profile_about_issues">Problem melden</string>
     <string name="profile_about_licenses">Open-Source-Lizenzen</string>
@@ -346,12 +347,10 @@
     <string name="offline_op_reaction_delete">Reaktion entfernen</string>
     <string name="offline_op_reaction_upsert">Reaktion hinzufügen</string>
     <string name="offline_op_update">Memo bearbeiten</string>
-    <string name="offline_predownload_attachments_button">Alle Anhänge in den Cache laden</string>
     <string name="offline_predownload_failed">Cache konnte nicht geladen werden: %1$s</string>
     <string name="offline_predownload_phase_attachments">Anhänge werden heruntergeladen…</string>
     <string name="offline_predownload_phase_text">Text wird abgerufen…</string>
     <string name="offline_predownload_running">In den Cache laden — %1$s (Seite %2$d)</string>
-    <string name="offline_predownload_text_button">Gesamten Memo-Text in den Cache laden</string>
     <string name="offline_saved_message">Offline gespeichert — wird automatisch synchronisiert, sobald du wieder online bist</string>
     <string name="offline_settings_cache_analysis_title">Cache-Analyse</string>
     <string name="offline_settings_cache_size">Limit für den Anhang-Cache</string>
@@ -454,4 +453,8 @@
     <string name="sync_time_never">Nie</string>
     <string name="setup_show">Einrichtung anzeigen</string>
     <string name="setup_get_started">Los geht’s mit</string>
+    <string name="cache_now">Jetzt zwischenspeichern</string>
+    <string name="cache_now_running_text">Text wird zwischengespeichert…</string>
+    <string name="cache_now_running_attachments">Anhänge werden zwischengespeichert…</string>
+    <string name="cache_text">Text</string>
 </resources>

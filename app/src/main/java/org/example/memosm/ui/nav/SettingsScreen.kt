@@ -179,6 +179,8 @@ fun SettingsScreen(
                             },
                             textCacheCount = uiState.textCacheCount,
                             attachmentCacheUsage = uiState.attachmentCacheUsage,
+                            preDownloadState = uiState.preDownloadState,
+                            onCacheNow = viewModel::cacheNow,
                             onClearTextCache = { viewModel.clearTextCache() },
                             onClearAttachmentCache = { viewModel.clearAttachmentCache() }
                         )

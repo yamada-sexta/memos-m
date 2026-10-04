@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
+import org.example.memosm.BuildConfig
 import org.example.memosm.R
 
 private data class KaomojiMessage(val text: String, val kaomoji: String)
@@ -114,6 +115,12 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit, onShowSetup
                     currentToast.value = toast
                     toast.show()
                 })
+        )
+
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.profile_about_git_hash)) },
+            supportingContent = { Text(BuildConfig.GIT_HASH) },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
         )
 
         val repoUrl = stringResource(R.string.profile_about_repo_url)

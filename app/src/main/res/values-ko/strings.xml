@@ -51,6 +51,7 @@
 
     <string name="profile_about">MemosM 정보</string>
     <string name="profile_about_version">앱 버전</string>
+    <string name="profile_about_git_hash">Git 해시</string>
     <string name="profile_about_repo">소스 코드</string>
     <string name="profile_about_issues">문제 보고</string>
     <string name="profile_about_licenses">오픈 소스 라이선스</string>
@@ -346,12 +347,10 @@
     <string name="offline_op_reaction_delete">반응 삭제</string>
     <string name="offline_op_reaction_upsert">반응 추가</string>
     <string name="offline_op_update">메모 수정</string>
-    <string name="offline_predownload_attachments_button">모든 첨부 파일 캐시</string>
     <string name="offline_predownload_failed">캐시에 실패했습니다: %1$s</string>
     <string name="offline_predownload_phase_attachments">첨부 파일 다운로드 중…</string>
     <string name="offline_predownload_phase_text">텍스트 가져오는 중…</string>
     <string name="offline_predownload_running">캐시 중 — %1$s(%2$d페이지)</string>
-    <string name="offline_predownload_text_button">모든 메모 본문 캐시</string>
     <string name="offline_saved_message">오프라인으로 저장했습니다. 다시 연결되면 자동으로 동기화됩니다</string>
     <string name="offline_settings_cache_analysis_title">캐시 분석</string>
     <string name="offline_settings_cache_size">첨부 파일 캐시 한도</string>
@@ -454,4 +453,8 @@
     <string name="sync_time_never">동기화한 적 없음</string>
     <string name="setup_show">설정 화면 보기</string>
     <string name="setup_get_started">시작하세요</string>
+    <string name="cache_now">지금 캐시</string>
+    <string name="cache_now_running_text">텍스트 캐시 중…</string>
+    <string name="cache_now_running_attachments">첨부 파일 캐시 중…</string>
+    <string name="cache_text">텍스트</string>
 </resources>

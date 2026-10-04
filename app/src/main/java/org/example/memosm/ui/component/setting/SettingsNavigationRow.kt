@@ -23,12 +23,13 @@ internal fun SettingsNavigationRow(
     showChevron: Boolean = true,
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
+    supportingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
     ListItem(
         modifier = modifier.clip(RoundedCornerShape(4.dp)).clickable(enabled = enabled, onClick = onClick),
         headlineContent = { Text(title) },
-        supportingContent = summary?.let { { Text(it) } },
+        supportingContent = supportingContent ?: summary?.let { { Text(it) } },
         leadingContent = icon?.let { { Icon(it, contentDescription = null) } },
         trailingContent = if (showChevron) {
             { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null) }
