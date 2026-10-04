@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -149,14 +150,15 @@ fun LoginDialog(
 fun LoginContent(
     onLoginSuccess: (String, String) -> Unit,
     modifier: Modifier = Modifier,
-    editAccount: Account? = null
+    editAccount: Account? = null,
+    showTitle: Boolean = true
 ) {
     // If editing, default to token mode and pre-fill values
     val isEditMode = editAccount != null
-    var loginMode by remember { mutableStateOf(if (isEditMode) LoginMode.TOKEN else LoginMode.PASSWORD) }
-    var hostUrl by remember { mutableStateOf(editAccount?.hostUrl ?: "") }
-    var token by remember { mutableStateOf(editAccount?.accessToken ?: "") }
-    var username by remember { mutableStateOf("") }
+    var loginMode by rememberSaveable(editAccount?.id) { mutableStateOf(if (isEditMode) LoginMode.TOKEN else LoginMode.PASSWORD) }
+    var hostUrl by rememberSaveable(editAccount?.id) { mutableStateOf(editAccount?.hostUrl ?: "") }
+    var token by rememberSaveable(editAccount?.id) { mutableStateOf(editAccount?.accessToken ?: "") }
+    var username by rememberSaveable(editAccount?.id) { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -288,7 +290,7 @@ fun LoginContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        Text(
+        if (showTitle) Text(
             text = if (isEditMode) stringResource(R.string.profile_edit_credentials) else stringResource(
                 R.string.login_title
             ),

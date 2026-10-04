@@ -72,6 +72,7 @@
         </activity>
 
         <activity android:name=".ui.profile.EditProfileActivity" android:exported="false" />
+        <activity android:name=".ui.profile.EditAccountCredentialsActivity" android:exported="false" />
         <activity android:name=".ui.profile.NotificationsActivity" android:exported="false" />
         <activity android:name=".ui.profile.ArchivedMemosActivity" android:exported="false" />
         <activity android:name=".ui.profile.SettingsActivity" android:exported="false" />

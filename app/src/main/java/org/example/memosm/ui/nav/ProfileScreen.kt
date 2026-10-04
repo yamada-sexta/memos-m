@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import org.example.memosm.ui.profile.EditProfileActivity
+import org.example.memosm.ui.profile.EditAccountCredentialsActivity
 import org.example.memosm.ui.profile.ArchivedMemosActivity
 import org.example.memosm.ui.profile.NotificationsActivity
 import org.example.memosm.ui.profile.SettingsActivity
@@ -61,12 +62,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
-import org.example.memosm.model.Account
+import org.example.memosm.data.DataStoreManager
 import org.example.memosm.model.InstanceProfile
 import org.example.memosm.model.UserSnapshot
 import org.example.memosm.model.toUserSnapshot
 import org.example.memosm.ui.component.ErrorView
-import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.ProfileHeader
 import org.example.memosm.ui.component.StatsActivityCard
 import org.example.memosm.ui.component.rememberScrollContext
@@ -74,6 +74,7 @@ import org.example.memosm.ui.component.setting.SettingsGroup
 import org.example.memosm.ui.component.setting.SettingsNavigationRow
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.RefreshSource
+import org.koin.compose.koinInject
 
 @Composable
 fun ProfileScreen(
@@ -160,23 +161,24 @@ private fun ProfileListPane(
         lastProcessedTrigger = uiState.refreshTrigger
     }
 
-    var showAccountSwitcher by remember { mutableStateOf(false) }
-    var accountToEditCredentials by remember { mutableStateOf<Account?>(null) }
+    var showAccountSwitcher by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val dataStore: DataStoreManager = koinInject()
+    val editCredentials = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val credentials = EditAccountCredentialsActivity.readResult(result.resultCode, result.data)
+        if (credentials != null) {
+            scope.launch {
+                val account = dataStore.getAccounts().firstOrNull { it.id == credentials.accountId }
+                if (account != null) {
+                    viewModel.userDelegate.updateAccountCredentials(account, credentials.hostUrl, credentials.token)
+                    showAccountSwitcher = false
+                }
+            }
+        }
+    }
 
     // Get current account for profile editing
     val activeAccount = accounts.find { it.isActive }
-
-    // Credential Edit Dialog (local login info)
-    accountToEditCredentials?.let { account ->
-        LoginDialog(
-            onLoginSuccess = { baseUrl, token ->
-                // Update the account with new credentials
-                viewModel.userDelegate.updateAccountCredentials(account, baseUrl, token)
-                accountToEditCredentials = null
-                showAccountSwitcher = false
-            }, onDismiss = { accountToEditCredentials = null }, editAccount = account
-        )
-    }
 
     if (showAccountSwitcher) {
         ModalBottomSheet(
@@ -195,7 +197,7 @@ private fun ProfileListPane(
                 },
                 onLogoutAccount = { viewModel.userDelegate.removeAccount(it) },
                 onEditAccount = { account ->
-                    accountToEditCredentials = account
+                    editCredentials.launch(EditAccountCredentialsActivity.createIntent(context, account.id))
                 },
                 onAddAccount = {
                     onAddAccount()

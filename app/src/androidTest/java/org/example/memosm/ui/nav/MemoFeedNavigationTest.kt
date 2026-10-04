@@ -115,19 +115,27 @@ class MemoFeedNavigationTest {
     fun scrollingHidesTheHeaderAndSearchAndScrollingUpRestoresThem() {
         ActivityScenario.launch(MainActivity::class.java).use {
             awaitFeed(MemoFeed.MEMOS)
-            list(MemoFeed.MEMOS).performTouchInput { swipeUp() }
+            list(MemoFeed.MEMOS).performTouchInput {
+                swipeUp(startY = height * 0.7f, endY = height * 0.3f)
+            }
             compose.onNodeWithTag("memo_feed_tabs").assertDoesNotExist()
             compose.onNodeWithTag("memo_search_bar").assertDoesNotExist()
             compose.onNodeWithText(label(R.string.nav_attachments)).assertDoesNotExist()
-            list(MemoFeed.MEMOS).performTouchInput { swipeDown() }
+            list(MemoFeed.MEMOS).performTouchInput {
+                swipeDown(startY = height * 0.3f, endY = height * 0.7f)
+            }
             awaitFeed(MemoFeed.MEMOS)
             compose.onNodeWithTag("memo_search_bar").assertIsDisplayed()
             compose.onNodeWithText(label(R.string.nav_attachments)).assertIsDisplayed()
             tab(MemoFeed.EXPLORE).performClick()
             awaitFeed(MemoFeed.EXPLORE)
-            list(MemoFeed.EXPLORE).performTouchInput { swipeUp() }
+            list(MemoFeed.EXPLORE).performTouchInput {
+                swipeUp(startY = height * 0.7f, endY = height * 0.3f)
+            }
             compose.onNodeWithTag("memo_feed_tabs").assertDoesNotExist()
-            list(MemoFeed.EXPLORE).performTouchInput { swipeDown() }
+            list(MemoFeed.EXPLORE).performTouchInput {
+                swipeDown(startY = height * 0.3f, endY = height * 0.7f)
+            }
             awaitFeed(MemoFeed.EXPLORE)
         }
     }
@@ -184,7 +192,7 @@ class MemoFeedNavigationTest {
             awaitFeed(MemoFeed.MEMOS)
             tab(MemoFeed.EXPLORE).performClick()
             awaitFeed(MemoFeed.EXPLORE)
-            compose.onNodeWithText(label(R.string.memo_composer_fab_new_memo)).performClick()
+            compose.onNodeWithTag("memo_feed_compose").performClick()
             compose.onNodeWithText(label(R.string.drafts_prompt_continue)).performClick()
             compose.onNode(hasSetTextAction() and hasText("Unfinished feed draft")).assertIsDisplayed()
             compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
@@ -226,7 +234,7 @@ class MemoFeedNavigationTest {
     }
 
     private fun openAndCloseComposer() {
-        compose.onNodeWithText(label(R.string.memo_composer_fab_new_memo)).performClick()
+        compose.onNodeWithTag("memo_feed_compose").performClick()
         compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
         compose.onNodeWithTag("memo_feed_tabs").assertIsDisplayed()
     }

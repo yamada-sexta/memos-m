@@ -251,7 +251,9 @@ fun MemosScreen(
                     expanded = isFabExpanded,
                     icon = {
                         Icon(
-                            imageVector = Icons.Outlined.Add, contentDescription = null
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = if (isFabExpanded) null
+                                else stringResource(R.string.memo_composer_fab_new_memo)
                         )
                     },
                     text = {
@@ -260,6 +262,7 @@ fun MemosScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier
+                        .testTag("memo_feed_compose")
                         .align(Alignment.BottomEnd)
                         .padding(end = 16.dp, bottom = fabBottomPadding)
                 )
