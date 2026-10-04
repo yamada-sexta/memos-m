@@ -46,8 +46,6 @@ class MemosApplication : Application(), SingletonImageLoader.Factory {
         }
 
         // Initialize Room database and cache repository
-        // Note: In KMP/Koin, we might want to inject this repository where needed instead of holding it in Application
-        // But keeping it for now to minimize changes outside of DI migration
         val database = MemoCacheDatabase.getInstance(this)
         memoCacheRepository = MemoCacheRepository(database.memoDao())
 

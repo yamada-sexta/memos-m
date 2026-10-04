@@ -141,8 +141,6 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
 
-    implementation(project(":core"))
-
     // ----------------------------
     // Android / Compose
     // ----------------------------
@@ -204,6 +202,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // The Compose test activity shares the app's classloader with Espresso.
+    // Match its test core/monitor version to the instrumentation APK.
+    debugImplementation(libs.androidx.core)
     testImplementation(libs.testcontainers)
     testImplementation(libs.jna)
     testImplementation(libs.slf4j.simple)

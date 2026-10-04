@@ -1,5 +1,6 @@
 # Gradle files
 .gradle/
+.kotlin/
 build/
 
 # Local configuration file (sdk path, etc)
@@ -33,7 +34,6 @@ google-services.json
 *.hprof
 *.salive
 /app/release
-*.klib
 
 # Local development only (not part of the app)
 mock-server/
