@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Code
@@ -354,13 +354,13 @@ private fun CalendarMonthView(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .clip(RoundedCornerShape(4.dp))
+                                    .clip(CircleShape)
                                     .background(cellColor)
                                     .then(
                                         if (isToday && count == 0) {
                                             Modifier.background(
                                                 primaryColor.copy(alpha = 0.15f),
-                                                RoundedCornerShape(4.dp)
+                                                CircleShape
                                             )
                                         } else Modifier
                                     ), contentAlignment = Alignment.Center

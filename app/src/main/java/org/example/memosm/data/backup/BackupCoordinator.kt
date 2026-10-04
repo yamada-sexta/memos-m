@@ -4,6 +4,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -24,6 +25,20 @@ object BackupCoordinator {
     private val _restoring = MutableStateFlow(false)
     val restoring = _restoring.asStateFlow()
     val recoveryError = MutableStateFlow<String?>(null)
+    private val _startupReady = MutableStateFlow(true)
+    val startupReady = _startupReady.asStateFlow()
+    @Volatile private var startupGate = CompletableDeferred<Unit>().apply { complete(Unit) }
+
+    /** Application starts recovery on IO; sessions and writers wait without blocking the main thread. */
+    fun beginStartupRecovery() {
+        startupGate = CompletableDeferred()
+        _startupReady.value = false
+    }
+    fun finishStartupRecovery() {
+        _startupReady.value = true
+        startupGate.complete(Unit)
+    }
+    suspend fun awaitStartupRecovery() = startupGate.await()
 
     fun register(hook: suspend (Boolean) -> Unit): () -> Unit {
         hooks += hook
@@ -33,6 +48,7 @@ object BackupCoordinator {
     suspend fun <T> withStorageLock(action: suspend () -> T): T {
         currentCoroutineContext().ensureActive()
         if (currentCoroutineContext()[Held]?.active == true) return action()
+        awaitStartupRecovery()
         return mutex.withLock {
             check(recoveryError.value == null) { "Finish the interrupted restore first" }
             withContext(Held()) { try { action() } finally { currentCoroutineContext()[Held]?.active = false } }

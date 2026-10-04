@@ -238,9 +238,10 @@ class BackupService(
             validateAccountTargets(manifest)
             val filesRoot = File(context.filesDir, "restored_backup_files")
             val draftFiles = File(filesRoot, "drafts")
-            fun mediaFile(accountId: String, blobId: String): File {
+            fun mediaFile(accountId: String, attachmentName: String, blobId: String): File {
                 val accountKey = MessageDigest.getInstance("SHA-256").digest(accountId.toByteArray()).joinToString("") { "%02x".format(it) }
-                return File(File(File(filesRoot, "media"), accountKey), blobId)
+                val attachmentKey = MessageDigest.getInstance("SHA-256").digest(attachmentName.toByteArray()).joinToString("") { "%02x".format(it) }
+                return File(File(File(File(filesRoot, "media"), accountKey), attachmentKey), blobId)
             }
             fun installBlob(id: String, target: File) {
                 target.parentFile!!.mkdirs()
@@ -252,7 +253,7 @@ class BackupService(
             }
             // Media eviction and account removal must never remove draft attachments or another account's files.
             manifest.accounts.forEach { data ->
-                data.media.forEach { media -> installBlob(media.blobId, mediaFile(data.identity.id, media.blobId)) }
+                data.media.forEach { media -> installBlob(media.blobId, mediaFile(data.identity.id, media.attachmentName, media.blobId)) }
             }
             draftBlobIds(manifest).forEach { id -> installBlob(id, File(draftFiles, id)) }
             database.withTransaction {
@@ -276,7 +277,7 @@ class BackupService(
                     if (BackupCategory.MEDIA in manifest.categories) {
                         database.cachedAttachmentDao().deleteAllForAccount(id)
                         data.media.forEach { media -> database.cachedAttachmentDao().upsert(CachedAttachment(id, media.attachmentName, media.memoName, media.url,
-                            mediaFile(id, media.blobId).absolutePath, media.size, media.downloadedAt, media.downloadedAt)) }
+                            mediaFile(id, media.attachmentName, media.blobId).absolutePath, media.size, media.downloadedAt, media.downloadedAt)) }
                     }
                 }
             }
@@ -337,7 +338,9 @@ class BackupService(
                 obj.getAsJsonArray("attachmentMetadata").map { it.asJsonObject },
                 obj.get("session")?.takeUnless { it.isJsonNull }?.asJsonObject,
                 obj.get("notifications")?.takeUnless { it.isJsonNull }?.asJsonObject,
-                obj.getAsJsonArray("media").map { gson.fromJson(it, BackupMedia::class.java) },
+                obj.getAsJsonArray("media").map { it.asJsonObject.let { media -> BackupMedia(
+                    requiredString(media, "attachmentName"), requiredString(media, "memoName"), requiredString(media, "url"),
+                    requiredString(media, "blobId"), media.get("size").asLong, media.get("downloadedAt").asLong) } },
                 obj.getAsJsonArray("drafts").map { it.asJsonObject },
                 obj.getAsJsonArray("queuedEdits")?.map { it.asJsonObject } ?: emptyList())
         }
@@ -375,6 +378,7 @@ class BackupService(
                 }
                 edit.getAsJsonObject("payload")?.getAsJsonArray("attachments")?.forEach { item ->
                     val obj = item.asJsonObject
+                    requiredString(obj, "filename"); requiredString(obj, "type")
                     require(obj.get("clientId") == null || obj.get("clientId").isJsonNull) { "Invalid automatic upload state" }
                     require(obj.get("content") == null || obj.get("content").isJsonNull) { "Invalid inline queued attachment" }
                     obj.get("localPath")?.takeUnless { it.isJsonNull }?.asString?.let { path ->
@@ -385,6 +389,7 @@ class BackupService(
             require(data.memos.map { it.listType to it.memo.get("name").asString }.distinct().size == data.memos.size) { "Duplicate cached memo" }
             data.memos.forEach { row ->
                 CacheListType.valueOf(row.listType)
+                requiredString(row.memo, "content")
                 val memo = gson.fromJson(row.memo, Memo::class.java)
                 require(CacheBackupPolicy.canExport(memo.name.orEmpty(), emptySet())) { "Invalid cached memo" }
                 require(memo.attachments.orEmpty().none { it.clientId != null || it.localPath != null }) { "Cache contains local upload state" }
@@ -398,6 +403,8 @@ class BackupService(
             data.media.forEach { media -> require(media.attachmentName.isNotBlank() && media.url != null && media.size >= 0 && blobs[media.blobId]?.length() == media.size) { "Missing or invalid media file" } }
             require(data.drafts.map { it.get("id").asString }.distinct().size == data.drafts.size) { "Duplicate draft" }
             data.drafts.forEach { obj ->
+                requiredString(obj, "content")
+                obj.getAsJsonArray("attachments").forEach { item -> requiredString(item.asJsonObject, "filename"); requiredString(item.asJsonObject, "type") }
                 val draft = gson.fromJson(obj, Draft::class.java)
                 require(draft.id.isNotBlank() && draft.content != null && draft.visibility != null && draft.attachments != null) { "Invalid draft" }
                 draft.attachments.forEach { attachment ->
@@ -406,6 +413,12 @@ class BackupService(
                 }
             }
         }
+    }
+
+    private fun requiredString(obj: JsonObject, field: String): String {
+        val value = obj.get(field)
+        require(value != null && value.isJsonPrimitive && value.asJsonPrimitive.isString) { "Missing or invalid backup field: $field" }
+        return value.asString
     }
 
     private fun draftBlobIds(manifest: BackupManifest): Set<String> = manifest.accounts.flatMap { data ->

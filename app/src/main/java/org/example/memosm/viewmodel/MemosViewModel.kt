@@ -467,20 +467,26 @@ class MemosViewModel(
             reachabilityMonitor.cancelProbe()
         } else {
             attachmentCacheManager.invalidateLocalIndex()
-            switchAccountInternal(dataStoreManager.getAccounts().firstOrNull { it.isActive })
+            if (org.example.memosm.data.backup.BackupCoordinator.startupReady.value) {
+                switchAccountInternal(dataStoreManager.getAccounts().firstOrNull { it.isActive })
+                userDelegate.updateCurrentAccountInList()
+            }
         }
     }
 
     init {
-        userDelegate.updateCurrentAccountInList()
-        appSettingsDelegate.loadPageSize()
-        appSettingsDelegate.loadHeaderScale()
-        appSettingsDelegate.loadLinkPreviewEnabled()
-        appSettingsDelegate.loadOfflineSettings()
+        viewModelScope.launch {
+            org.example.memosm.data.backup.BackupCoordinator.awaitStartupRecovery()
+            if (org.example.memosm.data.backup.BackupCoordinator.recoveryError.value == null) userDelegate.updateCurrentAccountInList()
+            appSettingsDelegate.loadPageSize()
+            appSettingsDelegate.loadHeaderScale()
+            appSettingsDelegate.loadLinkPreviewEnabled()
+            appSettingsDelegate.loadOfflineSettings()
 
-        startStateCollection()
-        startOfflineStateCollection()
-        syncManager.startObserving(accountSession.contexts.map { it?.account?.id })
+            startStateCollection()
+            startOfflineStateCollection()
+            syncManager.startObserving(accountSession.contexts.map { it?.account?.id })
+        }
     }
 
     fun retryAccountConnection() {
@@ -492,7 +498,7 @@ class MemosViewModel(
     }
 
     private fun runRecoverySequence() {
-        if (org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
+        if (!org.example.memosm.data.backup.BackupCoordinator.startupReady.value || org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
         syncManager.pushPendingChanges()
         preDownloadManager.maybeAutoDownload()
         listOf(userMemoManager, exploreMemoManager, archivedMemoManager).forEach { manager ->
@@ -503,7 +509,7 @@ class MemosViewModel(
 
     // Keep this one as it's used by the delegate directly above
     private suspend fun switchAccountInternal(account: Account?) {
-        if (account != null && (org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null)) return
+        if (account != null && (!org.example.memosm.data.backup.BackupCoordinator.startupReady.value || org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null)) return
         _sessionReady.value = false
         _linkPreviews.value = null
         accountSession.clear()
@@ -808,6 +814,7 @@ class MemosViewModel(
      * App came to the foreground: flush queued writes and refresh the cache.
      */
     fun onForeground() {
+        if (!org.example.memosm.data.backup.BackupCoordinator.startupReady.value || org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
         if (!_uiState.value.isOnline) return
         syncManager.pushPendingChanges()
         preDownloadManager.maybeAutoDownload()

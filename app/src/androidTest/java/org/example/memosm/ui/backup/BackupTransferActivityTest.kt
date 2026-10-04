@@ -55,4 +55,17 @@ class BackupTransferActivityTest {
             assertEquals("fake-form-token", runBlocking { GlobalContext.get().get<DataStoreManager>().getAccounts().single().accessToken })
         } finally { archive.delete() }
     }
+
+    @Test fun resumedTransferActivityWaitsForStartupRecovery() {
+        seed()
+        BackupCoordinator.beginStartupRecovery()
+        try {
+            ActivityScenario.launch<BackupTransferActivity>(BackupTransferActivity.exportIntent(context)).use {
+                compose.onNodeWithText(label(R.string.backup_contents_heading)).assertDoesNotExist()
+                BackupCoordinator.finishStartupRecovery()
+                compose.waitUntil(10_000) { compose.onAllNodesWithText(label(R.string.backup_contents_heading)).fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText(label(R.string.backup_category_queued)).performScrollTo().assertIsOff()
+            }
+        } finally { BackupCoordinator.finishStartupRecovery() }
+    }
 }

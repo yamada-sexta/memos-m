@@ -69,7 +69,10 @@ class MainActivity : ComponentActivity() {
                     val scope = rememberCoroutineScope()
 
                     val recoveryError by org.example.memosm.data.backup.BackupCoordinator.recoveryError.collectAsState()
-                    if (recoveryError != null) {
+                    val startupReady by org.example.memosm.data.backup.BackupCoordinator.startupReady.collectAsState()
+                    if (!startupReady) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    } else if (recoveryError != null) {
                         androidx.compose.foundation.layout.Column(
                             Modifier.fillMaxSize().padding(24.dp),
                             verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,

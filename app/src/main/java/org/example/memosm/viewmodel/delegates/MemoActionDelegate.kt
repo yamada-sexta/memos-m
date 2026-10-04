@@ -182,7 +182,7 @@ class MemoActionDelegateImpl(
         )
         scope.launch {
             try {
-                val prepared = attachmentManager?.prepareRestoredDraftAttachments(memo.attachments.orEmpty()) ?: memo.attachments.orEmpty()
+                val prepared = attachmentManager?.prepareRestoredDraftAttachments(context, memo.attachments.orEmpty()) ?: memo.attachments.orEmpty()
                 memo = memo.copy(attachments = prepared.ifEmpty { null })
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { reportOperationFailure(context, error); if (accountSession.isCurrent(context)) onError(); return@launch }

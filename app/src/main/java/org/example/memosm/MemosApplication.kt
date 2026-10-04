@@ -7,7 +7,6 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import coil3.svg.SvgDecoder
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
@@ -38,6 +37,7 @@ class MemosApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        org.example.memosm.data.backup.BackupCoordinator.beginStartupRecovery()
 
         startKoin {
             androidLogger()
@@ -51,22 +51,19 @@ class MemosApplication : Application(), SingletonImageLoader.Factory {
 
         // Complete incoming or interrupted restores before creating sessions or scheduling work.
         val backup = org.koin.core.context.GlobalContext.get().get<org.example.memosm.data.backup.BackupService>()
-        kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
-            backup.recoverInterruptedRestore().onFailure {
-                org.example.memosm.data.backup.BackupCoordinator.recoveryError.value = "Restore was interrupted. Retry to finish restoring your data."
-            }
-            if (org.example.memosm.data.backup.BackupCoordinator.recoveryError.value == null) {
-                backup.restoreNativeIfPresent().onFailure {
-                    org.example.memosm.data.backup.BackupCoordinator.recoveryError.value = "Android restored an incomplete backup. Retry to finish restoring your data."
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                backup.recoverInterruptedRestore().onFailure {
+                    org.example.memosm.data.backup.BackupCoordinator.recoveryError.value = "Restore was interrupted. Retry to finish restoring your data."
                 }
-            }
-        }
+                if (org.example.memosm.data.backup.BackupCoordinator.recoveryError.value == null) {
+                    backup.restoreNativeIfPresent().onFailure {
+                        org.example.memosm.data.backup.BackupCoordinator.recoveryError.value = getString(R.string.backup_native_recovery_failed)
+                    }
+                }
+            } finally { org.example.memosm.data.backup.BackupCoordinator.finishStartupRecovery() }
 
-        // Re-arm the durable outbox replay for every known account. The
-        // one-time network-constrained request enqueued with each op is not
-        // re-armed across process death once consumed, so startup schedules
-        // the periodic fallback (schedule() enqueues both).
-        MainScope().launch {
+            // Re-arm durable outbox work only after startup recovery finishes.
             if (org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return@launch
             val koin = org.koin.core.context.GlobalContext.get()
             val scheduler = koin.get<SyncWorkScheduler>()

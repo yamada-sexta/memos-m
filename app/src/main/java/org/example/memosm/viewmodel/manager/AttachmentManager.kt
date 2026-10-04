@@ -139,10 +139,9 @@ class AttachmentManager(
     }
 
     /** Called only by an explicit publish action. Restoring a draft never invokes this method. */
-    suspend fun prepareRestoredDraftAttachments(attachments: List<Attachment>): List<Attachment> {
+    suspend fun prepareRestoredDraftAttachments(account: AccountContext, attachments: List<Attachment>): List<Attachment> {
         return attachments.map { attachment ->
             if (!attachment.name.isNullOrBlank() || attachment.clientId != null || attachment.localPath == null) return@map attachment
-            val account = accountSession.current ?: error("No active account")
             val app = MemosApplication.instance
             val file = java.io.File(attachment.localPath).canonicalFile
             val root = java.io.File(app.filesDir, "restored_backup_files").canonicalFile

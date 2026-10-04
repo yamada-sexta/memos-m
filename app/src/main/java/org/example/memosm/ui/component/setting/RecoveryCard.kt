@@ -61,11 +61,11 @@ fun RecoveryCard(importOnly: Boolean = false) {
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { refresh() }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingsGroup {
-            if (!importOnly) SettingsNavigationRow(title = stringResource(R.string.recovery_export), summary = stringResource(R.string.backup_export_description),
+            if (!importOnly) SettingsNavigationRow(title = stringResource(R.string.recovery_export),
                 icon = Icons.Outlined.FileUpload, showChevron = false, enabled = !busy, onClick = {
                     context.startActivity(org.example.memosm.ui.backup.BackupTransferActivity.exportIntent(context))
                 })
-            SettingsNavigationRow(title = stringResource(R.string.recovery_import), summary = stringResource(R.string.backup_import_description),
+            SettingsNavigationRow(title = stringResource(R.string.recovery_import),
                 icon = Icons.Outlined.FileDownload, showChevron = false, enabled = !busy,
                 onClick = { context.startActivity(org.example.memosm.ui.backup.BackupTransferActivity.importIntent(context)) })
         }
@@ -247,59 +247,59 @@ fun BackupTransferScreen(exporting: Boolean, sourcePath: String? = null, onClose
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.backup_back))
             } })
     }) { padding ->
-    if (exportPage || prepared != null) {
-        val importing = prepared != null
-        val available = prepared?.manifest?.categories ?: BackupCategory.entries.toSet()
-        val identities = prepared?.manifest?.accounts?.map { it.identity } ?: accounts.map { BackupIdentity(it.id, it.hostUrl, it.user?.name, it.displayName ?: it.name ?: it.hostUrl) }
-                Column(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.backup_accounts_heading), style = MaterialTheme.typography.titleSmall)
-                        identities.forEach { identity ->
-                            SelectionRow(identity.label, identity.id in chosenAccounts, !busy) { checked ->
-                                chosenAccounts = if (checked) chosenAccounts + identity.id else chosenAccounts - identity.id
-                            }
-                        }
-                        Text(stringResource(R.string.backup_contents_heading), style = MaterialTheme.typography.titleSmall)
-                        available.forEach { category ->
-                            SelectionRow(stringResource(categoryLabel(category)), category in chosenCategories, !busy) { checked ->
-                                chosenCategories = if (checked) chosenCategories + category else chosenCategories - category
-                            }
-                        }
-                        if (BackupCategory.QUEUED_EDITS in chosenCategories) Text(stringResource(R.string.backup_edit_review_description), style = MaterialTheme.typography.bodySmall)
-                        if (prepared?.manifest?.legacy == true) Text(legacyExplanation, style = MaterialTheme.typography.bodySmall)
-                        if (!importing) {
-                            SelectionRow(stringResource(R.string.backup_password_protection), encrypted, !busy) { encrypted = it }
-                            if (encrypted) {
-                                OutlinedTextField(value = password, onValueChange = { password = it }, enabled = !busy, label = { Text(stringResource(R.string.backup_password)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                                OutlinedTextField(value = repeatPassword, onValueChange = { repeatPassword = it }, enabled = !busy, label = { Text(stringResource(R.string.backup_repeat_password)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                            }
+        if (exportPage || prepared != null) {
+            val importing = prepared != null
+            val available = prepared?.manifest?.categories ?: BackupCategory.entries.toSet()
+            val identities = prepared?.manifest?.accounts?.map { it.identity } ?: accounts.map { BackupIdentity(it.id, it.hostUrl, it.user?.name, it.displayName ?: it.name ?: it.hostUrl) }
+            Column(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.backup_accounts_heading), style = MaterialTheme.typography.titleSmall)
+                    identities.forEach { identity ->
+                        SelectionRow(identity.label, identity.id in chosenAccounts, !busy) { checked ->
+                            chosenAccounts = if (checked) chosenAccounts + identity.id else chosenAccounts - identity.id
                         }
                     }
-                    if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(enabled = !busy, onClick = { closeImport(); onClose() }) { Text(stringResource(R.string.common_cancel)) }
-                        Button(enabled = !busy && chosenCategories.isNotEmpty() && (chosenAccounts.isNotEmpty() || chosenCategories == setOf(BackupCategory.SETTINGS)) &&
-                            (importing || !encrypted || (password.isNotEmpty() && password == repeatPassword)), onClick = {
-                            if (importing) confirmRestore = true
-                            else {
-                                busy = true
-                                val secret = if (encrypted) password.toCharArray() else null
-                                scope.launch {
-                                    try {
-                                        service.export(BackupSelection(chosenAccounts, chosenCategories), secret).fold(onSuccess = { file ->
-                                            pendingExport = file; exportPage = false; password = ""; repeatPassword = ""; exportLauncher.launch(file.name)
-                                        }, onFailure = { message = it.message ?: failedExport })
-                                    } finally { secret?.fill('\u0000'); busy = false }
-                                }
-                            }
-                        }) { Text(stringResource(if (importing) R.string.recovery_import else R.string.recovery_export)) }
+                    Text(stringResource(R.string.backup_contents_heading), style = MaterialTheme.typography.titleSmall)
+                    available.forEach { category ->
+                        SelectionRow(stringResource(categoryLabel(category)), category in chosenCategories, !busy) { checked ->
+                            chosenCategories = if (checked) chosenCategories + category else chosenCategories - category
+                        }
+                    }
+                    if (BackupCategory.QUEUED_EDITS in chosenCategories) Text(stringResource(R.string.backup_edit_review_description), style = MaterialTheme.typography.bodySmall)
+                    if (prepared?.manifest?.legacy == true) Text(legacyExplanation, style = MaterialTheme.typography.bodySmall)
+                    if (!importing) {
+                        SelectionRow(stringResource(R.string.backup_password_protection), encrypted, !busy) { encrypted = it }
+                        if (encrypted) {
+                            OutlinedTextField(value = password, onValueChange = { password = it }, enabled = !busy, label = { Text(stringResource(R.string.backup_password)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                            OutlinedTextField(value = repeatPassword, onValueChange = { repeatPassword = it }, enabled = !busy, label = { Text(stringResource(R.string.backup_repeat_password)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                        }
                     }
                 }
-    } else {
-        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.Center) {
-            if (busy) CircularProgressIndicator()
+                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(enabled = !busy, onClick = { closeImport(); onClose() }) { Text(stringResource(R.string.common_cancel)) }
+                    Button(enabled = !busy && chosenCategories.isNotEmpty() && (chosenAccounts.isNotEmpty() || chosenCategories == setOf(BackupCategory.SETTINGS)) &&
+                        (importing || !encrypted || (password.isNotEmpty() && password == repeatPassword)), onClick = {
+                        if (importing) confirmRestore = true
+                        else {
+                            busy = true
+                            val secret = if (encrypted) password.toCharArray() else null
+                            scope.launch {
+                                try {
+                                    service.export(BackupSelection(chosenAccounts, chosenCategories), secret).fold(onSuccess = { file ->
+                                        pendingExport = file; exportPage = false; password = ""; repeatPassword = ""; exportLauncher.launch(file.name)
+                                    }, onFailure = { message = it.message ?: failedExport })
+                                } finally { secret?.fill('\u0000'); busy = false }
+                            }
+                        }
+                    }) { Text(stringResource(if (importing) R.string.recovery_import else R.string.recovery_export)) }
+                }
+            }
+        } else {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                if (busy) CircularProgressIndicator()
+            }
         }
-    }
     }
     if (askPassword) AlertDialog(onDismissRequest = { if (!busy) { closeImport(); onClose() } }, title = { Text(stringResource(R.string.backup_password)) },
         text = { OutlinedTextField(value = password, onValueChange = { password = it }, visualTransformation = PasswordVisualTransformation(), singleLine = true, enabled = !busy) },

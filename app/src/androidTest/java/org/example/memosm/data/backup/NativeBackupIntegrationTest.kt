@@ -27,6 +27,7 @@ class NativeBackupIntegrationTest {
     @Test fun nativeTransportScenario() = runBlocking {
         val phase = InstrumentationRegistry.getArguments().getString("nativePhase")
         assumeTrue(phase != null)
+        BackupCoordinator.awaitStartupRecovery()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val koin = GlobalContext.get()
         val settings = koin.get<DataStoreManager>()

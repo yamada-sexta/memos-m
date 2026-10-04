@@ -208,10 +208,20 @@ class BackupServiceTest {
             target.settings.saveAccounts(listOf(account.copy(accessToken = "keep")))
             val archive = source.service.export(BackupSelection(setOf("A"))).getOrThrow()
             BackupArchive.read(archive, File(source.root, "malformed")).use { decoded ->
-                decoded.metadata.getAsJsonArray("accounts").single().asJsonObject.getAsJsonObject("identity").remove("label")
                 val malformed = File(source.root, "bad.mmbackup")
-                BackupArchive.write(malformed, decoded.metadata, decoded.blobs)
-                assertTrue(target.service.inspect(malformed).isFailure)
+                val mutations: List<(com.google.gson.JsonObject) -> Unit> = listOf(
+                    { it.getAsJsonObject("identity").remove("label") },
+                    { it.getAsJsonArray("media").single().asJsonObject.remove("memoName") },
+                    { it.getAsJsonArray("memos").single().asJsonObject.getAsJsonObject("memo").remove("content") },
+                    { it.getAsJsonArray("drafts").single().asJsonObject.getAsJsonArray("attachments").single().asJsonObject.add("filename", com.google.gson.JsonNull.INSTANCE) },
+                    { it.getAsJsonArray("drafts").single().asJsonObject.getAsJsonArray("attachments").single().asJsonObject.remove("type") }
+                )
+                mutations.forEach { mutate ->
+                    val metadata = decoded.metadata.deepCopy()
+                    mutate(metadata.getAsJsonArray("accounts").single().asJsonObject)
+                    BackupArchive.write(malformed, metadata, decoded.blobs)
+                    assertTrue(target.service.inspect(malformed).isFailure)
+                }
             }
             assertEquals("keep", target.settings.getAccounts().single().accessToken)
             assertFalse(File(target.context.noBackupFilesDir, "backup_restore/transaction.mmbackup").exists())
@@ -224,6 +234,48 @@ class BackupServiceTest {
             source.drafts.replaceDrafts("A", listOf(Draft(id = "draft", content = "draft")))
             File(source.context.filesDir, "drafts/drafts_A.json").writeText("[{broken")
             assertTrue(source.service.export(BackupSelection(setOf("A"))).isFailure)
+        }
+    }
+
+    @Test fun identicalMediaAttachmentsCanBeEvictedIndependently() = runBlocking {
+        Fixture().use { source -> Fixture().use { target ->
+            seed(source)
+            val first = source.database.cachedAttachmentDao().getAllForAccount("A").single()
+            source.database.cachedAttachmentDao().upsert(first.copy(attachmentName = "attachments/2"))
+            val archive = source.service.export(BackupSelection(setOf("A"))).getOrThrow()
+            target.service.inspect(archive).getOrThrow().use { backup ->
+                target.service.restore(backup, RestoreSelection(setOf("A"), backup.manifest.categories)).getOrThrow()
+            }
+            val restored = target.database.cachedAttachmentDao().getAllForAccount("A")
+            assertEquals(2, restored.size)
+            assertNotEquals(restored[0].localPath, restored[1].localPath)
+            File(restored[0].localPath).delete()
+            assertEquals("draft image bytes", File(restored[1].localPath).readText())
+        } }
+    }
+
+    @Test fun restoredDraftPublishingRetainsItsCapturedAccountAfterSwitching() = runBlocking {
+        Fixture().use { fixture ->
+            val app: Context = ApplicationProvider.getApplicationContext()
+            val directory = File(app.filesDir, "restored_backup_files/drafts/test-${UUID.randomUUID()}").apply { mkdirs() }
+            val audit = Room.inMemoryDatabaseBuilder(fixture.context, org.example.memosm.data.audit.AuditDatabase::class.java).build()
+            try {
+                val queue = org.example.memosm.data.media.AttachmentUploadQueue(fixture.context, fixture.database.attachmentUploadDao(), org.example.memosm.data.audit.SyncAuditLogger(audit.syncAuditDao()))
+                val sessions = org.example.memosm.viewmodel.AccountSession(fixture.scope)
+                val api = java.lang.reflect.Proxy.newProxyInstance(org.example.memosm.api.MemosApi::class.java.classLoader,
+                    arrayOf(org.example.memosm.api.MemosApi::class.java)) { _, _, _ -> error("No network calls expected") } as org.example.memosm.api.MemosApi
+                val captured = sessions.activate(account, api, okhttp3.OkHttpClient(), networkReady = false)
+                sessions.activate(account.copy(id = "B"), api, okhttp3.OkHttpClient(), networkReady = false)
+                val manager = org.example.memosm.viewmodel.manager.AttachmentManager(fixture.scope, sessions, { api }, uploadQueueProvider = { queue })
+                val attachments = (1..2).map { index ->
+                    val file = File(directory, "$index.png").apply { writeText("private A bytes $index") }
+                    Attachment(filename = file.name, type = "image/png", localPath = file.absolutePath)
+                }
+                val prepared = manager.prepareRestoredDraftAttachments(captured, attachments)
+                assertEquals(2, prepared.size)
+                assertEquals(2, fixture.database.attachmentUploadDao().getForAccount("A").size)
+                assertTrue(fixture.database.attachmentUploadDao().getForAccount("B").isEmpty())
+            } finally { audit.close(); directory.deleteRecursively() }
         }
     }
 }

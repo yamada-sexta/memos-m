@@ -75,7 +75,9 @@ Restore writes a complete private journal before changing storage. Cache changes
 Room; draft files are atomically replaced; preferences and credentials publish last. The journal
 is replayed idempotently if the app stops between stores. Background writers are blocked after
 a failed commit until recovery finishes. The journal is deleted only after the complete result
-is durable. Cache databases, WorkManager state, audit logs, recovery files, and arbitrary app
+is durable. Startup recovery runs on IO while a startup gate delays sessions and workers;
+large device transfers do not block the application main thread.
+Cache databases, WorkManager state, audit logs, recovery files, and arbitrary app
 files are never copied through Android backup rules.
 
 ## Verification
