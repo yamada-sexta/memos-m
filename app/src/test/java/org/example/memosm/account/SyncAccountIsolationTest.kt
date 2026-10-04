@@ -55,16 +55,16 @@ class SyncAccountIsolationTest {
                 },
                 auditLogger = SyncAuditLogger(stub<SyncAuditDao> { _, _ -> Unit }),
                 accountSession = session,
-                currentUserProvider = { null }, isOnlineProvider = { true },
+                currentUserProvider = { null },
                 onMemoSynced = { _, _ -> }, onMemoDeleted = {},
                 onCommentsRefresh = {}, onConflict = {}
             )
         }
         val first = manager()
         val second = manager()
-        first.syncNow()
+        first.pushPendingChanges()
         started.await()
-        second.syncNow()
+        second.pushPendingChanges()
         runCurrent()
         assertEquals(1, deletes)
         release.complete(Unit)
@@ -90,7 +90,7 @@ class SyncAccountIsolationTest {
                 override fun cancel(accountId: String) {}
             }, auditLogger = audit,
             accountSession = sessions,
-            currentUserProvider = { null }, isOnlineProvider = { true },
+            currentUserProvider = { null },
             onMemoSynced = { _, _ -> error("Foreign memo callback") },
             onMemoDeleted = {}, onCommentsRefresh = {}, onConflict = {}
         )
@@ -116,7 +116,7 @@ class SyncAccountIsolationTest {
                 override fun schedule(accountId: String) {}
                 override fun cancel(accountId: String) {}
             }, SyncAuditLogger(stub { name, _ -> error(name) }), sessions,
-            { null }, { false }, onMemoSynced = { _, _ -> }, onMemoDeleted = {},
+            { null }, onMemoSynced = { _, _ -> }, onMemoDeleted = {},
             onCommentsRefresh = {}, onConflict = {})
         val snapshots = mutableListOf<SyncManager.AccountPendingOps>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

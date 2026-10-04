@@ -7,6 +7,8 @@ separate optional category, **off by default**. Password protection is optional.
 Restore validates the file before asking which accounts and categories to replace. Unchecked
 categories and other accounts remain intact. Restore is available on the login screen as well
 as in Settings. A backup without credentials requires the original account to exist locally.
+Import and Export open dedicated full-screen activities with account and data toggles;
+the Backup & Restore settings section stays in place.
 
 The server remains authoritative. Restoring a cache cannot create pending operations, upload
 jobs, or server writes. The next successful refresh replaces stale server data and removes
@@ -90,8 +92,10 @@ with real user data. `NativeBackupIntegrationTest` skips unless `nativePhase` is
 2. Run that test with `-e nativePhase seed` to create fake accounts and representative local data.
 3. Enable backup and select `com.android.localtransport/.LocalTransport` using `bmgr`.
 4. For cloud behavior, set `backup_local_transport_parameters` to `is_encrypted=true`.
-   For device-transfer behavior, use `is_encrypted=true,is_device_to_device_transfer=true`.
+   For device-transfer behavior, use `is_encrypted=true,is_device_transfer=true`.
 5. Run `bmgr backupnow PACKAGE`, uninstall that disposable app, and reinstall its APK to restore.
+   For simulated device transfer, run `bmgr restore 1 PACKAGE` after reinstalling; restore-at-install
+   on the local transport can use cloud rules instead of the device-transfer rules.
 6. Run the test with `-e nativePhase cloud` or `-e nativePhase device` to verify the restored state.
 7. Restore the emulator's previous backup transport and local-transport parameters.
 

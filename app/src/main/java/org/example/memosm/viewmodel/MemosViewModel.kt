@@ -296,12 +296,6 @@ class MemosViewModel(
         workScheduler = syncWorkScheduler,
         auditLogger = syncAuditLogger,
         currentUserProvider = { _uiState.value.session.currUser },
-        // Use the UI state's isOnline (which reflects server reachability)
-        // rather than the raw connectivity observer: the observer requires
-        // NET_CAPABILITY_VALIDATED, which is absent on emulators using adb
-        // reverse and on captive portals the OS hasn't validated yet. The
-        // reachability probe is the authoritative online signal.
-        isOnlineProvider = { _uiState.value.isOnline },
         attachmentUploadQueueProvider = { attachmentUploadQueue },
         onMemoSynced = { memo, tempName ->
             if (tempName != null) {
@@ -499,7 +493,7 @@ class MemosViewModel(
 
     private fun runRecoverySequence() {
         if (org.example.memosm.data.backup.BackupCoordinator.restoring.value || org.example.memosm.data.backup.BackupCoordinator.recoveryError.value != null) return
-        syncManager.syncNow()
+        syncManager.pushPendingChanges()
         preDownloadManager.maybeAutoDownload()
         listOf(userMemoManager, exploreMemoManager, archivedMemoManager).forEach { manager ->
             manager.updateState { it.copy(isOffline = false, errorMessage = null) }
@@ -812,11 +806,10 @@ class MemosViewModel(
 
     /**
      * App came to the foreground: flush queued writes and refresh the cache.
-     * Automatic trigger - respects the sync backoff (no force).
      */
     fun onForeground() {
         if (!_uiState.value.isOnline) return
-        syncManager.syncNow()
+        syncManager.pushPendingChanges()
         preDownloadManager.maybeAutoDownload()
     }
 
@@ -838,13 +831,6 @@ class MemosViewModel(
                 archivedMemoManager.loadFromCache()
             }
         }
-    }
-
-    /**
-     * User-triggered sync attempts the server and bypasses retry guards.
-     */
-    fun syncNow() {
-        syncManager.syncNow(force = true)
     }
 
     /**
@@ -927,11 +913,11 @@ class MemosViewModel(
         _uiState.update { it.copy(conflict = null) }
         syncManager.resolveConflict(item, resolution, mergedContent)
         // Resolving may have unblocked other conflicted ops (the sync loop keeps
-        // them queued while a dialog is up). Run the queue again (forced - the
-        // user just acted) so the next conflict surfaces promptly; LATER
+        // them queued while a dialog is up). Push again so the next conflict
+        // surfaces promptly; LATER
         // deliberately leaves it parked.
         if (resolution != ConflictResolution.LATER) {
-            syncManager.syncNow(force = true)
+            syncManager.pushPendingChanges()
         }
     }
 
@@ -952,7 +938,7 @@ class MemosViewModel(
     private fun refreshManually(source: RefreshSource, fetch: () -> Unit) {
         updateRefreshTrigger(source)
         fetch()
-        syncManager.syncNow(force = true)
+        syncManager.pushPendingChanges()
         clearRefreshingState()
     }
 

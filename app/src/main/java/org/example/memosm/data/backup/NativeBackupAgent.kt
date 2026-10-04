@@ -40,7 +40,8 @@ class NativeBackupAgent : BackupAgent() {
                 val categories = if (transfer) BackupCategory.entries.toSet() - BackupCategory.QUEUED_EDITS else setOf(BackupCategory.ACCOUNTS)
                 val file = service.export(BackupSelection(ids, categories)).getOrThrow()
                 try {
-                    require(data.quota < 0 || file.length() + 4096 < data.quota) { "Android backup quota exceeded" }
+                    val quota = if (Build.VERSION.SDK_INT >= 26) data.quota else -1L
+                    require(quota < 0 || file.length() + 4096 < quota) { "Android backup quota exceeded" }
                     directory.mkdirs()
                     check(file.renameTo(File(directory, if (transfer) DEVICE_FILE else CLOUD_FILE))) { "Could not prepare Android backup" }
                 } finally { file.delete() }

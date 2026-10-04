@@ -24,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.example.memosm.data.DataStoreManager
@@ -80,7 +79,13 @@ class MainActivity : ComponentActivity() {
                             androidx.compose.material3.Button(onClick = {
                                 scope.launch {
                                     val backup = org.koin.core.context.GlobalContext.get().get<org.example.memosm.data.backup.BackupService>()
-                                    backup.recoverInterruptedRestore().onSuccess { backup.restoreNativeIfPresent() }
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                                        backup.recoverInterruptedRestore().onSuccess {
+                                            backup.restoreNativeIfPresent().onFailure {
+                                                org.example.memosm.data.backup.BackupCoordinator.recoveryError.value = getString(R.string.backup_native_recovery_failed)
+                                            }
+                                        }
+                                    }
                                 }
                             }) { androidx.compose.material3.Text(getString(R.string.backup_recovery_retry)) }
                         }

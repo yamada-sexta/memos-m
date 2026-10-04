@@ -148,14 +148,14 @@ class BackupService(
                 val blobId = addBlob(file, blobs)
                 BackupMedia(row.attachmentName, row.memoName, row.url, blobId, file.length(), row.downloadedAt)
             } else emptyList()
-            val draftRows = if (BackupCategory.DRAFTS in selection.categories) drafts.getDrafts(id).map { draft ->
+            val draftRows = if (BackupCategory.DRAFTS in selection.categories) drafts.getDrafts(id, strict = true).map { draft ->
                 val attachments = draft.attachments.map { attachment ->
                     val file = attachment.localPath?.let { privateFile(it) }
                     val encoded = attachment.content
                     val local = when {
                         file != null -> file
                         !encoded.isNullOrBlank() -> File(scratch, UUID.randomUUID().toString()).also { target ->
-                            java.util.Base64.getDecoder().wrap(encoded.byteInputStream(Charsets.US_ASCII)).use { input -> target.outputStream().use { input.copyTo(it) } }
+                            android.util.Base64InputStream(encoded.byteInputStream(Charsets.US_ASCII), android.util.Base64.DEFAULT).use { input -> target.outputStream().use { input.copyTo(it) } }
                         }
                         else -> null
                     }
@@ -185,9 +185,14 @@ class BackupService(
                                 payload.getAsJsonArray("attachments")?.forEach { item ->
                                     val obj = item.asJsonObject
                                     val path = obj.get("localPath")?.takeUnless { it.isJsonNull }?.asString
-                                    val local = path?.let { privateFile(it) }
+                                    val encoded = obj.get("content")?.takeUnless { it.isJsonNull }?.asString
+                                    val local = path?.let { privateFile(it) } ?: encoded?.takeIf { it.isNotBlank() }?.let {
+                                        File(scratch, UUID.randomUUID().toString()).also { target ->
+                                            android.util.Base64InputStream(it.byteInputStream(Charsets.US_ASCII), android.util.Base64.DEFAULT).use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+                                        }
+                                    }
                                     require(local != null || obj.get("clientId") == null || obj.get("clientId").isJsonNull) { "A queued edit attachment is missing" }
-                                    obj.remove("clientId"); obj.remove("localPath")
+                                    obj.remove("clientId"); obj.remove("localPath"); obj.remove("content")
                                     if (local != null) obj.addProperty("localPath", "blob:${addBlob(local, blobs)}")
                                 }
                                 add("payload", payload)
@@ -322,7 +327,9 @@ class BackupService(
         val categories = root.getAsJsonArray("categories").map { BackupCategory.valueOf(it.asString) }.toSet()
         val accounts = root.getAsJsonArray("accounts").map { value ->
             val obj = value.asJsonObject
-            val identity = gson.fromJson(obj.getAsJsonObject("identity"), BackupIdentity::class.java)
+            val identityFields = obj.getAsJsonObject("identity")
+            val identity = BackupIdentity(identityFields.get("id").asString, identityFields.get("hostUrl").asString,
+                identityFields.get("userName")?.takeUnless { it.isJsonNull }?.asString, identityFields.get("label").asString)
             BackupAccountData(identity,
                 obj.get("account")?.takeUnless { it.isJsonNull }?.let { gson.fromJson(it, Account::class.java) },
                 obj.getAsJsonArray("memos").map { item -> item.asJsonObject.let { memo -> BackupMemo(memo.get("listType").asString, memo.get("order").asInt,
@@ -355,28 +362,40 @@ class BackupService(
             if (BackupCategory.MEDIA !in manifest.categories) require(data.media.isEmpty())
             if (BackupCategory.QUEUED_EDITS !in manifest.categories) require(data.queuedEdits.isEmpty())
             require(data.queuedEdits.size <= 50_000) { "Too many queued edits" }
+            require(data.queuedEdits.map { it.get("id").asString }.distinct().size == data.queuedEdits.size) { "Duplicate queued edit" }
             data.queuedEdits.forEach { edit ->
                 require(edit.get("id").asString.isNotBlank()) { "Invalid queued edit" }
-                org.example.memosm.data.sync.PendingOpType.valueOf(edit.get("type").asString)
+                val type = org.example.memosm.data.sync.PendingOpType.valueOf(edit.get("type").asString)
+                listOf("memoName", "parentName").forEach { field -> edit.get(field)?.takeUnless { it.isJsonNull }?.let { require(it.isJsonPrimitive && it.asJsonPrimitive.isString) } }
+                if (type in setOf(org.example.memosm.data.sync.PendingOpType.CREATE, org.example.memosm.data.sync.PendingOpType.UPDATE, org.example.memosm.data.sync.PendingOpType.COMMENT_CREATE)) {
+                    val payload = edit.getAsJsonObject("payload")
+                    require(payload != null) { "Missing queued edit contents" }
+                    val memo = gson.fromJson(payload, Memo::class.java)
+                    require(memo.content != null) { "Invalid queued edit contents" }
+                }
                 edit.getAsJsonObject("payload")?.getAsJsonArray("attachments")?.forEach { item ->
                     val obj = item.asJsonObject
                     require(obj.get("clientId") == null || obj.get("clientId").isJsonNull) { "Invalid automatic upload state" }
+                    require(obj.get("content") == null || obj.get("content").isJsonNull) { "Invalid inline queued attachment" }
                     obj.get("localPath")?.takeUnless { it.isJsonNull }?.asString?.let { path ->
                         require(path.startsWith("blob:") && blobs.containsKey(path.removePrefix("blob:"))) { "Missing queued edit attachment" }
                     }
                 }
             }
+            require(data.memos.map { it.listType to it.memo.get("name").asString }.distinct().size == data.memos.size) { "Duplicate cached memo" }
             data.memos.forEach { row ->
                 CacheListType.valueOf(row.listType)
                 val memo = gson.fromJson(row.memo, Memo::class.java)
                 require(CacheBackupPolicy.canExport(memo.name.orEmpty(), emptySet())) { "Invalid cached memo" }
                 require(memo.attachments.orEmpty().none { it.clientId != null || it.localPath != null }) { "Cache contains local upload state" }
             }
+            require(data.attachmentMetadata.map { it.get("name").asString }.distinct().size == data.attachmentMetadata.size) { "Duplicate cached attachment" }
             data.attachmentMetadata.forEach { obj ->
                 val attachment = gson.fromJson(obj, Attachment::class.java)
                 require(!attachment.name.isNullOrBlank() && attachment.filename != null && attachment.type != null && attachment.clientId == null && attachment.localPath == null) { "Invalid cached attachment" }
             }
-            data.media.forEach { media -> require(media.attachmentName.isNotBlank() && media.size >= 0 && blobs[media.blobId]?.length() == media.size) { "Missing or invalid media file" } }
+            require(data.media.map { it.attachmentName }.distinct().size == data.media.size) { "Duplicate media file" }
+            data.media.forEach { media -> require(media.attachmentName.isNotBlank() && media.url != null && media.size >= 0 && blobs[media.blobId]?.length() == media.size) { "Missing or invalid media file" } }
             require(data.drafts.map { it.get("id").asString }.distinct().size == data.drafts.size) { "Duplicate draft" }
             data.drafts.forEach { obj ->
                 val draft = gson.fromJson(obj, Draft::class.java)
@@ -401,7 +420,7 @@ class BackupService(
 
     private fun privateFile(path: String): File? {
         val file = File(path)
-        if (!file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath())) return null
+        if (!file.isFile || android.system.OsConstants.S_ISLNK(android.system.Os.lstat(file.absolutePath).st_mode)) return null
         val canonical = file.canonicalFile
         return canonical.takeIf { candidate -> listOf(context.filesDir, context.cacheDir, context.noBackupFilesDir).any { root -> candidate.path.startsWith(root.canonicalPath + File.separator) } }
     }

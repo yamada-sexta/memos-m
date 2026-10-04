@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <include domain="file" path="native_backup/accounts.mmbackup" requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
+    <include domain="file" path="native_backup/accounts.mmbackup" requireFlags="clientSideEncryption" />
     <include domain="file" path="native_backup/device.mmbackup" requireFlags="deviceToDeviceTransfer" />
 </full-backup-content>

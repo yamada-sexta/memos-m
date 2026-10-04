@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,7 +56,6 @@ import org.example.memosm.api.GsonProvider
 import org.example.memosm.data.sync.PendingOp
 import org.example.memosm.data.sync.PendingOpType
 import org.example.memosm.data.sync.PreDownloadState
-import org.example.memosm.ui.formatSyncTime
 import org.example.memosm.ui.preDownloadPhaseLabel
 import org.example.memosm.viewmodel.MemosUiState
 import java.text.SimpleDateFormat
@@ -170,7 +170,11 @@ fun SyncStatusPanel(
                     )
                     Text(
                         text = stringResource(
-                            R.string.sync_panel_last_sync, formatSyncTime(uiState.lastSyncTime)
+                            R.string.sync_panel_last_sync,
+                            if (uiState.lastSyncTime <= 0L) stringResource(R.string.sync_time_never)
+                            else DateUtils.getRelativeTimeSpanString(
+                                uiState.lastSyncTime, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS
+                            ).toString()
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

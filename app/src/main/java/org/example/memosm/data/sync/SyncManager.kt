@@ -29,7 +29,7 @@ import org.example.memosm.model.User
 private const val TAG = "SyncManager"
 
 /**
- * Replays queued offline writes against the server once connectivity is back,
+ * Pushes queued local writes to the server,
  * detects content conflicts (server modified while we were offline) and lets
  * the user decide how to resolve them.
  *
@@ -46,7 +46,6 @@ class SyncManager(
     private val auditLogger: SyncAuditLogger,
     private val accountSession: AccountSession,
     private val currentUserProvider: () -> User?,
-    private val isOnlineProvider: () -> Boolean,
     private val attachmentUploadQueueProvider: () -> AttachmentUploadQueue? = { null },
     private val onMemoSynced: suspend (memo: Memo, tempName: String?) -> Unit,
     private val onMemoDeleted: suspend (memoName: String) -> Unit,
@@ -105,15 +104,9 @@ class SyncManager(
         _isSyncing.value = false
     }
 
-    /**
-     * Attempt to replay all queued ops for the active account.
-     * Automatic attempts are skipped when offline; overlapping attempts are skipped.
-     *
-     * [force] bypasses the previous reachability assessment and retry guards
-     * (permanently-failed ops and exponential backoff) for explicit user actions.
-     */
-    fun syncNow(force: Boolean = false) {
-        if ((!force && !isOnlineProvider()) || _isSyncing.value) return
+    /** Push all queued changes to the server, regardless of previous failures. */
+    fun pushPendingChanges() {
+        if (_isSyncing.value) return
         val context = accountSession.current ?: return
         if (!context.networkReady) return
         val accountId = context.account.id
@@ -130,9 +123,8 @@ class SyncManager(
                     var ops = repository.getOps(accountId)
                     val executor = newExecutor(context, user)
                     if (ops.isNotEmpty()) {
-                        Log.d(TAG, "syncNow: syncing ${ops.size} ops")
+                        Log.d(TAG, "pushPendingChanges: pushing ${ops.size} ops")
                     }
-                    val now = System.currentTimeMillis()
                     var index = 0
                     while (index < ops.size) {
                         if (!accountSession.isCurrent(context)) return@withAccountLock
@@ -143,25 +135,6 @@ class SyncManager(
                             ops = repository.getOps(accountId)
                             index++
                             continue
-                        }
-                        if (!force) {
-                            // Ops the server rejected with a 4xx will never succeed
-                            // by retrying - leave them queued (visible in the UI)
-                            // until the user discards or force-syncs.
-                            if (op.permanentlyFailed) {
-                                index++
-                                continue
-                            }
-                            // Exponential backoff: 30s, 1m, 2m, 4m, 8m, capped at 10m.
-                            // A failing op would otherwise be retried on every
-                            // foreground/resume/network-recovery.
-                            val backoffMillis = minOf(
-                                30_000L shl minOf(op.attemptCount, 4), 600_000L
-                            )
-                            if (now - op.lastAttemptAt < backoffMillis) {
-                                index++
-                                continue
-                            }
                         }
                         try {
                             val success = executor.replay(op)
@@ -177,8 +150,8 @@ class SyncManager(
                         } catch (e: Exception) {
                             Log.e(TAG, "Op ${op.id} (${op.type}) failed", e)
                             // 4xx means the server deterministically rejected the
-                            // op - retrying is pointless, mark it permanent. 5xx
-                            // and transport errors are transient: keep retrying
+                            // op: mark it for attention and let the next push retry it.
+                            // 5xx and transport errors are transient: keep retrying
                             // with backoff. 408/429 are transient too (timeout /
                             // rate limit), matching OutboxSyncWorker and
                             // AttachmentUploadQueue.
@@ -202,7 +175,9 @@ class SyncManager(
                             index++
                         }
                     }
-                    dataStoreManager.saveLastSyncTime(accountId, System.currentTimeMillis())
+                    if (repository.getOps(accountId).isEmpty()) {
+                        dataStoreManager.saveLastSyncTime(accountId, System.currentTimeMillis())
+                    }
                 }
             } finally {
                 if (accountSession.isCurrent(context)) _isSyncing.value = false
@@ -211,14 +186,13 @@ class SyncManager(
     }
 
     private fun scheduleRetry(accountId: String, attemptCount: Int) {
-        if (!isOnlineProvider()) return
         val delayMs = minOf(30_000L shl minOf(attemptCount, 4), 600_000L)
         workScheduler.schedule(accountId)
         retryJob?.cancel()
         retryJob = scope.launch {
             delay(delayMs)
-            if (accountSession.current?.account?.id == accountId && isOnlineProvider()) {
-                syncNow()
+            if (accountSession.current?.account?.id == accountId) {
+                pushPendingChanges()
             }
         }
     }

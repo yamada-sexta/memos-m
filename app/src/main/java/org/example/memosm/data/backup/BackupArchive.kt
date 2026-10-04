@@ -146,7 +146,7 @@ object BackupArchive {
         } catch (e: Exception) {
             directory.deleteRecursively()
             if (e is PasswordRequiredException) throw e
-            if (generateSequence<Throwable>(e) { it.cause }.any { it is AEADBadTagException } || (isEncrypted(source) && password != null)) throw BackupPasswordException()
+            if (generateSequence<Throwable>(e) { it.cause }.any { it is AEADBadTagException }) throw BackupPasswordException()
             throw e
         }
     }

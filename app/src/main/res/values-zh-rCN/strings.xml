@@ -455,4 +455,5 @@
     <string name="widget_stats_select_account">选择账户</string>
     <string name="widget_stats_tap_to_configure">点击以配置</string>
     <string name="sync_panel_manage_cache">管理缓存</string>
+    <string name="sync_time_never">从未同步</string>
 </resources>

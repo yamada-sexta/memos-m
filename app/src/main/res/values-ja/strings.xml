@@ -452,4 +452,5 @@
     <string name="widget_stats_select_account">アカウントを選択</string>
     <string name="widget_stats_tap_to_configure">タップして設定</string>
     <string name="sync_panel_manage_cache">キャッシュを管理</string>
+    <string name="sync_time_never">未同期</string>
 </resources>

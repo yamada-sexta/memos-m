@@ -64,7 +64,7 @@ class DraftManager(private val context: Context) {
      * Get all drafts for an account using streaming JSON parsing.
      * Reads one draft at a time to minimize memory usage.
      */
-    suspend fun getDrafts(accountId: String): List<Draft> = withContext(Dispatchers.IO) {
+    suspend fun getDrafts(accountId: String, strict: Boolean = false): List<Draft> = withContext(Dispatchers.IO) {
         withDraftLock {
             try {
                 val file = getDraftsFile(accountId)
@@ -73,21 +73,24 @@ class DraftManager(private val context: Context) {
                 val drafts = mutableListOf<Draft>()
 
                 JsonReader(BufferedReader(FileReader(file))).use { reader ->
+                    if (strict) require(reader.peek() == JsonToken.BEGIN_ARRAY) { "Invalid draft storage" }
                     if (reader.peek() == JsonToken.BEGIN_ARRAY) {
                         reader.beginArray()
                         while (reader.hasNext()) {
                             // Parse each draft object individually
-                            val draft = parseDraft(reader)
+                            val draft = parseDraft(reader, strict)
                             if (draft != null) {
                                 drafts.add(draft)
                             }
                         }
                         reader.endArray()
                     }
+                    if (strict) require(reader.peek() == JsonToken.END_DOCUMENT) { "Unexpected draft storage content" }
                 }
 
                 drafts
             } catch (e: Exception) {
+                if (strict) throw e
                 Log.e(TAG, "Error reading drafts for account $accountId", e)
                 emptyList()
             }
@@ -104,7 +107,7 @@ class DraftManager(private val context: Context) {
     /**
      * Parse a single Draft from the JsonReader.
      */
-    private fun parseDraft(reader: JsonReader): Draft? {
+    private fun parseDraft(reader: JsonReader, strict: Boolean = false): Draft? {
         try {
             var id: String? = null
             var content = ""
@@ -122,13 +125,14 @@ class DraftManager(private val context: Context) {
                     "visibility" -> visibility = try {
                         Visibility.valueOf(reader.nextString())
                     } catch (e: Exception) {
+                        if (strict) throw e
                         Visibility.PRIVATE
                     }
 
                     "attachments" -> {
                         reader.beginArray()
                         while (reader.hasNext()) {
-                            val attachment = parseAttachment(reader)
+                            val attachment = parseAttachment(reader, strict)
                             if (attachment != null) {
                                 attachments.add(attachment)
                             }
@@ -136,7 +140,7 @@ class DraftManager(private val context: Context) {
                         reader.endArray()
                     }
 
-                    "location" -> location = parseLocation(reader)
+                    "location" -> location = parseLocation(reader, strict)
                     "createdAt" -> createdAt = reader.nextLong()
                     "updatedAt" -> updatedAt = reader.nextLong()
                     else -> reader.skipValue()
@@ -144,12 +148,14 @@ class DraftManager(private val context: Context) {
             }
             reader.endObject()
 
+            if (strict) require(!id.isNullOrBlank()) { "Invalid draft ID" }
             return if (id != null) {
                 Draft(id, content, visibility, attachments, location, createdAt, updatedAt)
             } else {
                 null
             }
         } catch (e: Exception) {
+            if (strict) throw e
             Log.e(TAG, "Error parsing draft", e)
             reader.skipValue()
             return null
@@ -160,7 +166,7 @@ class DraftManager(private val context: Context) {
      * Parse a single Attachment from the JsonReader.
      * The base64 content is read as a string - streaming happens at file I/O level.
      */
-    private fun parseAttachment(reader: JsonReader): Attachment? {
+    private fun parseAttachment(reader: JsonReader, strict: Boolean = false): Attachment? {
         try {
             var name: String? = null
             var createTime: Instant? = null
@@ -232,6 +238,7 @@ class DraftManager(private val context: Context) {
                 clientId, localPath
             )
         } catch (e: Exception) {
+            if (strict) throw e
             Log.e(TAG, "Error parsing attachment", e)
             reader.skipValue()
             return null
@@ -241,7 +248,7 @@ class DraftManager(private val context: Context) {
     /**
      * Parse a Location from the JsonReader.
      */
-    private fun parseLocation(reader: JsonReader): Location? {
+    private fun parseLocation(reader: JsonReader, strict: Boolean = false): Location? {
         if (reader.peek() == JsonToken.NULL) {
             reader.nextNull()
             return null
@@ -274,6 +281,7 @@ class DraftManager(private val context: Context) {
 
             return Location(placeholder, latitude, longitude)
         } catch (e: Exception) {
+            if (strict) throw e
             Log.e(TAG, "Error parsing location", e)
             reader.skipValue()
             return null
@@ -401,19 +409,19 @@ class DraftManager(private val context: Context) {
 
         val temp = File(file.parentFile, ".${file.name}.tmp")
         try {
-        val output = temp.outputStream()
-        JsonWriter(BufferedWriter(java.io.OutputStreamWriter(output, Charsets.UTF_8))).use { writer ->
-            writer.setIndent("") // Compact output
+            val output = temp.outputStream()
+            JsonWriter(BufferedWriter(java.io.OutputStreamWriter(output, Charsets.UTF_8))).use { writer ->
+                writer.setIndent("") // Compact output
 
-            writer.beginArray()
-            for (draft in drafts) {
-                writeDraft(writer, draft)
+                writer.beginArray()
+                for (draft in drafts) {
+                    writeDraft(writer, draft)
+                }
+                writer.endArray()
+                writer.flush()
+                output.fd.sync()
             }
-            writer.endArray()
-            writer.flush()
-            output.fd.sync()
-        }
-        check(temp.renameTo(file)) { "Could not save drafts" }
+            check(temp.renameTo(file)) { "Could not save drafts" }
         } finally { temp.delete() }
     }
 

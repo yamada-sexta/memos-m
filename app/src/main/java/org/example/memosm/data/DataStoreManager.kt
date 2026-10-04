@@ -60,7 +60,7 @@ class DataStoreManager(
         const val DEFAULT_THEME_CACHE_MAX_MB = 200
         // Incremental-sync cursor for the text pre-downloader. Deliberately
         // separate from the per-account last-sync time (which SyncManager
-        // updates): only the pre-downloader writes this, so syncNow() cannot
+        // updates): only the pre-downloader writes this, so pushPendingChanges() cannot
         // shrink the "what changed since the last full download" window and
         // cause updates to be skipped.
         val TEXT_SYNC_CURSOR = androidx.datastore.preferences.core.longPreferencesKey("text_sync_cursor")
@@ -478,8 +478,10 @@ class DataStoreManager(
                 APPEARANCE_COLOR_THEME.name -> org.example.memosm.model.ColorTheme.valueOf(value.asString)
                 APPEARANCE_FONT.name -> org.example.memosm.model.AppFont.valueOf(value.asString)
                 APPEARANCE_CUSTOM_HUE.name, HEADER_SCALE.name -> require(value.asJsonPrimitive.isNumber && value.asFloat.isFinite())
-                PAGE_SIZE.name, ATTACHMENT_CACHE_MAX_MB.name, TEXT_CACHE_MAX_MB.name, THEME_CACHE_MAX_MB.name ->
+                PAGE_SIZE.name ->
                     require(value.asJsonPrimitive.isNumber && value.asBigDecimal.stripTrailingZeros().scale() <= 0 && value.asLong in 1..Int.MAX_VALUE.toLong())
+                ATTACHMENT_CACHE_MAX_MB.name, TEXT_CACHE_MAX_MB.name, THEME_CACHE_MAX_MB.name ->
+                    require(value.asJsonPrimitive.isNumber && value.asBigDecimal.stripTrailingZeros().scale() <= 0 && value.asBigDecimal >= Int.MIN_VALUE.toBigDecimal() && value.asBigDecimal <= Int.MAX_VALUE.toBigDecimal())
                 else -> require(value.asJsonPrimitive.isBoolean) { "Invalid boolean setting" }
             }
         }

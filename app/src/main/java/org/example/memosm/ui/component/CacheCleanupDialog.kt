@@ -34,8 +34,7 @@ import org.example.memosm.ui.component.item.media.MediaCache
 import org.example.memosm.ui.formatBytes
 
 /**
- * Shared cache-cleanup dialog (used by the sync status panel and the offline
- * settings card): shows a per-type analysis (text / attachment / media cache)
+ * Cache-cleanup dialog in offline settings: shows per-type usage (text / attachment / media cache)
  * with checkboxes, and clears exactly the selected types. The media cache is
  * cleared in-place here (it is the global Coil cache, no ViewModel involved),
  * so callers only pass the text/attachment actions.

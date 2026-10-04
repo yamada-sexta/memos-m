@@ -451,4 +451,5 @@
     <string name="widget_stats_select_account">계정 선택</string>
     <string name="widget_stats_tap_to_configure">탭하여 설정</string>
     <string name="sync_panel_manage_cache">캐시 관리</string>
+    <string name="sync_time_never">동기화한 적 없음</string>
 </resources>

@@ -441,5 +441,8 @@
     <string name="backup_edit_saved_draft" tools:ignore="MissingTranslation">Saved as an unpublished draft. Open Drafts to review it.</string>
     <string name="backup_restore_before_login" tools:ignore="MissingTranslation">Restore a backup</string>
     <string name="backup_recovery_retry" tools:ignore="MissingTranslation">Retry restore</string>
+    <string name="backup_native_recovery_failed" tools:ignore="MissingTranslation">Android restored an incomplete backup. Retry to finish restoring your data.</string>
+    <string name="backup_back" tools:ignore="MissingTranslation">Back</string>
     <string name="sync_panel_manage_cache">Manage cache</string>
+    <string name="sync_time_never">Never</string>
 </resources>

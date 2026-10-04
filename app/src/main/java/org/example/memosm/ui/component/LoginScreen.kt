@@ -82,15 +82,9 @@ fun LoginScreen(
                     .padding(horizontal = 24.dp)
                     .padding(top = 64.dp, bottom = 24.dp)
             )
-            var restoringBackup by remember { mutableStateOf(false) }
-            TextButton(onClick = { restoringBackup = true }) { Text(stringResource(R.string.backup_restore_before_login)) }
-            if (restoringBackup) Dialog(onDismissRequest = { restoringBackup = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-                Surface(shape = MaterialTheme.shapes.large, modifier = Modifier.padding(16.dp)) {
-                    Column(Modifier.padding(20.dp).verticalScroll(rememberScrollState())) {
-                        org.example.memosm.ui.component.setting.RecoveryCard(importOnly = true)
-                        TextButton(onClick = { restoringBackup = false }) { Text(stringResource(R.string.common_close)) }
-                    }
-                }
+            val backupContext = androidx.compose.ui.platform.LocalContext.current
+            TextButton(onClick = { backupContext.startActivity(org.example.memosm.ui.backup.BackupTransferActivity.importIntent(backupContext)) }) {
+                Text(stringResource(R.string.backup_restore_before_login))
             }
             }
         }

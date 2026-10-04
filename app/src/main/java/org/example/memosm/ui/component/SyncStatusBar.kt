@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
 import org.example.memosm.data.sync.PreDownloadState
-import org.example.memosm.ui.formatSyncTime
 import org.example.memosm.ui.preDownloadPhaseLabel
 
 /**
@@ -81,7 +81,10 @@ fun SyncStatusBar(
             Icons.Outlined.Storage to stringResource(
                 R.string.sync_status_cached,
                 pluralStringResource(R.plurals.cached_memo_count, cachedCount, cachedCount),
-                formatSyncTime(lastSyncTime, "HH:mm")
+                if (lastSyncTime <= 0L) stringResource(R.string.sync_time_never)
+                else DateUtils.getRelativeTimeSpanString(
+                    lastSyncTime, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS
+                ).toString()
             )
         }
     }

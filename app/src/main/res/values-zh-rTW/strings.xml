@@ -450,4 +450,5 @@
         <item>拜託停一下…|m(_ _)m</item>
     </string-array>
     <string name="sync_panel_manage_cache">管理快取</string>
+    <string name="sync_time_never">從未同步</string>
 </resources>

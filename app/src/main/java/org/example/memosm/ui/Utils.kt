@@ -22,8 +22,6 @@ import androidx.compose.ui.res.stringResource
 import org.example.memosm.R
 import org.example.memosm.data.sync.PreDownloadState
 import org.example.memosm.model.Visibility
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 
@@ -99,15 +97,6 @@ fun formatBytes(bytes: Long): String {
     if (mb < 1024) return String.format(Locale.getDefault(), "%.1f MB", mb)
     val gb = mb / 1024.0
     return String.format(Locale.getDefault(), "%.2f GB", gb)
-}
-
-/**
- * Shared last-sync timestamp formatting. [pattern] defaults to the detail
- * panel's "MM-dd HH:mm"; the compact status bar passes "HH:mm".
- */
-fun formatSyncTime(timestamp: Long, pattern: String = "MM-dd HH:mm"): String {
-    if (timestamp <= 0L) return "-"
-    return SimpleDateFormat(pattern, Locale.getDefault()).format(Date(timestamp))
 }
 
 /** Shared label for the pre-download phase shown in the sync status UIs. */

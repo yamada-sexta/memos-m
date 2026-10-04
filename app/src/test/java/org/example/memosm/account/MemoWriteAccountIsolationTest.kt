@@ -41,6 +41,7 @@ class MemoWriteAccountIsolationTest {
         val memos = linkedMapOf<String, CachedMemo>()
         val visible = linkedMapOf<String, Memo>()
         val drafts = DraftManager(object : ContextWrapper(null) {
+            override fun getFilesDir() = File(temp.root, "files").apply { mkdirs() }
             override fun getCacheDir() = File(temp.root, "cache").apply { mkdirs() }
         })
         val cache = MemoCacheRepository(stub<MemoDao> { name, args ->
@@ -60,7 +61,7 @@ class MemoWriteAccountIsolationTest {
             override fun cancel(accountId: String) {}
         }, SyncAuditLogger(stub<SyncAuditDao> { name, _ ->
             when (name) { "insert" -> Unit; "count" -> 0; else -> error(name) }
-        }), sessions, { null }, { false },
+        }), sessions, { null },
             onMemoSynced = { _, _ -> }, onMemoDeleted = {}, onCommentsRefresh = {}, onConflict = {})
         val draftDelegate = DraftDelegateImpl(scope, state, drafts, sessions, { actions }, {})
         val actions: MemoActionDelegate = MemoActionDelegateImpl(scope, state,
@@ -141,7 +142,7 @@ class MemoWriteAccountIsolationTest {
                 override fun schedule(accountId: String) {}
                 override fun cancel(accountId: String) {}
             }, SyncAuditLogger(stub<SyncAuditDao> { name, _ -> error(name) }),
-            sessions, { null }, { true },
+            sessions, { null },
             onMemoSynced = { _, _ -> }, onMemoDeleted = {}, onCommentsRefresh = {}, onConflict = {}
         )
         val updater = stub<MemoListUpdater> { name, _ -> error("Stale UI update: $name") }

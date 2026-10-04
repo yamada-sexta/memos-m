@@ -82,7 +82,7 @@ class OutboxSyncWorker(
                     }
                     // Ops the server rejected with a 4xx will never succeed by
                     // retrying - leave them queued (visible in the UI) until the
-                    // user discards or force-syncs.
+                    // user retries or discards them.
                     if (op.permanentlyFailed) {
                         index++
                         continue
@@ -118,7 +118,9 @@ class OutboxSyncWorker(
                         index++
                     }
                 }
-                dataStore.saveLastSyncTime(accountId, System.currentTimeMillis())
+                if (repository.getOps(accountId).isEmpty()) {
+                    dataStore.saveLastSyncTime(accountId, System.currentTimeMillis())
+                }
                 Result.success()
             }.also { result ->
                 if (result == Result.success()) runPreDownload(account, api, this)

@@ -184,4 +184,46 @@ class BackupServiceTest {
             }
         }
     }
+
+    @Test fun unlimitedCacheSettingsAndInlineDraftBytesSurviveBackup() = runBlocking {
+        Fixture().use { source -> Fixture().use { target ->
+            source.settings.saveAccounts(listOf(account))
+            source.settings.saveAttachmentCacheMaxMb(0)
+            source.settings.saveTextCacheMaxMb(-1)
+            source.drafts.replaceDrafts("A", listOf(Draft(id = "inline", content = "draft", attachments = listOf(
+                Attachment(filename = "image.png", type = "image/png", content = android.util.Base64.encodeToString("inline bytes".toByteArray(), android.util.Base64.NO_WRAP))))))
+            val archive = source.service.export(BackupSelection(setOf("A"))).getOrThrow()
+            target.service.inspect(archive).getOrThrow().use { backup ->
+                target.service.restore(backup, RestoreSelection(setOf("A"), backup.manifest.categories)).getOrThrow()
+            }
+            assertEquals(0, target.settings.attachmentCacheMaxMb.first())
+            assertEquals(-1, target.settings.textCacheMaxMb.first())
+            assertEquals("inline bytes", File(target.drafts.getDrafts("A").single().attachments.single().localPath!!).readText())
+        } }
+    }
+
+    @Test fun malformedRecordsFailBeforeReplacingDestinationData() = runBlocking {
+        Fixture().use { source -> Fixture().use { target ->
+            seed(source)
+            target.settings.saveAccounts(listOf(account.copy(accessToken = "keep")))
+            val archive = source.service.export(BackupSelection(setOf("A"))).getOrThrow()
+            BackupArchive.read(archive, File(source.root, "malformed")).use { decoded ->
+                decoded.metadata.getAsJsonArray("accounts").single().asJsonObject.getAsJsonObject("identity").remove("label")
+                val malformed = File(source.root, "bad.mmbackup")
+                BackupArchive.write(malformed, decoded.metadata, decoded.blobs)
+                assertTrue(target.service.inspect(malformed).isFailure)
+            }
+            assertEquals("keep", target.settings.getAccounts().single().accessToken)
+            assertFalse(File(target.context.noBackupFilesDir, "backup_restore/transaction.mmbackup").exists())
+        } }
+    }
+
+    @Test fun corruptDraftStorageFailsExportInsteadOfSilentlyOmittingDrafts() = runBlocking {
+        Fixture().use { source ->
+            source.settings.saveAccounts(listOf(account))
+            source.drafts.replaceDrafts("A", listOf(Draft(id = "draft", content = "draft")))
+            File(source.context.filesDir, "drafts/drafts_A.json").writeText("[{broken")
+            assertTrue(source.service.export(BackupSelection(setOf("A"))).isFailure)
+        }
+    }
 }
