@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.net.Uri
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -53,6 +54,7 @@ fun ProfileHeader(
     userStats: UserStats? = null
 ) {
     Card(
+        elevation = flatCardElevation(),
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),

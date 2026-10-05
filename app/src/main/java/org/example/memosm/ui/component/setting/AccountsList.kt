@@ -1,4 +1,5 @@
 import androidx.compose.animation.animateColorAsState
+import org.example.memosm.ui.theme.flatCardElevation
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -333,6 +334,7 @@ fun AccountsList(
 
                     // Foreground card with swipe gesture
                     Card(
+                        elevation = flatCardElevation(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .offset {

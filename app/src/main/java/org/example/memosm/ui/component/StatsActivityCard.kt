@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.text.format.DateFormat
 import android.util.Log
 import androidx.compose.foundation.background
@@ -62,6 +63,7 @@ fun StatsActivityCard(
     }
 
     Card(
+        elevation = flatCardElevation(),
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)

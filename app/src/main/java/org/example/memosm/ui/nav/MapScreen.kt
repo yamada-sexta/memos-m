@@ -270,7 +270,7 @@ fun MapScreen(
 
 @Composable
 private fun MapNotice(text: String, action: String? = null, modifier: Modifier = Modifier, onAction: () -> Unit = {}) {
-    Surface(modifier = modifier, shape = MaterialTheme.shapes.medium, tonalElevation = 4.dp, shadowElevation = 2.dp) {
+    Surface(modifier = modifier, shape = MaterialTheme.shapes.medium, tonalElevation = 4.dp) {
         Column(Modifier.padding(12.dp)) {
             Text(text, style = MaterialTheme.typography.bodySmall)
             if (action != null) TextButton(onClick = onAction) { Text(action) }

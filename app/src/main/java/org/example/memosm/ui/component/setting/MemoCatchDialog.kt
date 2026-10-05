@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.setting
 
+import org.example.memosm.ui.theme.flatCardElevation
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -153,7 +154,7 @@ internal fun MemoCatchDialog(onDismiss: () -> Unit) {
                             ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Card(Modifier.padding(16.dp).widthIn(max = 360.dp)) {
+                            Card(modifier = Modifier.padding(16.dp).widthIn(max = 360.dp), elevation = flatCardElevation()) {
                                 Column(
                                     Modifier.verticalScroll(rememberScrollState()).padding(if (compact) 12.dp else 20.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,

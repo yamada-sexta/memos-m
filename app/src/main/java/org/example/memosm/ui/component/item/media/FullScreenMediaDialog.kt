@@ -4,10 +4,17 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.findViewTreeOnBackPressedDispatcherOwner
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,6 +34,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +54,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -54,6 +63,9 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.semantics.scrollBy
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -71,6 +83,8 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 internal val LocalViewerGesturesBlocked = compositionLocalOf { false }
+internal val LocalViewerImmersive = compositionLocalOf { false }
+internal val LocalViewerToggleImmersive = compositionLocalOf<(() -> Unit)?> { null }
 internal enum class ViewerDragIntent { None, Dismiss, Details }
 
 internal fun detailsSnapTarget(offset: Int, snapOffset: Int, minDistance: Float, velocity: Float, minVelocity: Float): Int = when {
@@ -123,6 +137,12 @@ internal fun FullScreenMediaDialog(
     val scroll = rememberScrollState()
     val flingBehavior = ScrollableDefaults.flingBehavior()
     val zoomState = remember(gestureKey) { ViewerZoomState() }
+    var immersive by remember { mutableStateOf(false) }
+    val backgroundColor by animateColorAsState(
+        targetValue = if (immersive) Color.Black else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(220), label = "ViewerBackground"
+    )
+    val contentColor = if (immersive) Color.White else MaterialTheme.colorScheme.onSurface
 
     Dialog(
         onDismissRequest = { if (!exiting) currentDismiss() },
@@ -138,7 +158,10 @@ internal fun FullScreenMediaDialog(
                 it.setDimAmount(0f)
                 it.setWindowAnimations(0)
                 WindowCompat.getInsetsController(it, it.decorView).apply {
-                    hide(WindowInsetsCompat.Type.systemBars())
+                    if (immersive) hide(WindowInsetsCompat.Type.systemBars())
+                    else show(WindowInsetsCompat.Type.systemBars())
+                    isAppearanceLightStatusBars = !immersive && backgroundColor.luminance() > 0.5f
+                    isAppearanceLightNavigationBars = !immersive && backgroundColor.luminance() > 0.5f
                     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 }
             }
@@ -170,6 +193,13 @@ internal fun FullScreenMediaDialog(
                     .coerceAtLeast(height / 3f)
                 val snapOffset = (detailsTop - height / 3f).toInt().coerceAtLeast(1)
                 val infoVisible = scroll.value > 0
+                val toggleImmersive = {
+                    if (!infoVisible && !backing && !exiting && !entering) immersive = !immersive
+                }
+                val currentToggleImmersive by rememberUpdatedState(toggleImmersive)
+                LaunchedEffect(infoVisible) {
+                    if (infoVisible) immersive = false
+                }
                 val viewerBack = if (backingDetails) 0f else backProgress.value
                 val downwardOffset = dragOffset.coerceAtLeast(0f)
                 val dragProgress = (downwardOffset / fadeDistance).coerceIn(0f, 1f)
@@ -200,6 +230,7 @@ internal fun FullScreenMediaDialog(
                 val dismiss: () -> Unit = { dismissWithZoom(null) }
                 SideEffect { zoomState.onPinchDismiss = { dismissWithZoom(it) } }
                 val showInfo: () -> Unit = {
+                    immersive = false
                     settleJob?.cancel()
                     settleJob = scope.launch { scroll.animateScrollTo(snapOffset, spring()) }
                 }
@@ -239,13 +270,24 @@ internal fun FullScreenMediaDialog(
                     else -> MediaTransitionTransform(scale, Offset(viewerBack * edgeDistance * backEdge, downwardOffset), null)
                 }
 
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = alpha))) {
+                Box(Modifier.fillMaxSize().background(backgroundColor.copy(alpha = alpha))) {
                     CompositionLocalProvider(
                         LocalViewerGesturesBlocked provides (infoVisible || backing || exiting || entering),
-                        LocalViewerZoomState provides zoomState
+                        LocalViewerZoomState provides zoomState,
+                        LocalViewerImmersive provides immersive,
+                        LocalViewerToggleImmersive provides toggleImmersive,
+                        LocalContentColor provides contentColor
                     ) {
                         Box(
                             Modifier.fillMaxSize().testTag("attachment_viewer")
+                                .semantics {
+                                    toggleableState = if (immersive) ToggleableState.On else ToggleableState.Off
+                                    onClick { currentToggleImmersive(); true }
+                                }
+                                .pointerInput(infoVisible, backing, exiting, entering) {
+                                    if (infoVisible || backing || exiting || entering) return@pointerInput
+                                    detectTapGestures(onTap = { currentToggleImmersive() })
+                                }
                                 .pointerInput(exiting, backing, entering, infoContent != null, snapOffset, zoomState) {
                                     if (exiting || backing || entering) return@pointerInput
                                     val tracker = VelocityTracker()
@@ -290,6 +332,7 @@ internal fun FullScreenMediaDialog(
                                             if (intent == ViewerDragIntent.None) {
                                                 intent = if (amount > 0f || infoContent == null) ViewerDragIntent.Dismiss
                                                     else ViewerDragIntent.Details
+                                                if (intent == ViewerDragIntent.Details) immersive = false
                                             }
                                             change.consume()
                                             tracker.addPosition(change.uptimeMillis, change.position)
@@ -338,7 +381,7 @@ internal fun FullScreenMediaDialog(
                                                 .graphicsLayer { this.alpha = if (infoVisible) 1f else 0f },
                                             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                                             color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                            shadowElevation = 4.dp
+                                            shadowElevation = 0.dp
                                         ) {
                                             Column(Modifier.navigationBarsPadding().padding(bottom = 24.dp)) {
                                                 BottomSheetDefaults.DragHandle(Modifier.align(Alignment.CenterHorizontally))
@@ -350,13 +393,18 @@ internal fun FullScreenMediaDialog(
                             }
                         }
                     }
-                    if (actionsContent != null && !infoVisible) {
+                    AnimatedVisibility(
+                        visible = actionsContent != null && !immersive && !infoVisible,
+                        enter = slideInVertically(tween(220)) { -it } + fadeIn(tween(220)),
+                        exit = slideOutVertically(tween(220)) { -it } + fadeOut(tween(220)),
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
                         Box(
-                            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp)
+                            Modifier.statusBarsPadding().padding(16.dp)
                                 .graphicsLayer { this.alpha = if (entering || exiting) 0f else alpha }
                         ) {
                             CompositionLocalProvider(LocalViewerGesturesBlocked provides (entering || exiting || backing)) {
-                                actionsContent(showInfo)
+                                actionsContent?.invoke(showInfo)
                             }
                         }
                     }

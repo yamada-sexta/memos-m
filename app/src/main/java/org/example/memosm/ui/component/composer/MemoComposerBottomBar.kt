@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.composer
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.net.Uri
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.foundation.background
@@ -125,7 +126,7 @@ fun MemoComposerBottomBar(
         Card(
             modifier = Modifier.weight(1f), shape = cardShape, colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            ), elevation = CardDefaults.cardElevation(defaultElevation = defaultElevation)
+            ), elevation = flatCardElevation()
         ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                 // Attachments List

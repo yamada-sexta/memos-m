@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.item.markdown
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -126,6 +127,7 @@ private fun BlockLatexErrorCard(
     modifier: Modifier = Modifier
 ) {
     Card(
+        elevation = flatCardElevation(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer

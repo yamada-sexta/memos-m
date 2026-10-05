@@ -12,26 +12,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
@@ -52,11 +45,17 @@ fun VideoPlayer(
     isFullScreen: Boolean = false,
     onClick: (() -> Unit)? = null,
     onRatioAvailable: (Float) -> Unit = {},
-    onLongClick: (() -> Unit)? = null
+    onLongClick: (() -> Unit)? = null,
+    infoContent: (@Composable () -> Unit)? = null,
+    actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null,
+    onDurationAvailable: (Long) -> Unit = {}
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
+    val immersive = LocalViewerImmersive.current
+    val toggleImmersive = LocalViewerToggleImmersive.current
+    val reportDuration by rememberUpdatedState(onDurationAvailable)
     var isFullscreen by remember { mutableStateOf(false) }
     var isReady by remember { mutableStateOf(false) }
 
@@ -82,6 +81,10 @@ fun VideoPlayer(
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                player.duration.takeIf { it > 0L }?.let(reportDuration)
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     isReady = true
@@ -112,20 +115,20 @@ fun VideoPlayer(
     }
 
     Box(
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+        modifier = modifier.background(if (isFullScreen) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
-                    useController = isFullScreen
+                    useController = isFullScreen && !immersive
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                     if (isFullScreen) {
-                        setFullscreenButtonClickListener { /* disabled */ }
-                        controllerShowTimeoutMs = 3000
+                        setFullscreenButtonClickListener { toggleImmersive?.invoke() }
+                        controllerShowTimeoutMs = 0
                     }
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
@@ -137,7 +140,12 @@ fun VideoPlayer(
                 }
             }, update = { view ->
                 view.player = if (isFullscreen) null else exoPlayer
-                view.useController = isFullScreen
+                view.useController = isFullScreen && !immersive
+                if (isFullScreen) {
+                    view.setOnClickListener { toggleImmersive?.invoke() }
+                    view.setFullscreenButtonClickListener { toggleImmersive?.invoke() }
+                    if (!immersive) view.showController()
+                }
                 view.setOnLongClickListener(if (!isFullScreen && onLongClick != null) {
                     android.view.View.OnLongClickListener { onLongClick(); true }
                 } else null)
@@ -150,24 +158,15 @@ fun VideoPlayer(
     }
 
     if (isFullscreen) {
-        Dialog(
-            onDismissRequest = { isFullscreen = false }, properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = false,
-                decorFitsSystemWindows = false
-            )
+        FullScreenMediaDialog(
+            onDismiss = { isFullscreen = false },
+            mediaAspectRatio = mediaSize.takeIf { it.width > 0 && it.height > 0 }
+                ?.let { it.width.toFloat() / it.height },
+            infoContent = infoContent,
+            actionsContent = actionsContent
         ) {
-            val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-            if (window != null) {
-                SideEffect {
-                    val controller = WindowCompat.getInsetsController(window, window.decorView)
-                    controller.hide(WindowInsetsCompat.Type.systemBars())
-                    controller.systemBarsBehavior =
-                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                }
-            }
-
+            val videoImmersive = LocalViewerImmersive.current
+            val toggleVideoImmersive = LocalViewerToggleImmersive.current
             val activity = context.findActivity()
             val videoSize = exoPlayer.videoSize
             val isVertical =
@@ -185,20 +184,26 @@ fun VideoPlayer(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black)
+                    .background(Color.Transparent)
             ) {
                 AndroidView(factory = { ctx ->
                     PlayerView(ctx).apply {
                         player = exoPlayer
-                        useController = true
+                        useController = !videoImmersive
+                        controllerShowTimeoutMs = 0
                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        setBackgroundColor(android.graphics.Color.BLACK)
-                        setFullscreenButtonClickListener { isFullscreen = false }
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
                         )
                     }
-                }, modifier = Modifier.fillMaxSize())
+                }, update = { view ->
+                    view.useController = !videoImmersive
+                    view.setOnClickListener { toggleVideoImmersive?.invoke() }
+                    view.setFullscreenButtonClickListener { toggleVideoImmersive?.invoke() }
+                    if (!videoImmersive) view.showController()
+                }, modifier = Modifier.fillMaxSize().zoomable(true, mediaSize))
             }
         }
     }

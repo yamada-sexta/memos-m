@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.item
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.net.Uri
 import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import android.util.Base64
@@ -26,17 +27,21 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -57,6 +62,8 @@ import org.example.memosm.ui.component.item.media.FileThumbnailMode
 import org.example.memosm.ui.component.item.media.FullScreenImageViewer
 import org.example.memosm.ui.component.item.media.MemoImage
 import org.example.memosm.ui.component.item.media.VideoPlayer
+import org.example.memosm.ui.component.item.media.LocalViewerToggleImmersive
+import org.example.memosm.ui.component.item.media.formatMediaTime
 import org.example.memosm.viewmodel.manager.AttachmentManager
 import java.io.File
 
@@ -87,12 +94,14 @@ fun AttachmentCard(
     onMediaRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> }
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
+    val toggleImmersive = LocalViewerToggleImmersive.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
     val origin = remember { AttachmentOrigin() }
     var showInfoDialog by remember { mutableStateOf(false) }
     var showFullScreenImage by remember { mutableStateOf(false) }
     var isAudioPlaying by remember { mutableStateOf(false) }
+    var videoDuration by remember(attachment, uri, accountIdentity) { mutableLongStateOf(0L) }
     var showAttachmentActions by remember(attachment, uri, accountIdentity) { mutableStateOf(false) }
     val onLongClick: (() -> Unit)? = if (gallery && showInfo && showActions && !isFullScreen) {
         { showAttachmentActions = true }
@@ -179,6 +188,7 @@ fun AttachmentCard(
     val backgroundColor by animateColorAsState(
         targetValue = when {
             isFullScreen && isAudio -> MaterialTheme.colorScheme.surfaceContainerLow
+            isFullScreen -> Color.Transparent
             isAudioPlaying -> MaterialTheme.colorScheme.primaryContainer
             else -> MaterialTheme.colorScheme.surfaceVariant
         },
@@ -186,19 +196,7 @@ fun AttachmentCard(
         animationSpec = tween(durationMillis = 300)
     )
 
-    Card(
-        modifier = modifier.then(
-            if (gallery && !isFullScreen) Modifier.combinedClickable(
-                onClick = onClick ?: {
-                    if (isImage) showFullScreenImage = true else showInfoDialog = true
-                },
-                onLongClick = onLongClick,
-                onLongClickLabel = moreLabel
-            ) else Modifier
-        ),
-        shape = if (gallery) RectangleShape else MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(defaultElevation = if (gallery) 0.dp else 2.dp)
-    ) {
+    val content: @Composable () -> Unit = {
         @Suppress("COMPOSE_APPLIER_CALL_MISMATCH") BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isCompact = when (compactMode) {
                 AttachmentCompactMode.Always -> true
@@ -306,6 +304,11 @@ fun AttachmentCard(
                                 isFullScreen = isFullScreen,
                                 onClick = if (isFullScreen) null else onClick,
                                 onLongClick = onLongClick,
+                                onDurationAvailable = { videoDuration = it },
+                                infoContent = { AttachmentInfoContent(info) },
+                                actionsContent = { showInfo ->
+                                    AttachmentActionsButton(attachment, token, hostUrl, filename, showInfo)
+                                },
                                 onRatioAvailable = {
                                     intrinsicRatio = it
                                     isIntrinsicExact = true
@@ -359,7 +362,7 @@ fun AttachmentCard(
                                     isCompact -> FileThumbnailMode.COMPACT
                                     else -> FileThumbnailMode.NORMAL
                                 },
-                                onClick = if (isFullScreen) { {} } else { onClick ?: { showInfoDialog = true } },
+                                onClick = if (isFullScreen) { toggleImmersive ?: {} } else { onClick ?: { showInfoDialog = true } },
                                 onLongClick = onLongClick,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -377,6 +380,25 @@ fun AttachmentCard(
                                 contentDescription = stringResource(R.string.attachments_video),
                                 modifier = Modifier.padding(4.dp).size(20.dp)
                             )
+                        }
+                    }
+
+                    if (gallery && !isFullScreen && (isImage || isVideo)) {
+                        val labels = listOf(
+                            Alignment.BottomStart to formattedSize.takeIf { showSize && it.isNotBlank() },
+                            Alignment.BottomEnd to videoDuration.takeIf { isVideo && it > 0L }?.let(::formatMediaTime)
+                        )
+                        labels.forEach { (alignment, label) ->
+                            if (label != null) Surface(
+                                modifier = Modifier.align(alignment).padding(6.dp),
+                                shape = MaterialTheme.shapes.extraSmall,
+                                color = Color.Black.copy(alpha = 0.55f), contentColor = Color.White
+                            ) {
+                                Text(
+                                    label, style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
 
@@ -439,6 +461,28 @@ fun AttachmentCard(
             }
         }
     }
+
+    if (isFullScreen) {
+        CompositionLocalProvider(
+            LocalContentColor provides if (isAudio) MaterialTheme.colorScheme.onSurface else LocalContentColor.current
+        ) {
+            Box(modifier.background(if (isAudio) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent)) {
+                content()
+            }
+        }
+    } else Card(
+        modifier = modifier.then(
+            if (gallery) Modifier.combinedClickable(
+                onClick = onClick ?: {
+                    if (isImage) showFullScreenImage = true else showInfoDialog = true
+                },
+                onLongClick = onLongClick,
+                onLongClickLabel = moreLabel
+            ) else Modifier
+        ),
+        shape = if (gallery) RectangleShape else MaterialTheme.shapes.medium,
+        elevation = flatCardElevation()
+    ) { content() }
 
     if (gallery && showInfo && showActions) {
         AttachmentActionsButton(

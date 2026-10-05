@@ -67,10 +67,10 @@ internal fun AttachmentActionsButton(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
         contentColor = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.size(32.dp)
+        modifier = modifier.size(48.dp)
     ) {
         IconButton(onClick = { showMenu = true }, enabled = enabled && !LocalViewerGesturesBlocked.current) {
-            Icon(Icons.Outlined.MoreVert, stringResource(R.string.memo_action_more), Modifier.size(20.dp))
+            Icon(Icons.Outlined.MoreVert, stringResource(R.string.memo_action_more), Modifier.size(24.dp))
         }
     }
 

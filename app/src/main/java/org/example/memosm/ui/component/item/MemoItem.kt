@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.item
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
@@ -147,6 +148,7 @@ fun MemoItem(
 
 
     Card(
+        elevation = flatCardElevation(),
         modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, colors = colors
     ) {
         Column(

@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component
 
+import org.example.memosm.ui.theme.flatCardElevation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -212,7 +213,7 @@ fun NotificationsScreen(
 
 @Composable
 private fun NotificationCard(notification: UserNotification) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+    Card(elevation = flatCardElevation(), modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         ListItem(
             content = {
                 Text(

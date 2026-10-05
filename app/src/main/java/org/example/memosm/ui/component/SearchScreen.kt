@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -477,6 +478,7 @@ private fun SearchResultContent(
         if (availableTags.isNotEmpty()) {
             item {
                 Card(
+                    elevation = flatCardElevation(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 4.dp),
@@ -758,6 +760,7 @@ private fun DateSelectorCard(
 ) {
     val context = LocalContext.current
     Card(
+        elevation = flatCardElevation(),
         modifier = modifier, colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         ), shape = MaterialTheme.shapes.large, onClick = onClick

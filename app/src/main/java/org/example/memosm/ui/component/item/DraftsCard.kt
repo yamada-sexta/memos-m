@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.item
 
+import org.example.memosm.ui.theme.flatCardElevation
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +54,7 @@ fun DraftsCard(
     val context = LocalContext.current
 
     Card(
+        elevation = flatCardElevation(),
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp),

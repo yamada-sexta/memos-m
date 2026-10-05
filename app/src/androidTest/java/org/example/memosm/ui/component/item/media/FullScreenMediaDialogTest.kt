@@ -16,6 +16,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -28,6 +31,8 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.state.ToggleableState
 import androidx.test.espresso.Espresso.pressBack
 import org.example.memosm.model.Attachment
 import org.example.memosm.ui.theme.MemosMTheme
@@ -94,6 +99,37 @@ class FullScreenMediaDialogTest {
         compose.onNodeWithTag("attachment_viewer").performTouchInput { swipeDown() }
         compose.onNodeWithText("Attachment details").assertDoesNotExist()
         compose.runOnIdle { assertEquals(0, dismissals) }
+    }
+
+    @Test
+    fun singleTapTogglesImmersiveAndOpeningDetailsReturnsToNormalView() {
+        showViewer()
+        val viewer = compose.onNodeWithTag("attachment_viewer")
+        val mode = SemanticsProperties.ToggleableState
+        viewer.assert(SemanticsMatcher.expectValue(mode, ToggleableState.Off))
+        compose.onNodeWithTag("media").performTouchInput { click() }
+        viewer.assert(SemanticsMatcher.expectValue(mode, ToggleableState.On))
+        compose.onNodeWithTag("media").performTouchInput { click() }
+        viewer.assert(SemanticsMatcher.expectValue(mode, ToggleableState.Off))
+        compose.onNodeWithTag("media").performTouchInput { click() }
+        viewer.performTouchInput { swipeUp() }
+        viewer.assert(SemanticsMatcher.expectValue(mode, ToggleableState.Off))
+        compose.onNodeWithText("Attachment details").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0, dismissals) }
+    }
+
+    @Test
+    fun zoomableMediaSingleTapTogglesModeWhileDoubleTapStillZooms() {
+        showViewer(zoomable = true)
+        val viewer = compose.onNodeWithTag("attachment_viewer")
+        val media = compose.onNodeWithTag("media")
+        media.performTouchInput { click() }
+        compose.mainClock.advanceTimeBy(400)
+        viewer.assert(SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.On))
+        media.performTouchInput { doubleClick() }
+        viewer.performTouchInput { swipeDown() }
+        compose.runOnIdle { assertEquals(0, dismissals) }
+        viewer.assert(SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.On))
     }
 
     @Test

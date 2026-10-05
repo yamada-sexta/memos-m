@@ -17,7 +17,7 @@ class AudioPlaybackProgressTest {
         listOf(0L, C.TIME_UNSET).forEach { duration ->
             assertEquals(0L, audioSeekPosition(30_000L, duration))
             assertEquals(0f, audioProgress(30_000L, duration), 0f)
-            assertEquals("00:00", formatAudioTime(duration))
+            assertEquals("00:00", formatMediaTime(duration))
         }
     }
 
@@ -31,9 +31,9 @@ class AudioPlaybackProgressTest {
 
     @Test
     fun timesIncludeHoursForLongRecordings() {
-        assertEquals("00:09", formatAudioTime(9_999L))
-        assertEquals("59:59", formatAudioTime(3_599_000L))
-        assertEquals("1:00:00", formatAudioTime(3_600_000L))
-        assertEquals("2:03:04", formatAudioTime(7_384_000L))
+        assertEquals("00:09", formatMediaTime(9_999L))
+        assertEquals("59:59", formatMediaTime(3_599_000L))
+        assertEquals("1:00:00", formatMediaTime(3_600_000L))
+        assertEquals("2:03:04", formatMediaTime(7_384_000L))
     }
 }

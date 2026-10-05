@@ -46,6 +46,7 @@ fun Modifier.zoomable(
     val decay = rememberSplineBasedDecay<Float>()
     val gesturesBlocked = LocalViewerGesturesBlocked.current
     val zoomState = LocalViewerZoomState.current
+    val toggleImmersive by rememberUpdatedState(LocalViewerToggleImmersive.current)
     val zoomToken = remember { Any() }
     DisposableEffect(zoomState) {
         onDispose { if (zoomState?.zoomedBy === zoomToken) zoomState.zoomedBy = null }
@@ -75,8 +76,8 @@ fun Modifier.zoomable(
     this
         .onSizeChanged { viewSize = it }
         .pointerInput(doubleTapZoom, gesturesBlocked, zoomState) {
-            if (!doubleTapZoom || gesturesBlocked) return@pointerInput
-            detectTapGestures(onDoubleTap = { position ->
+            if (gesturesBlocked || (!doubleTapZoom && toggleImmersive == null)) return@pointerInput
+            detectTapGestures(onTap = { toggleImmersive?.invoke() }, onDoubleTap = if (doubleTapZoom) { position ->
                 settleJob?.cancel()
                 val target = viewerDoubleTapTarget(zoomStep, viewSize, currentImageSize)
                 zoomStep = target.step
@@ -94,7 +95,7 @@ fun Modifier.zoomable(
                         reportZoom()
                     }
                 }
-            })
+            } else null)
         }
         .pointerInput(gesturesBlocked, zoomState) {
             if (gesturesBlocked) return@pointerInput

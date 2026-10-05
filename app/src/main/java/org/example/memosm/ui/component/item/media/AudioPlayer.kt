@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.item.media
 
+import org.example.memosm.ui.theme.flatCardElevation
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
@@ -72,7 +73,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.example.memosm.R
-import java.util.Locale
 
 enum class AudioPlayerMode {
     WIDE, NORMAL, COMPACT, FULL_SCREEN
@@ -169,7 +169,7 @@ fun AudioPlayer(
     }
     val seekLabel = stringResource(R.string.audio_seek)
     val playbackLabel = stringResource(if (playWhenReady) R.string.memo_action_pause else R.string.memo_action_play)
-    val seekDescription = "${formatAudioTime(displayedPosition)} / ${formatAudioTime(duration)}"
+    val seekDescription = "${formatMediaTime(displayedPosition)} / ${formatMediaTime(duration)}"
     val seekSlider: @Composable (Modifier) -> Unit = { sliderModifier ->
         val sliderState = remember(exoPlayer) { SliderState(value = progress) }
         LaunchedEffect(progress) { sliderState.value = progress }
@@ -209,9 +209,9 @@ fun AudioPlayer(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(formatAudioTime(displayedPosition), style = MaterialTheme.typography.labelMedium)
+                        Text(formatMediaTime(displayedPosition), style = MaterialTheme.typography.labelMedium)
                         seekSlider(Modifier.weight(1f))
-                        Text(formatAudioTime(duration), style = MaterialTheme.typography.labelMedium)
+                        Text(formatMediaTime(duration), style = MaterialTheme.typography.labelMedium)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -313,11 +313,11 @@ fun AudioPlayer(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = formatAudioTime(displayedPosition),
+                                text = formatMediaTime(displayedPosition),
                                 style = MaterialTheme.typography.labelSmall
                             )
                             Text(
-                                text = formatAudioTime(duration),
+                                text = formatMediaTime(duration),
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -360,8 +360,9 @@ fun AudioPlayer(
         }
     }
 
-    if (showContainer) {
+    if (showContainer && mode != AudioPlayerMode.FULL_SCREEN) {
         Card(
+            elevation = flatCardElevation(),
             modifier = modifier.then(if (mode == AudioPlayerMode.NORMAL || mode == AudioPlayerMode.COMPACT) Modifier.height(100.dp) else Modifier),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = MaterialTheme.shapes.medium
@@ -439,12 +440,3 @@ internal fun audioSeekPosition(position: Long, duration: Long): Long =
 
 internal fun audioProgress(position: Long, duration: Long): Float =
     if (duration > 0L) audioSeekPosition(position, duration).toFloat() / duration else 0f
-
-internal fun formatAudioTime(ms: Long): String {
-    val totalSeconds = ms.coerceAtLeast(0L) / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds / 60) % 60
-    val seconds = totalSeconds % 60
-    return if (hours > 0) String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
-    else String.format(Locale.US, "%02d:%02d", minutes, seconds)
-}
