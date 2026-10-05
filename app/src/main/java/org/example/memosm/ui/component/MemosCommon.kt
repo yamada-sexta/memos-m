@@ -337,8 +337,6 @@ fun MemosScaffold(
         val uiState by viewModel.uiState.collectAsState()
         val focusManager = LocalFocusManager.current
 
-        val onEditMemo = LocalMemoEditor.current
-        var memoToDelete by remember { mutableStateOf<Memo?>(null) }
 
         LaunchedEffect(listState, isLoading, nextPageToken, isActive) {
             if (!isActive) return@LaunchedEffect
@@ -408,77 +406,13 @@ fun MemosScaffold(
                         Box(
                             modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center
                         ) {
-                            val isOwner = memo.creator == uiState.session.currUser?.name
-                            MemoItem(
+                            MemoPreviewItem(
+                                viewModel = viewModel,
                                 memo = memo,
                                 user = userProvider(memo),
-                                currentUser = uiState.session.currUser,
-                                token = uiState.session.token,
-                                hostUrl = uiState.session.hostUrl,
-                                colors = if (memo.name != null && memo.name == uiState.detailPane.selectedMemo?.name) {
-                                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                                } else {
-                                    CardDefaults.cardColors()
-                                },
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    onMemoClick(memo)
-                                },
-                                onEdit = if (isOwner) {
-                                    { onEditMemo(memo) }
-                                } else null,
-                                onArchive = if (isOwner) {
-                                    {
-                                        viewModel.memoActionDelegate.updateMemo(
-                                            memo,
-                                            memo.content,
-                                            memo.visibility,
-                                            memo.attachments ?: emptyList(),
-                                            memo.location,
-                                            MemoState.ARCHIVED
-                                        )
-                                    }
-                                } else null,
-                                onUnarchive = if (isOwner) {
-                                    {
-                                        viewModel.memoActionDelegate.updateMemo(
-                                            memo,
-                                            memo.content,
-                                            memo.visibility,
-                                            memo.attachments ?: emptyList(),
-                                            memo.location,
-                                            MemoState.NORMAL
-                                        )
-                                    }
-                                } else null,
-                                onPin = if (isOwner) { pinned ->
-                                    viewModel.memoActionDelegate.updateMemoPinned(memo, pinned)
-                                } else null,
-                                onDelete = if (isOwner) {
-                                    { memoToDelete = memo }
-                                } else null,
-                                onUpsertReaction = { emoji ->
-                                    viewModel.memoActionDelegate.upsertMemoReaction(memo, emoji)
-                                },
-                                onDeleteReaction = { reaction ->
-                                    viewModel.memoActionDelegate.deleteMemoReaction(memo, reaction)
-                                },
-                                onContentUpdate = if (isOwner) { newContent ->
-                                    viewModel.memoActionDelegate.updateMemo(
-                                        memo,
-                                        newContent,
-                                        memo.visibility,
-                                        memo.attachments ?: emptyList(),
-                                        memo.location
-                                    )
-                                } else null,
-                                maxHeight = 400.dp,
-                                modifier = Modifier.widthIn(max = 800.dp),
-                                onHashtagClick = onHashtagClick,
-                                headerScale = uiState.appSettings.headerScale,
-                                reactionOptions = uiState.session.instanceSettings?.memoRelatedSetting?.reactions
-                                    ?: emptyList())
-
+                                onClick = { onMemoClick(memo) },
+                                onHashtagClick = onHashtagClick
+                            )
                         }
                     }
 
@@ -512,14 +446,100 @@ fun MemosScaffold(
                 }
             }
         }
-
-        memoToDelete?.let { memo ->
-            DeleteConfirmationDialog(memo = memo, onDismiss = { memoToDelete = null }, onConfirm = {
-                viewModel.memoActionDelegate.deleteMemo(memo)
-                memoToDelete = null
-            })
-        }
     }
+
+/** The home feed's preview card and actions, also used for memos selected on the map. */
+@Composable
+fun MemoPreviewItem(
+    viewModel: MemosViewModel,
+    memo: Memo,
+    user: User? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onHashtagClick: ((String) -> Unit)? = null
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val focusManager = LocalFocusManager.current
+    val onEditMemo = LocalMemoEditor.current
+    var showDelete by remember(memo.name) { mutableStateOf(false) }
+    val isOwner = memo.creator == uiState.session.currUser?.name
+    MemoItem(
+        memo = memo,
+        user = user,
+        currentUser = uiState.session.currUser,
+        token = uiState.session.token,
+        hostUrl = uiState.session.hostUrl,
+        colors = if (memo.name != null && memo.name == uiState.detailPane.selectedMemo?.name) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        } else {
+            CardDefaults.cardColors()
+        },
+        onClick = {
+            focusManager.clearFocus()
+            onClick()
+        },
+        onEdit = if (isOwner) {
+            { onEditMemo(memo) }
+        } else null,
+        onArchive = if (isOwner) {
+            {
+                viewModel.memoActionDelegate.updateMemo(
+                    memo,
+                    memo.content,
+                    memo.visibility,
+                    memo.attachments ?: emptyList(),
+                    memo.location,
+                    MemoState.ARCHIVED
+                )
+            }
+        } else null,
+        onUnarchive = if (isOwner) {
+            {
+                viewModel.memoActionDelegate.updateMemo(
+                    memo,
+                    memo.content,
+                    memo.visibility,
+                    memo.attachments ?: emptyList(),
+                    memo.location,
+                    MemoState.NORMAL
+                )
+            }
+        } else null,
+        onPin = if (isOwner) { pinned ->
+            viewModel.memoActionDelegate.updateMemoPinned(memo, pinned)
+        } else null,
+        onDelete = if (isOwner) {
+            { showDelete = true }
+        } else null,
+        onUpsertReaction = { emoji ->
+            viewModel.memoActionDelegate.upsertMemoReaction(memo, emoji)
+        },
+        onDeleteReaction = { reaction ->
+            viewModel.memoActionDelegate.deleteMemoReaction(memo, reaction)
+        },
+        onContentUpdate = if (isOwner) { newContent ->
+            viewModel.memoActionDelegate.updateMemo(
+                memo,
+                newContent,
+                memo.visibility,
+                memo.attachments ?: emptyList(),
+                memo.location
+            )
+        } else null,
+        maxHeight = 400.dp,
+        modifier = modifier.widthIn(max = 800.dp),
+        onHashtagClick = onHashtagClick,
+        headerScale = uiState.appSettings.headerScale,
+        reactionOptions = uiState.session.instanceSettings?.memoRelatedSetting?.reactions
+            ?: emptyList())
+    if (showDelete) {
+        DeleteConfirmationDialog(memo = memo, onDismiss = { showDelete = false }, onConfirm = {
+            viewModel.memoActionDelegate.deleteMemo(memo)
+            showDelete = false
+        })
+    }
+}
+
 fun resolveResourceUrl(hostUrl: String, relativeUrl: String?): String? {
     if (relativeUrl.isNullOrBlank()) return null
     if (relativeUrl.startsWith("http")) return relativeUrl

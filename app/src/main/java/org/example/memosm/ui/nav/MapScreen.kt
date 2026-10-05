@@ -29,7 +29,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -42,6 +41,7 @@ import org.example.memosm.model.ownMapLocation
 import org.example.memosm.model.sharedMapLabel
 import org.example.memosm.ui.component.MemosScaffold
 import org.example.memosm.ui.component.MemoSearchBar
+import org.example.memosm.ui.component.MemoPreviewItem
 import org.example.memosm.ui.component.composer.EditorRequest
 import org.example.memosm.ui.component.composer.rememberMemoEditorLauncher
 import org.example.memosm.ui.component.map.MemoMapController
@@ -69,6 +69,7 @@ fun MapScreen(
     val listState = rememberLazyListState()
     var searchResults by remember { mutableStateOf<List<Memo>?>(null) }
     var searchExpanded by remember { mutableStateOf(false) }
+    var requestedTag by remember { mutableStateOf<String?>(null) }
     var place by remember(map.scope) { mutableStateOf<MapPlace?>(null) }
     var mapBounds by remember { mutableStateOf(Rect.Zero) }
     var panelBounds by remember(map.scope) { mutableStateOf<Rect?>(null) }
@@ -176,18 +177,15 @@ fun MapScreen(
                                         }
                                     }
                                     LazyColumn(Modifier.weight(1f, fill = false).testTag("map_place_memos"),
-                                        contentPadding = PaddingValues(bottom = 16.dp)) {
+                                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         if (selected.isEmpty()) item {
                                             Text(stringResource(R.string.map_place_empty), modifier = Modifier.padding(12.dp))
                                         }
                                         items(selected, key = { it.name!! }) { memo ->
-                                            ListItem(
-                                                headlineContent = { Text(memo.content, maxLines = 3) },
-                                                supportingContent = { Text(ui.users[memo.creator]?.displayName ?: memo.creator.orEmpty()) },
-                                                trailingContent = { TextButton(onClick = { onMemoClick(memo) }) {
-                                                    Text(stringResource(R.string.map_open_memo))
-                                                } }
-                                            )
+                                            MemoPreviewItem(viewModel = viewModel, memo = memo,
+                                                user = if (map.scope == MapScope.MEMOS) null else ui.users[memo.creator],
+                                                onClick = { onMemoClick(memo) }, onHashtagClick = { requestedTag = it })
                                         }
                                     }
                                 }
@@ -201,6 +199,7 @@ fun MapScreen(
                         localMemos = map.memos, onLocalResultsChanged = { searchResults = it },
                         onExpandedChange = { searchExpanded = it; onToggleNavBar?.invoke(!it) },
                         filterActionLabel = stringResource(R.string.map_show_results),
+                        requestedTag = requestedTag, onTagHandled = { requestedTag = null },
                         extraFilters = {
                             if (map.scope == MapScope.MEMOS && ui.userMemoList.shortcuts.isNotEmpty()) {
                                 Box(Modifier.padding(horizontal = 16.dp)) {
@@ -229,7 +228,7 @@ fun MapScreen(
                                     onClick = { if (map.scope != scope) viewModel.memoMapManager.selectScope(scope) },
                                     shape = shape, border = null,
                                     colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    modifier = Modifier.shadow(3.dp, shape).testTag("map_scope_${scope.name.lowercase()}"),
+                                    modifier = Modifier.testTag("map_scope_${scope.name.lowercase()}"),
                                     leadingIcon = { Icon(when (scope) {
                                         MapScope.MEMOS -> Icons.Outlined.Description
                                         MapScope.EXPLORE -> Icons.Outlined.Explore

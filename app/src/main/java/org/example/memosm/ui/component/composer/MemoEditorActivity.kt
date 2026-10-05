@@ -11,6 +11,7 @@ import androidx.activity.viewModels
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,7 @@ class MemoEditorActivity : ProfileActivity() {
 
     @Composable
     override fun Destination(viewModel: MemosViewModel, onBack: () -> Unit) {
+        val uiState by viewModel.uiState.collectAsState()
         val session = editor.session
         if (editor.failed) {
             Text(stringResource(R.string.common_operation_failed))
@@ -61,7 +63,7 @@ class MemoEditorActivity : ProfileActivity() {
             }
             snapshotFlow { session.state.snapshot() }.collect { session.changed() }
         }
-        MemoComposerScreen(viewModel = viewModel, hostUrl = viewModel.uiState.value.session.hostUrl,
+        MemoComposerScreen(viewModel = viewModel, hostUrl = uiState.session.hostUrl,
             title = stringResource(session.request.titleRes),
             initialMemo = session.request.memo, parentMemo = session.request.parentMemo,
             mode = session.request.mode, editorSession = session,

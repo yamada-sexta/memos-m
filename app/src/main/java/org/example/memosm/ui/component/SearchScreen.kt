@@ -123,6 +123,8 @@ fun MemoSearchBar(
     localMemos: List<Memo>? = null,
     onLocalResultsChanged: (List<Memo>) -> Unit = {},
     filterActionLabel: String? = null,
+    requestedTag: String? = null,
+    onTagHandled: () -> Unit = {},
     extraFilters: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -143,6 +145,13 @@ fun MemoSearchBar(
     var startDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var endDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var orderBy by rememberSaveable { mutableStateOf(MemoOrderBy.NEWEST) }
+    val tagHandled by androidx.compose.runtime.rememberUpdatedState(onTagHandled)
+    LaunchedEffect(requestedTag) {
+        requestedTag?.let { tag ->
+            searchSelectedTags = if (tag in searchSelectedTags) searchSelectedTags - tag else searchSelectedTags + tag
+            tagHandled()
+        }
+    }
 
     // Search results are shared in the view model. Keep them scoped to the
     // active feed, including while a new query is being debounced.

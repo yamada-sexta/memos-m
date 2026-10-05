@@ -9,7 +9,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.click
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -233,7 +232,7 @@ class NativeMemoMapTest {
                 }
                 actual >= count
             }
-        } catch (error: Exception) {
+        } catch (error: androidx.compose.ui.test.ComposeTimeoutException) {
             throw AssertionError("Expected $count rendered memos; $diagnostic", error)
         }
     }

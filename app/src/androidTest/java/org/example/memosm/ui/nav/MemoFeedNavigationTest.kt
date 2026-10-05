@@ -230,19 +230,23 @@ class MemoFeedNavigationTest {
 
     private fun awaitFeed(feed: MemoFeed) {
         compose.waitUntil(30_000) {
-            compose.onAllNodes(hasText(label(feed.labelRes)) and
+            // A native activity transition can briefly leave no registered Compose roots.
+            runCatching { compose.onAllNodes(hasText(label(feed.labelRes)) and
                 SemanticsMatcher.expectValue(SemanticsProperties.Selected, true) and
                 hasAnyAncestor(hasTestTag("memo_feed_tabs"))).fetchSemanticsNodes().isNotEmpty() &&
                 compose.onAllNodes(hasText(
                     if (feed == MemoFeed.MEMOS) "My memo " else "Explore memo ", substring = true
                 ) and hasAnyAncestor(hasTestTag("memo_feed_${feed.name.lowercase()}")))
-                    .fetchSemanticsNodes().isNotEmpty()
+                    .fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
         }
         compose.waitForIdle()
     }
 
     private fun awaitEditor() {
-        compose.waitUntil(15_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) {
+            runCatching { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+                .getOrDefault(false)
+        }
         compose.waitForIdle()
     }
 

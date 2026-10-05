@@ -10,6 +10,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import androidx.test.espresso.Espresso
 import kotlinx.coroutines.runBlocking
 import org.example.memosm.MainActivity
 import org.example.memosm.R
@@ -130,8 +131,15 @@ class MapNavigationTest {
             tapRenderedPin()
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("map_place_panel").performTouchInput { swipeUp() }
-            compose.onNodeWithText("My mapped memo").assertIsDisplayed()
+            compose.onNodeWithText("My mapped memo").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Another memo at my place").performScrollTo().assertIsDisplayed()
+            compose.onAllNodes(hasContentDescription(label(R.string.memo_action_more)) and
+                hasAnyAncestor(hasTestTag("map_place_memos")))[0].performScrollTo().performClick()
+            compose.onNodeWithText(label(R.string.memo_action_edit)).assertIsDisplayed()
+            compose.onNodeWithText(label(R.string.memo_action_pin)).assertIsDisplayed()
+            compose.onNodeWithText(label(R.string.memo_action_archive)).assertIsDisplayed()
+            compose.onNodeWithText(label(R.string.memo_action_delete)).assertIsDisplayed()
+            Espresso.pressBack()
             compose.onNodeWithTag("map_new_here").performClick()
             awaitEditor()
             compose.onNode(hasSetTextAction()).performTextInput("A draft at this place")
@@ -140,6 +148,14 @@ class MapNavigationTest {
                     .any { it.content == "A draft at this place" && it.location?.latitude == latitude && it.location.longitude == longitude }
             }
             returnToMap()
+            compose.onNodeWithText("My mapped memo").performScrollTo().performClick()
+            compose.waitUntil(15_000) {
+                compose.onAllNodesWithContentDescription(label(R.string.memo_detail_back))
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            }
+            compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
+            compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel")
+                .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         }
     }
 
