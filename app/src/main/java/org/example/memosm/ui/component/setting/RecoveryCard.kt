@@ -6,19 +6,23 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material3.*
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import java.io.File
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -34,8 +38,6 @@ import org.example.memosm.model.Draft
 import org.example.memosm.model.Memo
 import org.example.memosm.ui.formatBytes
 import org.koin.core.context.GlobalContext
-import java.io.File
-import java.util.UUID
 
 @Composable
 fun RecoveryCard(importOnly: Boolean = false) {
@@ -74,7 +76,7 @@ fun RecoveryCard(importOnly: Boolean = false) {
             Text(stringResource(R.string.recovery_archives_title), style = MaterialTheme.typography.titleSmall)
             if (archives.isEmpty()) Text(stringResource(R.string.recovery_archives_empty), style = MaterialTheme.typography.bodySmall)
             archives.forEach { archive ->
-                ListItem(headlineContent = { Text(archive.name) }, supportingContent = { Text(formatBytes(archive.length())) },
+                ListItem(content = { Text(archive.name) }, supportingContent = { Text(formatBytes(archive.length())) },
                     leadingContent = { TextButton(enabled = !busy, onClick = { context.startActivity(org.example.memosm.ui.backup.BackupTransferActivity.importIntent(context, archive.absolutePath)) }) { Text(stringResource(R.string.recovery_import)) } },
                     trailingContent = { TextButton(enabled = !busy, onClick = { deleteArchive = archive }) { Text(stringResource(R.string.common_delete)) } })
             }
@@ -85,7 +87,7 @@ fun RecoveryCard(importOnly: Boolean = false) {
                     val edit = value.asJsonObject
                     val payload = edit.getAsJsonObject("payload")
                     val canDraft = edit.get("type").asString in setOf("CREATE", "UPDATE", "COMMENT_CREATE") && payload != null
-                    ListItem(headlineContent = { Text("${edit.get("type").asString} · ${edit.get("memoName")?.takeUnless { it.isJsonNull }?.asString.orEmpty()}") },
+                    ListItem(content = { Text("${edit.get("type").asString} · ${edit.get("memoName")?.takeUnless { it.isJsonNull }?.asString.orEmpty()}") },
                         supportingContent = { Text(payload?.get("content")?.takeUnless { it.isJsonNull }?.asString ?: edit.get("parentName")?.takeUnless { it.isJsonNull }?.asString.orEmpty()) },
                         trailingContent = { Column {
                             if (canDraft) TextButton(enabled = !busy, onClick = {
@@ -96,7 +98,7 @@ fun RecoveryCard(importOnly: Boolean = false) {
                                         val memo = GsonProvider.gson.fromJson(payload, Memo::class.java)
                                         val draftId = "restored-${edit.get("id").asString}"
                                         drafts.replaceDrafts(accountId, drafts.getDrafts(accountId).filterNot { it.id == draftId } + Draft(id = draftId, content = memo.content,
-                                            visibility = memo.visibility ?: org.example.memosm.model.Visibility.PRIVATE, attachments = memo.attachments.orEmpty(), location = memo.location))
+                                            visibility = memo.visibility, attachments = memo.attachments.orEmpty(), location = memo.location))
                                         settings.dismissRestoredEdit(accountId, edit.get("id").asString)
                                         message = savedDraft
                                     } catch (error: Exception) { message = error.message }
@@ -138,8 +140,10 @@ fun BackupTransferScreen(
     var chosenAccounts by remember { mutableStateOf(emptySet<String>()) }
     var chosenCategories by remember { mutableStateOf(BackupCategory.entries.toSet() - BackupCategory.QUEUED_EDITS) }
     var encrypted by remember { mutableStateOf(false) }
-    var password by remember { mutableStateOf("") }
-    var repeatPassword by remember { mutableStateOf("") }
+    val passwordState = rememberTextFieldState()
+    val password = passwordState.text.toString()
+    val repeatPasswordState = rememberTextFieldState()
+    val repeatPassword = repeatPasswordState.text.toString()
     var pendingExport by remember { mutableStateOf<File?>(null) }
     var importSource by remember { mutableStateOf<File?>(null) }
     var deleteSource by remember { mutableStateOf(false) }
@@ -156,14 +160,14 @@ fun BackupTransferScreen(
     fun closeImport() {
         prepared?.close(); prepared = null
         if (deleteSource) importSource?.delete()
-        importSource = null; password = ""; askPassword = false
+        importSource = null; passwordState.setTextAndPlaceCursorAtEnd(""); askPassword = false
     }
     fun inspect(source: File, secret: CharArray? = null) {
         busy = true
         scope.launch {
             try {
                 service.inspect(source, secret).fold(onSuccess = { backup ->
-                    prepared?.close(); prepared = backup; askPassword = false; password = ""
+                    prepared?.close(); prepared = backup; askPassword = false; passwordState.setTextAndPlaceCursorAtEnd("")
                     chosenAccounts = backup.manifest.accounts.map { it.identity.id }.toSet()
                     chosenCategories = backup.manifest.categories - BackupCategory.QUEUED_EDITS
                 }, onFailure = { error ->
@@ -276,8 +280,8 @@ fun BackupTransferScreen(
                     if (!importing) {
                         SelectionRow(stringResource(R.string.backup_password_protection), encrypted, !busy) { encrypted = it }
                         if (encrypted) {
-                            OutlinedTextField(value = password, onValueChange = { password = it }, enabled = !busy, label = { Text(stringResource(R.string.backup_password)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                            OutlinedTextField(value = repeatPassword, onValueChange = { repeatPassword = it }, enabled = !busy, label = { Text(stringResource(R.string.backup_repeat_password)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                            OutlinedSecureTextField(state = passwordState, enabled = !busy, label = { Text(stringResource(R.string.backup_password)) })
+                            OutlinedSecureTextField(state = repeatPasswordState, enabled = !busy, label = { Text(stringResource(R.string.backup_repeat_password)) })
                         }
                     }
                 }
@@ -293,7 +297,7 @@ fun BackupTransferScreen(
                             scope.launch {
                                 try {
                                     service.export(BackupSelection(chosenAccounts, chosenCategories), secret).fold(onSuccess = { file ->
-                                        pendingExport = file; exportPage = false; password = ""; repeatPassword = ""; exportLauncher.launch(file.name)
+                                        pendingExport = file; exportPage = false; passwordState.setTextAndPlaceCursorAtEnd(""); repeatPasswordState.setTextAndPlaceCursorAtEnd(""); exportLauncher.launch(file.name)
                                     }, onFailure = { message = it.message ?: failedExport })
                                 } finally { secret?.fill('\u0000'); busy = false }
                             }
@@ -308,7 +312,7 @@ fun BackupTransferScreen(
         }
     }
     if (askPassword) AlertDialog(onDismissRequest = { if (!busy) { closeImport(); onClose() } }, title = { Text(stringResource(R.string.backup_password)) },
-        text = { OutlinedTextField(value = password, onValueChange = { password = it }, visualTransformation = PasswordVisualTransformation(), singleLine = true, enabled = !busy) },
+        text = { OutlinedSecureTextField(state = passwordState, enabled = !busy) },
         confirmButton = { TextButton(enabled = !busy && password.isNotEmpty(), onClick = { importSource?.let { inspect(it, password.toCharArray()) } }) { Text(stringResource(R.string.recovery_import)) } },
         dismissButton = { TextButton(enabled = !busy, onClick = { closeImport(); onClose() }) { Text(stringResource(R.string.common_cancel)) } })
     if (confirmRestore) AlertDialog(onDismissRequest = { confirmRestore = false }, title = { Text(stringResource(R.string.backup_replace_title)) },

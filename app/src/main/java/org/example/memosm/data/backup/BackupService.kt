@@ -332,7 +332,11 @@ class BackupService(
             val identity = BackupIdentity(identityFields.get("id").asString, identityFields.get("hostUrl").asString,
                 identityFields.get("userName")?.takeUnless { it.isJsonNull }?.asString, identityFields.get("label").asString)
             BackupAccountData(identity,
-                obj.get("account")?.takeUnless { it.isJsonNull }?.let { gson.fromJson(it, Account::class.java) },
+                obj.get("account")?.takeUnless { it.isJsonNull }?.let {
+                    val account = it.asJsonObject
+                    listOf("id", "hostUrl", "accessToken").forEach { field -> requiredString(account, field) }
+                    gson.fromJson(account, Account::class.java)
+                },
                 obj.getAsJsonArray("memos").map { item -> item.asJsonObject.let { memo -> BackupMemo(memo.get("listType").asString, memo.get("order").asInt,
                     memo.get("parentName")?.takeUnless { it.isJsonNull }?.asString, memo.getAsJsonObject("memo")) } },
                 obj.getAsJsonArray("attachmentMetadata").map { it.asJsonObject },
@@ -358,7 +362,7 @@ class BackupService(
             require(identity.id.isNotBlank() && identity.id.length <= 200 && identity.id.none { it == '/' || it == '\\' } && identity.id !in setOf(".", "..") && identity.hostUrl.isNotBlank()) { "Invalid backup account" }
             require(identity.hostUrl.toHttpUrlOrNull() != null) { "Invalid account server" }
             require((data.account != null) == (BackupCategory.ACCOUNTS in manifest.categories)) { "Missing backup account information" }
-            data.account?.let { account -> require(account.id != null && account.hostUrl != null && account.accessToken != null && account.accessToken.isNotBlank() && CacheBackupPolicy.sameIdentity(identity, account)) { "Invalid account credentials" } }
+            data.account?.let { account -> require(account.accessToken.isNotBlank() && CacheBackupPolicy.sameIdentity(identity, account)) { "Invalid account credentials" } }
             require(data.memos.size <= 50_000 && data.drafts.size <= 50_000 && data.media.size <= 100_000 && data.attachmentMetadata.size <= 100_000) { "Too many backup records" }
             if (BackupCategory.CACHE !in manifest.categories) require(data.memos.isEmpty() && data.attachmentMetadata.isEmpty() && data.session == null && data.notifications == null)
             if (BackupCategory.DRAFTS !in manifest.categories) require(data.drafts.isEmpty())
@@ -373,8 +377,7 @@ class BackupService(
                 if (type in setOf(org.example.memosm.data.sync.PendingOpType.CREATE, org.example.memosm.data.sync.PendingOpType.UPDATE, org.example.memosm.data.sync.PendingOpType.COMMENT_CREATE)) {
                     val payload = edit.getAsJsonObject("payload")
                     require(payload != null) { "Missing queued edit contents" }
-                    val memo = gson.fromJson(payload, Memo::class.java)
-                    require(memo.content != null) { "Invalid queued edit contents" }
+                    requiredString(payload, "content")
                 }
                 edit.getAsJsonObject("payload")?.getAsJsonArray("attachments")?.forEach { item ->
                     val obj = item.asJsonObject
@@ -396,17 +399,21 @@ class BackupService(
             }
             require(data.attachmentMetadata.map { it.get("name").asString }.distinct().size == data.attachmentMetadata.size) { "Duplicate cached attachment" }
             data.attachmentMetadata.forEach { obj ->
+                requiredString(obj, "filename")
+                requiredString(obj, "type")
                 val attachment = gson.fromJson(obj, Attachment::class.java)
-                require(!attachment.name.isNullOrBlank() && attachment.filename != null && attachment.type != null && attachment.clientId == null && attachment.localPath == null) { "Invalid cached attachment" }
+                require(!attachment.name.isNullOrBlank() && attachment.clientId == null && attachment.localPath == null) { "Invalid cached attachment" }
             }
             require(data.media.map { it.attachmentName }.distinct().size == data.media.size) { "Duplicate media file" }
-            data.media.forEach { media -> require(media.attachmentName.isNotBlank() && media.url != null && media.size >= 0 && blobs[media.blobId]?.length() == media.size) { "Missing or invalid media file" } }
+            data.media.forEach { media -> require(media.attachmentName.isNotBlank() && media.size >= 0 && blobs[media.blobId]?.length() == media.size) { "Missing or invalid media file" } }
             require(data.drafts.map { it.get("id").asString }.distinct().size == data.drafts.size) { "Duplicate draft" }
             data.drafts.forEach { obj ->
                 requiredString(obj, "content")
+                org.example.memosm.model.Visibility.valueOf(requiredString(obj, "visibility"))
+                require(obj.get("attachments")?.isJsonArray == true) { "Invalid draft attachments" }
                 obj.getAsJsonArray("attachments").forEach { item -> requiredString(item.asJsonObject, "filename"); requiredString(item.asJsonObject, "type") }
                 val draft = gson.fromJson(obj, Draft::class.java)
-                require(draft.id.isNotBlank() && draft.content != null && draft.visibility != null && draft.attachments != null) { "Invalid draft" }
+                require(draft.id.isNotBlank()) { "Invalid draft" }
                 draft.attachments.forEach { attachment ->
                     require(attachment.clientId == null && attachment.content == null) { "Draft contains automatic upload state" }
                     attachment.localPath?.let { path -> require(path.startsWith("blob:") && blobs.containsKey(path.removePrefix("blob:"))) { "Invalid draft attachment" } }

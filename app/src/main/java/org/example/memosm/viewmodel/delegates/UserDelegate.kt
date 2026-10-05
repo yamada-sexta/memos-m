@@ -199,7 +199,7 @@ class UserDelegateImpl(
         val api = context.api
         accountSession.readScope.launch {
             try {
-                val user = api.getCurrentSession()?.user
+                val user = api.getCurrentSession().user
                 Log.d("MemosViewModel", "fetchCurrentUser: user=$user")
                 if (user != null) {
                     accountSession.update(uiState, context) {
@@ -209,9 +209,7 @@ class UserDelegateImpl(
 
                     // Store user in local account for offline access
                     val activeAccount = context.account
-                    if (activeAccount != null) {
-                        dataStoreManager.updateAccountUser(activeAccount.id, user)
-                    }
+                    dataStoreManager.updateAccountUser(activeAccount.id, user)
 
                     if (!accountSession.isCurrent(context)) return@launch
                     onUserFetched(user)
@@ -255,10 +253,8 @@ class UserDelegateImpl(
         val api = context.api
         try {
             val profile = api.getInstanceProfile()
-            if (profile != null) {
-                accountSession.update(uiState, context) { it.copy(session = it.session.copy(instanceProfile = profile)) }
-                persistSessionSnapshot(context)
-            }
+            accountSession.update(uiState, context) { it.copy(session = it.session.copy(instanceProfile = profile)) }
+            persistSessionSnapshot(context)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -314,10 +310,8 @@ class UserDelegateImpl(
         val api = context.api
         try {
             val stats = api.getUserStats(userResourceName)
-            if (stats != null) {
-                accountSession.update(uiState, context) { it.copy(session = it.session.copy(userStats = stats)) }
-                persistSessionSnapshot(context)
-            }
+            accountSession.update(uiState, context) { it.copy(session = it.session.copy(userStats = stats)) }
+            persistSessionSnapshot(context)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -348,7 +342,7 @@ class UserDelegateImpl(
                 "fetchActivities: Fetching from $hostUrl/api/v1/activities?pageSize=1000"
             )
             val response = api.listActivities(pageSize = 1000)
-            val activities = response?.activities ?: emptyList()
+            val activities = response.activities ?: emptyList()
             accountSession.update(uiState, context) { it.copy(session = it.session.copy(activities = activities)) }
             persistSessionSnapshot(context)
         } catch (e: CancellationException) {
@@ -365,7 +359,7 @@ class UserDelegateImpl(
         try {
             val response = api.listUserSettings(userResourceName)
             val general =
-                response?.settings?.find { it.name?.endsWith("general") == true || it.generalSetting != null }?.generalSetting
+                response.settings?.find { it.name?.endsWith("general") == true || it.generalSetting != null }?.generalSetting
             if (general != null) {
                 accountSession.update(uiState, context) { it.copy(session = it.session.copy(userSettings = general)) }
                 persistSessionSnapshot(context)
@@ -466,9 +460,7 @@ class UserDelegateImpl(
                         }
                         // Store user in local account for offline access
                         val activeAccount = context.account
-                        if (activeAccount != null) {
-                            dataStoreManager.updateAccountUser(activeAccount.id, user)
-                        }
+                        dataStoreManager.updateAccountUser(activeAccount.id, user)
                     }
                     if (accountSession.isCurrent(context)) onResult(true)
                 } else {

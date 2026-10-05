@@ -85,7 +85,7 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit, onShowSetup
 
     SettingsGroup {
         ListItem(
-            headlineContent = { Text(stringResource(R.string.profile_about_version)) },
+            content = { Text(stringResource(R.string.profile_about_version)) },
             supportingContent = { Text(versionName) },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
             modifier = Modifier
@@ -118,7 +118,7 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit, onShowSetup
         )
 
         ListItem(
-            headlineContent = { Text(stringResource(R.string.profile_about_git_hash)) },
+            content = { Text(stringResource(R.string.profile_about_git_hash)) },
             supportingContent = { Text(BuildConfig.GIT_HASH) },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
         )
@@ -127,7 +127,7 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit, onShowSetup
         val issuesUrl = stringResource(R.string.profile_about_issues_url)
 
         ListItem(
-            headlineContent = { Text(stringResource(R.string.profile_about_repo)) },
+            content = { Text(stringResource(R.string.profile_about_repo)) },
             leadingContent = { Icon(Icons.Outlined.Code, contentDescription = null) },
             trailingContent = {
                 Icon(
@@ -143,7 +143,7 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit, onShowSetup
         )
 
         ListItem(
-            headlineContent = { Text(stringResource(R.string.profile_about_issues)) },
+            content = { Text(stringResource(R.string.profile_about_issues)) },
             leadingContent = { Icon(Icons.Outlined.BugReport, contentDescription = null) },
             trailingContent = {
                 Icon(
@@ -171,7 +171,7 @@ fun AboutAppCard(onOpenLicenses: () -> Unit, onOpenLogs: () -> Unit, onShowSetup
         )
 
         ListItem(
-            headlineContent = { Text(stringResource(R.string.profile_about_licenses)) },
+            content = { Text(stringResource(R.string.profile_about_licenses)) },
             leadingContent = { Icon(Icons.Outlined.Balance, contentDescription = null) },
             modifier = Modifier.clip(RoundedCornerShape(4.dp)).combinedClickable(
                 onClick = onOpenLicenses),

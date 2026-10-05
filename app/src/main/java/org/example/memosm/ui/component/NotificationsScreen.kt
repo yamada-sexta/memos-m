@@ -214,7 +214,7 @@ fun NotificationsScreen(
 private fun NotificationCard(notification: UserNotification) {
     Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         ListItem(
-            headlineContent = {
+            content = {
                 Text(
                     text = notificationTitle(notification),
                     fontWeight = FontWeight.Medium

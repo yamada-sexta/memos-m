@@ -28,9 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntSize
 import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
@@ -131,6 +129,7 @@ fun MemoImage(
 
     var isLoading by remember { mutableStateOf(model != null) }
     var isError by remember { mutableStateOf(false) }
+    var imageSize by remember(model) { mutableStateOf(IntSize.Zero) }
 
     Box(
         modifier = modifier, contentAlignment = Alignment.Center
@@ -144,7 +143,7 @@ fun MemoImage(
             AsyncImage(
                 model = imageRequest,
                 contentDescription = contentDescription,
-                modifier = imgModifier.zoomable(isFullScreen, onDismiss),
+                modifier = imgModifier.zoomable(isFullScreen, imageSize),
                 contentScale = if (isFullScreen) ContentScale.Fit else ContentScale.Crop,
                 onLoading = { isLoading = true; isError = false },
                 onSuccess = { state ->
@@ -152,6 +151,7 @@ fun MemoImage(
                     isError = false
                     val size = state.painter.intrinsicSize
                     if (size.width > 0 && size.height > 0) {
+                        imageSize = IntSize(size.width.toInt(), size.height.toInt())
                         val ratio = size.width / size.height
                         if (cacheKey != null) MediaCache.setAspectRatio(cacheKey, ratio)
                         onRatioAvailable(ratio)

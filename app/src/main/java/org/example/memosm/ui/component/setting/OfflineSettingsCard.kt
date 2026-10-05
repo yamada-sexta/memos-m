@@ -177,7 +177,7 @@ fun OfflineSettingsCard(
             )
             ListItem(
                 modifier = Modifier.clip(RoundedCornerShape(4.dp)),
-                headlineContent = { Text(stringResource(R.string.cache_cleanup_text)) },
+                content = { Text(stringResource(R.string.cache_cleanup_text)) },
                 supportingContent = { Text(pluralStringResource(R.plurals.cached_memo_count, textCacheCount, textCacheCount)) },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             )
@@ -294,7 +294,7 @@ private fun SettingsLabel(label: String) {
 private fun CacheUsageRow(label: String, bytes: Long?, limitMb: Int) {
     ListItem(
         modifier = Modifier.clip(RoundedCornerShape(4.dp)),
-        headlineContent = { Text(label) },
+        content = { Text(label) },
         trailingContent = { Text(bytes?.let(::formatBytes) ?: "…") },
         supportingContent = if (limitMb > 0 && bytes != null) {
             {

@@ -2,6 +2,7 @@ package org.example.memosm.ui.component.item.markdown
 
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.findChildOfType
+import org.intellij.markdown.parser.CancellationToken
 import org.intellij.markdown.parser.MarkdownParser
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.junit.Assert.assertEquals
@@ -9,7 +10,7 @@ import org.junit.Test
 
 class StandalonePreviewLinkTest {
     private fun previews(content: String): List<String> {
-        val tree = MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(content)
+        val tree = MarkdownParser(GFMFlavourDescriptor(), cancellationToken = CancellationToken.NonCancellable).buildMarkdownTreeFromString(content as CharSequence)
         val references = tree.children.filter { it.type == MarkdownElementTypes.LINK_DEFINITION }
             .associate {
                 it.findChildOfType(MarkdownElementTypes.LINK_LABEL)!!.getTextInNode(content).toString().lowercase() to

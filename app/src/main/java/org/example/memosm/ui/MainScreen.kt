@@ -200,7 +200,7 @@ private fun MainScreenContent(
     val configuration = LocalConfiguration.current
     val isMobile = configuration.screenWidthDp < 600
 
-    val adaptiveInfo = androidx.compose.material3.adaptive.currentWindowAdaptiveInfo()
+    val adaptiveInfo = androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2()
 
 
     val toggleNavBar: ((Boolean) -> Unit)? = if (isMobile) {

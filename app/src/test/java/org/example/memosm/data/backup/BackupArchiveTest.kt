@@ -30,7 +30,7 @@ class BackupArchiveTest {
         BackupArchive.read(archive, temp.root).use { decoded ->
             assertEquals(metadata(), decoded.metadata)
             assertArrayEquals(blob.readBytes(), decoded.blobs.getValue(id).readBytes())
-            assertEquals(temp.root.canonicalFile, decoded.directory.parentFile.canonicalFile)
+            assertEquals(temp.root.canonicalFile, requireNotNull(decoded.directory.parentFile).canonicalFile)
         }
     }
 

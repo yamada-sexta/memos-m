@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -32,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,7 +55,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -173,7 +174,8 @@ fun LoginContent(
     var hostUrl by rememberSaveable(editAccount?.id) { mutableStateOf(editAccount?.hostUrl ?: "") }
     var token by rememberSaveable(editAccount?.id) { mutableStateOf(editAccount?.accessToken ?: "") }
     var username by rememberSaveable(editAccount?.id) { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val passwordState = rememberTextFieldState()
+    val password = passwordState.text.toString()
     var isLoading by remember { mutableStateOf(false) }
     var ssoInProgress by rememberSaveable { mutableStateOf(false) }
     var providers by remember(hostUrl) { mutableStateOf<List<IdentityProvider>?>(null) }
@@ -488,16 +490,13 @@ fun LoginContent(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
+                    OutlinedSecureTextField(
+                        state = passwordState,
                         label = { Text(stringResource(R.string.login_password)) },
-                        visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !busy,
-                        singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { performLogin() })
+                        onKeyboardAction = { performLogin() }
                     )
                 }
             }

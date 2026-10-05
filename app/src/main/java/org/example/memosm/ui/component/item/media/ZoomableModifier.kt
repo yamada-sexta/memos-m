@@ -1,12 +1,15 @@
 package org.example.memosm.ui.component.item.media
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -19,14 +22,15 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 fun Modifier.zoomable(
     enabled: Boolean,
-    onDismiss: (() -> Unit)? = null,
     imageSize: IntSize = IntSize.Zero,
     doubleTapZoom: Boolean = false
 ): Modifier = composed {
@@ -36,48 +40,74 @@ fun Modifier.zoomable(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
     var settleJob by remember { mutableStateOf<Job?>(null) }
-    val currentDismiss by rememberUpdatedState(onDismiss)
     val currentImageSize by rememberUpdatedState(imageSize)
     val scope = rememberCoroutineScope()
+    val decay = rememberSplineBasedDecay<Float>()
     val gesturesBlocked = LocalViewerGesturesBlocked.current
+    val zoomState = LocalViewerZoomState.current
+    val zoomToken = remember { Any() }
+    DisposableEffect(zoomState) {
+        onDispose { if (zoomState?.zoomedBy === zoomToken) zoomState.zoomedBy = null }
+    }
+    LaunchedEffect(gesturesBlocked) {
+        if (gesturesBlocked) settleJob?.cancel()
+    }
+
+    fun reportZoom() {
+        if (scale != 1f) zoomState?.zoomedBy = zoomToken
+        else if (zoomState?.zoomedBy === zoomToken) zoomState.zoomedBy = null
+    }
 
     fun boundedOffset(value: Offset, zoom: Float): Offset {
-        val scaled = if (currentImageSize.width > 0 && currentImageSize.height > 0) {
-            calculateScaledSizes(
-                viewSize.width.toFloat(), viewSize.height.toFloat(),
-                currentImageSize.width.toFloat(), currentImageSize.height.toFloat(), zoom
-            )
-        } else ScaledInfo(viewSize.width * zoom, viewSize.height * zoom)
-        val maxX = ((scaled.scaledWidth - viewSize.width) / 2f).coerceAtLeast(0f)
-        val maxY = ((scaled.scaledHeight - viewSize.height) / 2f).coerceAtLeast(0f)
-        return Offset(value.x.coerceIn(-maxX, maxX), value.y.coerceIn(-maxY, maxY))
+        val bounds = viewerPanBounds(viewSize, currentImageSize, zoom)
+        return Offset(value.x.coerceIn(-bounds.x, bounds.x), value.y.coerceIn(-bounds.y, bounds.y))
+    }
+
+    suspend fun flingAxis(start: Float, velocity: Float, bound: Float, update: (Float) -> Unit) {
+        if (bound <= 0f) return
+        Animatable(start).apply {
+            updateBounds(-bound, bound)
+            animateDecay(velocity, decay) { update(value) }
+        }
     }
 
     this
         .onSizeChanged { viewSize = it }
-        .pointerInput(doubleTapZoom, gesturesBlocked) {
+        .pointerInput(doubleTapZoom, gesturesBlocked, zoomState) {
             if (!doubleTapZoom || gesturesBlocked) return@pointerInput
             detectTapGestures(onDoubleTap = {
                 settleJob?.cancel()
                 settleJob = scope.launch {
+                    val startScale = scale
+                    val startOffset = offset
                     val target = if (scale > 1.5f) 1f else 2.5f
-                    Animatable(scale).animateTo(target) { scale = value }
-                    Animatable(offset, Offset.VectorConverter).animateTo(Offset.Zero) { offset = value }
+                    Animatable(0f).animateTo(1f) {
+                        scale = startScale + (target - startScale) * value
+                        offset = boundedOffset(startOffset * (1f - value), scale)
+                        reportZoom()
+                    }
                 }
             })
         }
-        .pointerInput(gesturesBlocked) {
+        .pointerInput(gesturesBlocked, zoomState) {
             if (gesturesBlocked) return@pointerInput
             awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false)
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val tracker = VelocityTracker().apply { addPosition(down.uptimeMillis, down.position) }
+                reportZoom()
                 settleJob?.cancel()
                 // Latch ownership so pinching back to 1x cannot become a viewer swipe mid-gesture.
                 var ownsGesture = scale > 1f
                 var transforming = false
+                var pinched = false
                 var accumulatedPan = Offset.Zero
                 do {
                     val event = awaitPointerEvent()
                     val multiplePointers = event.changes.count { it.pressed } > 1
+                    pinched = pinched || multiplePointers
+                    if (!pinched) {
+                        event.changes.firstOrNull()?.let { tracker.addPosition(it.uptimeMillis, it.position) }
+                    }
                     ownsGesture = ownsGesture || multiplePointers
                     val pan = event.calculatePan()
                     accumulatedPan += pan
@@ -86,19 +116,42 @@ fun Modifier.zoomable(
                         (ownsGesture && accumulatedPan.getDistance() > viewConfiguration.touchSlop)
                     if (transforming) {
                         val zoom = event.calculateZoom()
-                        scale = (scale * zoom).coerceIn(0.5f, 5f)
-                        offset = if (scale > 1f) boundedOffset(offset + pan, scale) else Offset.Zero
+                        val centroid = event.calculateCentroid(useCurrent = false)
+                        val relativeCentroid = if (centroid.isValid()) {
+                            centroid - Offset(viewSize.width / 2f, viewSize.height / 2f)
+                        } else Offset.Zero
+                        val transform = viewerZoomTransform(scale, offset, relativeCentroid, pan, zoom)
+                        scale = transform.scale
+                        reportZoom()
+                        offset = boundedOffset(transform.offset, scale)
                         event.changes.forEach { it.consume() }
                     }
                 } while (event.changes.any { it.pressed })
-
-                if (transforming) {
-                    val shouldDismiss = scale < 0.8f
-                    if (shouldDismiss) currentDismiss?.invoke()
+                val pinchDismiss = zoomState?.onPinchDismiss
+                if (transforming && scale < 0.8f && pinchDismiss != null) {
+                    // Transfer the release pose to the dialog's thumbnail transition in one frame.
+                    pinchDismiss(ViewerZoomTransform(scale, offset))
+                    scale = 1f
+                    offset = Offset.Zero
+                    reportZoom()
+                } else if (transforming && scale < 1f) {
+                    val releaseScale = scale
                     settleJob = scope.launch {
-                        if (scale < 1f) Animatable(scale).animateTo(1f) { scale = value }
-                        val target = boundedOffset(offset, scale)
-                        Animatable(offset, Offset.VectorConverter).animateTo(target) { offset = value }
+                        Animatable(releaseScale).animateTo(1f) {
+                            scale = value
+                            offset = boundedOffset(offset, scale)
+                            reportZoom()
+                        }
+                    }
+                } else if (transforming && scale > 1f && !pinched) {
+                    val velocity = tracker.calculateVelocity()
+                    val releaseOffset = offset
+                    val bounds = viewerPanBounds(viewSize, currentImageSize, scale)
+                    settleJob = scope.launch {
+                        coroutineScope {
+                            launch { flingAxis(releaseOffset.x, velocity.x, bounds.x) { offset = Offset(it, offset.y) } }
+                            launch { flingAxis(releaseOffset.y, velocity.y, bounds.y) { offset = Offset(offset.x, it) } }
+                        }
                     }
                 }
             }

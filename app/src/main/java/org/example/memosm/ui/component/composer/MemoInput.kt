@@ -28,7 +28,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.DropdownMenuItem
@@ -43,7 +44,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.focus.FocusRequester
@@ -52,11 +55,12 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -64,11 +68,11 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
-import kotlinx.coroutines.delay
-import org.example.memosm.R
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import org.example.memosm.R
 
 
 @Composable
@@ -101,6 +105,31 @@ fun MemoInput(
     val resources = LocalContext.current.resources
 
     val markdownHandler = rememberMarkdownLanguageHandler()
+    val fieldState = rememberTextFieldState(contentState.text, contentState.selection)
+    val contentChange by rememberUpdatedState(onContentChange)
+    LaunchedEffect(contentState.text, contentState.selection) {
+        if (fieldState.text.toString() != contentState.text || fieldState.selection != contentState.selection) {
+            fieldState.edit {
+                if (toString() != contentState.text) replace(0, length, contentState.text)
+                selection = contentState.selection
+            }
+        }
+    }
+    LaunchedEffect(fieldState) {
+        snapshotFlow {
+            TextFieldValue(fieldState.text.toString(), fieldState.selection, fieldState.composition)
+        }.collect { contentChange(it) }
+    }
+    val inputTransformation = remember(markdownHandler) {
+        InputTransformation {
+            val value = TextFieldValue(toString(), selection)
+            val processed = markdownHandler.processInput(
+                TextFieldValue(originalText.toString(), originalSelection), value
+            )
+            if (processed.text != value.text) replace(0, length, processed.text)
+            selection = processed.selection
+        }
+    }
 
     // Monitor text/selection changes to trigger suggestions
     LaunchedEffect(contentState.text, contentState.selection) {
@@ -148,40 +177,19 @@ fun MemoInput(
             }
 
             BasicTextField(
-                value = contentState,
-                onValueChange = { newValue ->
-                    val processedValue = markdownHandler.processInput(contentState, newValue)
-                    onContentChange(processedValue)
-                },
+                state = fieldState,
+                inputTransformation = inputTransformation,
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState)
                     .focusRequester(focusRequester),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
                 enabled = enabled,
-                onTextLayout = { result -> textLayoutResult = result },
-                visualTransformation = markdownHandler,
+                onTextLayout = { getResult -> textLayoutResult = getResult() },
+                outputTransformation = markdownHandler,
+                scrollState = scrollState,
                 interactionSource = interactionSource,
             )
-
-            // Auto-scroll to keep cursor visible
-            LaunchedEffect(contentState.selection, contentState.text) {
-                val layout = textLayoutResult ?: return@LaunchedEffect
-                val cursorIndex =
-                    contentState.selection.start.coerceIn(0, layout.layoutInput.text.length)
-                val cursorRect = layout.getCursorRect(cursorIndex)
-                val cursorBottom = cursorRect.bottom.roundToInt()
-                val cursorTop = cursorRect.top.roundToInt()
-                val viewportTop = scrollState.value
-                val viewportBottom = viewportTop + scrollState.viewportSize
-
-                if (cursorBottom > viewportBottom) {
-                    scrollState.animateScrollTo(cursorBottom - scrollState.viewportSize)
-                } else if (cursorTop < viewportTop) {
-                    scrollState.animateScrollTo(cursorTop)
-                }
-            }
 
             // Suggestion UI (Popup OR Hint Icon)
             // Suggestion UI Logic

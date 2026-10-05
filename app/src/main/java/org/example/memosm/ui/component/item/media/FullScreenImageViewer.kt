@@ -44,26 +44,15 @@ fun FullScreenImageViewer(
         originBounds = originBounds,
         infoContent = infoContent,
         actionsContent = actionsContent
-    ) { dismiss ->
+    ) {
         AsyncImage(
             model = request,
             contentDescription = filename,
-            modifier = Modifier.fillMaxSize().zoomable(true, dismiss, imageSize, doubleTapZoom = true),
+            modifier = Modifier.fillMaxSize().zoomable(true, imageSize, doubleTapZoom = true),
             contentScale = ContentScale.Fit,
             onSuccess = {
                 imageSize = IntSize(it.painter.intrinsicSize.width.toInt(), it.painter.intrinsicSize.height.toInt())
             }
         )
     }
-}
-
-data class ScaledInfo(val scaledWidth: Float, val scaledHeight: Float)
-
-fun calculateScaledSizes(
-    viewWidth: Float, viewHeight: Float, imageWidth: Float, imageHeight: Float, scale: Float
-): ScaledInfo {
-    val scaleFactor = minOf(viewWidth / imageWidth, viewHeight / imageHeight)
-    val fitWidth = imageWidth * scaleFactor
-    val fitHeight = imageHeight * scaleFactor
-    return ScaledInfo(fitWidth * scale, fitHeight * scale)
 }

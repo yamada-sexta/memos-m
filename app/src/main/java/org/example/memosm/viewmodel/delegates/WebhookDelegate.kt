@@ -43,7 +43,7 @@ class WebhookDelegateImpl(
         val api = context.api
         try {
             val response = api.listUserWebhooks(userResourceName)
-            val hooks = response?.webhooks ?: emptyList()
+            val hooks = response.webhooks ?: emptyList()
             accountSession.update(uiState, context) { it.copy(session = it.session.copy(webhooks = hooks)) }
         } catch (e: CancellationException) {
             throw e

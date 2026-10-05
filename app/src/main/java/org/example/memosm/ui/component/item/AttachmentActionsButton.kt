@@ -35,6 +35,7 @@ import org.example.memosm.R
 import org.example.memosm.model.Attachment
 import org.example.memosm.ui.component.ActionSheet
 import org.example.memosm.ui.component.ActionSheetItem
+import org.example.memosm.ui.component.item.media.LocalViewerGesturesBlocked
 import org.example.memosm.viewmodel.manager.AttachmentManager
 
 /** The card and full-screen viewer share actions, availability, and download confirmation. */
@@ -61,7 +62,7 @@ internal fun AttachmentActionsButton(
         contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = modifier.size(32.dp)
     ) {
-        IconButton(onClick = { showMenu = true }, enabled = enabled) {
+        IconButton(onClick = { showMenu = true }, enabled = enabled && !LocalViewerGesturesBlocked.current) {
             Icon(Icons.Outlined.MoreVert, stringResource(R.string.memo_action_more), Modifier.size(20.dp))
         }
     }
@@ -194,4 +195,3 @@ private fun downloadAttachmentFile(
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
     }
 }
-

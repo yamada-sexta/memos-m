@@ -237,7 +237,11 @@ class BackupServiceTest {
                 val mutations: List<(com.google.gson.JsonObject) -> Unit> = listOf(
                     { it.getAsJsonObject("identity").remove("label") },
                     { it.getAsJsonArray("media").single().asJsonObject.remove("memoName") },
+                    { it.getAsJsonObject("account").remove("id") },
+                    { it.getAsJsonObject("account").add("accessToken", com.google.gson.JsonNull.INSTANCE) },
                     { it.getAsJsonArray("memos").single().asJsonObject.getAsJsonObject("memo").remove("content") },
+                    { it.getAsJsonArray("drafts").single().asJsonObject.remove("visibility") },
+                    { it.getAsJsonArray("drafts").single().asJsonObject.add("attachments", com.google.gson.JsonNull.INSTANCE) },
                     { it.getAsJsonArray("drafts").single().asJsonObject.getAsJsonArray("attachments").single().asJsonObject.add("filename", com.google.gson.JsonNull.INSTANCE) },
                     { it.getAsJsonArray("drafts").single().asJsonObject.getAsJsonArray("attachments").single().asJsonObject.remove("type") }
                 )

@@ -101,7 +101,7 @@ class ServerReachabilityMonitorTest {
         monitor.start {}
         advanceTimeBy(60_000); runCurrent()
         assertTrue(monitor.state.value.isOnline)
-        release!!.complete(Unit); runCurrent()
+        release.complete(Unit); runCurrent()
         assertTrue(monitor.state.value.isOnline)
     }
     @Test fun `429 stays reachable and automatically recovers after the supplied cooldown`() = runTest {

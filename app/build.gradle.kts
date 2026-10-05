@@ -109,7 +109,7 @@ android {
         named("main") {
         }
         named("androidTest") {
-            assets.srcDir("$projectDir/schemas")
+            assets.directories.add("$projectDir/schemas")
         }
         named("canary") {
             res.directories.add(("src/canary/res"))
@@ -122,6 +122,12 @@ android {
 
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+kotlin {
+    compilerOptions {
+        allWarningsAsErrors.set(true)
+    }
 }
 
 androidComponents {

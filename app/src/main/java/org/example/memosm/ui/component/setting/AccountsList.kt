@@ -360,7 +360,7 @@ fun AccountsList(
                             } else avatarUrl
 
                         ListItem(
-                            headlineContent = {
+                            content = {
                                 val displayName = account.displayName
                                 val name = account.name
                                 val text = when {

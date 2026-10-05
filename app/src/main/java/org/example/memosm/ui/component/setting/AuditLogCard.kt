@@ -74,7 +74,7 @@ fun AuditLogContent(modifier: Modifier = Modifier) {
                 Box(Modifier.widthIn(max = 600.dp).fillMaxWidth()) {
                     SettingsGroup {
                         ListItem(
-                            headlineContent = { Text(stringResource(R.string.audit_log_empty)) },
+                            content = { Text(stringResource(R.string.audit_log_empty)) },
                             colors = ListItemDefaults.colors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                             )
@@ -108,7 +108,7 @@ fun AuditLogContent(modifier: Modifier = Modifier) {
 private fun AuditLogItem(entry: SyncAuditEntry, modifier: Modifier = Modifier) {
     ListItem(
         modifier = modifier,
-        headlineContent = { Text("${entry.event} · ${entry.outcome}") },
+        content = { Text("${entry.event} · ${entry.outcome}") },
         supportingContent = {
             Column {
                 Text(formatAuditTime(entry.occurredAt))

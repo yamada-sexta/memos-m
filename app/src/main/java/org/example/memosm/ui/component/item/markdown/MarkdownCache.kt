@@ -5,6 +5,7 @@ import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.findChildOfType
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import org.intellij.markdown.parser.CancellationToken
 import org.intellij.markdown.parser.MarkdownParser
 import java.util.Locale
 
@@ -20,7 +21,7 @@ internal object MarkdownCache {
 
     /** Call on a worker thread. Each miss owns its parser; only read-only results are shared. */
     fun parse(content: String): ParsedMarkdown = cached(content) ?: run {
-        val tree = MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(content)
+        val tree = MarkdownParser(GFMFlavourDescriptor(), cancellationToken = CancellationToken.NonCancellable).buildMarkdownTreeFromString(content as CharSequence)
         val references = buildMap {
             tree.children.filter { it.type == MarkdownElementTypes.LINK_DEFINITION }.forEach { definition ->
                 val label = definition.findChildOfType(MarkdownElementTypes.LINK_LABEL)

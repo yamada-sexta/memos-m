@@ -38,6 +38,7 @@ fun FullScreenAttachmentViewer(
     FullScreenMediaDialog(
         onDismiss = onDismiss,
         mediaAspectRatio = aspectRatio,
+        gestureKey = pagerState.currentPage,
         originBounds = { originBounds?.invoke(attachments[pagerState.currentPage.coerceIn(attachments.indices)]) },
         infoContent = {
             val attachment = attachments[pagerState.currentPage.coerceIn(attachments.indices)]

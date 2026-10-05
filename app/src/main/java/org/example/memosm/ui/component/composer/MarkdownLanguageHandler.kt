@@ -1,5 +1,7 @@
 package org.example.memosm.ui.component.composer
 
+import androidx.compose.foundation.text.input.OutputTransformation
+import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
@@ -7,37 +9,33 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import org.intellij.markdown.parser.CancellationToken
 import org.intellij.markdown.parser.MarkdownParser
 
 class MarkdownLanguageHandler(
     private val colorScheme: androidx.compose.material3.ColorScheme,
     private val typography: androidx.compose.material3.Typography
-) : VisualTransformation {
+) : OutputTransformation {
 
     private val flavour = GFMFlavourDescriptor()
-    private val parser = MarkdownParser(flavour)
+    private val parser = MarkdownParser(flavour, cancellationToken = CancellationToken.NonCancellable)
 
-    // --- VisualTransformation Implementation ---
-    override fun filter(text: AnnotatedString): TransformedText {
-        val markdownText = text.text
-        if (markdownText.isEmpty()) {
-            return TransformedText(text, OffsetMapping.Identity)
+    override fun TextFieldBuffer.transformOutput() {
+        highlight(toString()).spanStyles.forEach { range ->
+            addStyle(range.item, range.start, range.end)
         }
+    }
 
-        val rootNode = parser.buildMarkdownTreeFromString(markdownText)
-        val annotatedString = buildAnnotatedString {
+    fun highlight(markdownText: String): AnnotatedString {
+        val rootNode = parser.buildMarkdownTreeFromString(markdownText as CharSequence)
+        return buildAnnotatedString {
             append(markdownText)
             applyMarkdownStyles(rootNode, markdownText)
         }
-
-        return TransformedText(annotatedString, OffsetMapping.Identity)
     }
 
     private fun AnnotatedString.Builder.applyMarkdownStyles(node: ASTNode, text: String) {
@@ -177,7 +175,7 @@ class MarkdownLanguageHandler(
         // However, we just inserted a newline.
 
         // Let's parse the text. Parsing is fast enough for this size.
-        val rootNode = parser.buildMarkdownTreeFromString(text)
+        val rootNode = parser.buildMarkdownTreeFromString(text as CharSequence)
 
         // We want to find the node at the position just before the newline.
         val checkIndex = (caretIndex - 2).coerceAtLeast(0)

@@ -23,10 +23,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -80,6 +78,8 @@ fun VideoPlayer(
         }
     }
 
+    var mediaSize by remember(exoPlayer) { mutableStateOf(IntSize.Zero) }
+
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -87,6 +87,7 @@ fun VideoPlayer(
                     isReady = true
                     val videoSize = exoPlayer.videoSize
                     if (videoSize.width > 0 && videoSize.height > 0) {
+                        mediaSize = IntSize(videoSize.width, videoSize.height)
                         val ratio = videoSize.width.toFloat() / videoSize.height
                         MediaCache.setAspectRatio(url, ratio)
                         onRatioAvailable(ratio)
@@ -96,6 +97,7 @@ fun VideoPlayer(
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
+                    mediaSize = IntSize(videoSize.width, videoSize.height)
                     val ratio = videoSize.width.toFloat() / videoSize.height
                     MediaCache.setAspectRatio(url, ratio)
                     onRatioAvailable(ratio)
@@ -140,7 +142,7 @@ fun VideoPlayer(
             }, modifier = Modifier
                 .fillMaxSize()
                 .alpha(if (isReady) 1f else 0f)
-                .zoomable(isFullScreen, onDismiss)
+                .zoomable(isFullScreen, mediaSize)
         )
         if (!isReady) CircularProgressIndicator(modifier = Modifier.size(32.dp))
     }

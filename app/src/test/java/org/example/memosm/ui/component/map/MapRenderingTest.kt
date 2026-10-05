@@ -16,8 +16,8 @@ class MapRenderingTest {
         assertEquals(location.latitude!!, feature.getNumberProperty("latitude").toDouble(), 0.0)
         assertEquals(location.longitude!!, feature.getNumberProperty("longitude").toDouble(), 0.0)
         val point = feature.geometry() as Point
-        assertEquals(location.longitude!!, point.longitude(), 0.0)
-        assertEquals(location.latitude!!, point.latitude(), 0.0)
+        assertEquals(location.longitude, point.longitude(), 0.0)
+        assertEquals(location.latitude, point.latitude(), 0.0)
     }
 
     @Test fun `count labels meet contrast on both dark and light pin colors`() {

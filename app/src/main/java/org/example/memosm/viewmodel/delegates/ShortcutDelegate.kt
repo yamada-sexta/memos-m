@@ -49,7 +49,7 @@ class ShortcutDelegateImpl(
         val api = context.api
         try {
             val response = api.getShortcuts(userResourceName)
-            val shortcuts = response?.shortcuts ?: emptyList()
+            val shortcuts = response.shortcuts ?: emptyList()
             accountSession.update(uiState, context) {
                 it.copy(userMemoList = it.userMemoList.copy(shortcuts = shortcuts))
             }

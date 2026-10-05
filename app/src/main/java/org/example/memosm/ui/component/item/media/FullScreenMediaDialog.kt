@@ -8,7 +8,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.ScrollableDefaults
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -90,6 +89,7 @@ internal fun FullScreenMediaDialog(
     originBounds: (() -> Rect?)? = null,
     infoContent: (@Composable () -> Unit)? = null,
     actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null,
+    gestureKey: Any? = null,
     content: @Composable BoxScope.(dismiss: () -> Unit) -> Unit
 ) {
     val density = LocalDensity.current
@@ -122,6 +122,7 @@ internal fun FullScreenMediaDialog(
     var exitMediaSize by remember { mutableStateOf(Size(1f, 1f)) }
     val scroll = rememberScrollState()
     val flingBehavior = ScrollableDefaults.flingBehavior()
+    val zoomState = remember(gestureKey) { ViewerZoomState() }
 
     Dialog(
         onDismissRequest = { if (!exiting) currentDismiss() },
@@ -175,7 +176,7 @@ internal fun FullScreenMediaDialog(
                 val alpha = (1f - dragProgress) * (1f - viewerBack * 0.5f) *
                     (1f - exitProgress.value) * enterProgress.value
                 val scale = ((1f - downwardOffset / scaleDistance) * (1f - viewerBack * 0.1f)).coerceIn(0.6f, 1f)
-                val dismiss: () -> Unit = {
+                val dismissWithZoom: (ViewerZoomTransform?) -> Unit = { zoom ->
                     if (!exiting) {
                         settleJob?.cancel()
                         exitTarget = currentOrigin?.invoke()?.translate(-viewerPosition)
@@ -183,9 +184,11 @@ internal fun FullScreenMediaDialog(
                         // composition that created it, so its captured layout values may be stale.
                         val releaseOffset = dragOffset.coerceAtLeast(0f)
                         val releaseBack = if (backingDetails) 0f else backProgress.value
-                        exitStartScale = ((1f - releaseOffset / scaleDistance) *
+                        val releaseScale = ((1f - releaseOffset / scaleDistance) *
                             (1f - releaseBack * 0.1f)).coerceIn(0.6f, 1f)
-                        exitStartTranslation = Offset(releaseBack * edgeDistance * backEdge, releaseOffset)
+                        exitStartScale = releaseScale * (zoom?.scale ?: 1f)
+                        exitStartTranslation = Offset(releaseBack * edgeDistance * backEdge, releaseOffset) +
+                            (zoom?.offset ?: Offset.Zero) * releaseScale
                         exitMediaSize = Size(imageWidth, imageHeight)
                         exiting = true
                         scope.launch {
@@ -194,6 +197,8 @@ internal fun FullScreenMediaDialog(
                         }
                     }
                 }
+                val dismiss: () -> Unit = { dismissWithZoom(null) }
+                SideEffect { zoomState.onPinchDismiss = { dismissWithZoom(it) } }
                 val showInfo: () -> Unit = {
                     settleJob?.cancel()
                     settleJob = scope.launch { scroll.animateScrollTo(snapOffset, spring()) }
@@ -235,15 +240,19 @@ internal fun FullScreenMediaDialog(
                 }
 
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = alpha))) {
-                    CompositionLocalProvider(LocalViewerGesturesBlocked provides (infoVisible || backing || exiting || entering)) {
+                    CompositionLocalProvider(
+                        LocalViewerGesturesBlocked provides (infoVisible || backing || exiting || entering),
+                        LocalViewerZoomState provides zoomState
+                    ) {
                         Box(
                             Modifier.fillMaxSize().testTag("attachment_viewer")
-                                .pointerInput(exiting, backing, entering, infoContent != null, snapOffset) {
+                                .pointerInput(exiting, backing, entering, infoContent != null, snapOffset, zoomState) {
                                     if (exiting || backing || entering) return@pointerInput
                                     val tracker = VelocityTracker()
                                     var intent = ViewerDragIntent.None
                                     var startScroll = 0
-                                    detectVerticalDragGestures(
+                                    detectViewerVerticalGestures(
+                                        canStart = { scroll.value > 0 || zoomState.zoomedBy == null },
                                         onDragStart = {
                                             settleJob?.cancel()
                                             tracker.resetTracking()
@@ -346,7 +355,9 @@ internal fun FullScreenMediaDialog(
                             Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp)
                                 .graphicsLayer { this.alpha = if (entering || exiting) 0f else alpha }
                         ) {
-                            actionsContent(showInfo)
+                            CompositionLocalProvider(LocalViewerGesturesBlocked provides (entering || exiting || backing)) {
+                                actionsContent(showInfo)
+                            }
                         }
                     }
                 }

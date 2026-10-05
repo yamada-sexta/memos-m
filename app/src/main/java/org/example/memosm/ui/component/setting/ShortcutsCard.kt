@@ -69,7 +69,7 @@ fun ShortcutsCard(
                 shortcuts.forEach { shortcut ->
                     ListItem(
                         modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { showEditDialog = shortcut },
-                        headlineContent = { Text(shortcut.title ?: "") },
+                        content = { Text(shortcut.title ?: "") },
                         supportingContent = { Text(shortcut.filter ?: "", maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         trailingContent = {
                             IconButton(onClick = { showDeleteConfirm = shortcut }) {

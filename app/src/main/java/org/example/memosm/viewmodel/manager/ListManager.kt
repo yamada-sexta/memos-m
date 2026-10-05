@@ -285,7 +285,7 @@ abstract class BaseListManager<T>(
                         // [prefillLimit] rows are read and deserialized, so a
                         // pre-downloaded history of thousands of memos does
                         // not delay first paint.
-                        cacheCallbacks!!.getCachedData(prefillLimit)
+                        cacheCallbacks.getCachedData(prefillLimit)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -294,7 +294,7 @@ abstract class BaseListManager<T>(
                     }
                     coroutineContext.ensureActive()
                     checkCurrent()
-                    cachedPrefill = cachedPrefill.filterNot { np?.invoke(it) in removedNames }
+                    cachedPrefill = cachedPrefill.filterNot { np.invoke(it) in removedNames }
                     if (cachedPrefill.isNotEmpty()) {
                         _listState.update { it.copy(
                             items = sortIfNeeded(cachedPrefill),
@@ -336,9 +336,9 @@ abstract class BaseListManager<T>(
                     }
                     if (mergePool.isNotEmpty() && np != null) {
                         val networkNames =
-                            processedItems.mapNotNull(np!!).toHashSet()
+                            processedItems.mapNotNull(np).toHashSet()
                         val merged = processedItems + mergePool.filter {
-                            np!!(it) !in networkNames
+                            np(it) !in networkNames
                         }
                         // The merge concatenates the server page (server order)
                         // with cache rows (cached display order); re-sort so
@@ -390,29 +390,29 @@ abstract class BaseListManager<T>(
                 // server content.
                 _listState.update { current ->
                     val finalItems = if (np != null && pageToken == null) {
-                        val updatedNames = updatedItems.mapNotNull(np!!).toHashSet()
+                        val updatedNames = updatedItems.mapNotNull(np).toHashSet()
                         val protectedNames = protectedNamesProvider?.invoke().orEmpty()
                         val localOnly = current.items.filter {
-                            val name = np!!(it)
+                            val name = np(it)
                             name !in updatedNames && (name !in startingNames || name in protectedNames)
                         }
                         val merged = if (protectedNames.isEmpty()) {
                             updatedItems
                         } else {
                             updatedItems.map { item ->
-                                val n = np!!(item)
+                                val n = np(item)
                                 if (n != null && n in protectedNames) {
-                                    current.items.firstOrNull { np!!(it) == n } ?: item
+                                    current.items.firstOrNull { np(it) == n } ?: item
                                 } else {
                                     item
                                 }
                             }
                         }
-                        val mergedNames = merged.mapNotNull(np!!).toHashSet()
+                        val mergedNames = merged.mapNotNull(np).toHashSet()
                         // Local additions (e.g. an optimistic create made while
                         // the fetch was in flight) are appended last; re-sort
                         // so they land in their natural position (newest on top).
-                        sortIfNeeded(merged + localOnly.filter { np!!(it) !in mergedNames })
+                        sortIfNeeded(merged + localOnly.filter { np(it) !in mergedNames })
                     } else {
                         updatedItems
                     }

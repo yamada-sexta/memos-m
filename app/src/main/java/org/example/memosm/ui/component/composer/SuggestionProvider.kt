@@ -18,6 +18,7 @@ import org.example.memosm.R
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import org.intellij.markdown.parser.CancellationToken
 import org.intellij.markdown.parser.MarkdownParser
 
 data class SuggestionItem(
@@ -45,7 +46,7 @@ enum class SuggestionType(val isAutoShown: Boolean) {
 
 object SuggestionProvider {
     private val flavour = GFMFlavourDescriptor()
-    private val parser = MarkdownParser(flavour)
+    private val parser = MarkdownParser(flavour, cancellationToken = CancellationToken.NonCancellable)
 
     private val CODE_LANGUAGES = listOf(
         "java", "kotlin", "js", "python", "bash", "go", "rust", "cpp", "c",
@@ -67,7 +68,7 @@ object SuggestionProvider {
         if (cursorIndex < 0 || cursorIndex > text.length) return null
 
         // Parse AST
-        val rootNode = parser.buildMarkdownTreeFromString(text)
+        val rootNode = parser.buildMarkdownTreeFromString(text as CharSequence)
         val nodeAtCursor = findNodeAt(rootNode, (cursorIndex - 1).coerceAtLeast(0))
 
         // 2. Context Checks (Guard against suggestions inside fenced code)

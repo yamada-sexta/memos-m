@@ -105,7 +105,7 @@ private fun SettingsSelectionItem(
     var showDialog by rememberSaveable { mutableStateOf(false) }
 
     ListItem(
-        headlineContent = { Text(label) },
+        content = { Text(label) },
         supportingContent = {
             Text(
                 text = labelProvider(currentValue),
@@ -130,7 +130,7 @@ private fun SettingsSelectionItem(
                     items(options) { option ->
                         val isSelected = option == currentValue
                         ListItem(
-                            headlineContent = {
+                            content = {
                                 Text(
                                     labelProvider(option),
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,

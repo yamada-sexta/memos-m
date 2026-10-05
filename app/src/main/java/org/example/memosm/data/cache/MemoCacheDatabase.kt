@@ -361,11 +361,11 @@ abstract class MemoCacheDatabase : RoomDatabase() {
                             "UPDATE cached_memos_new SET content = ?, createTime = ?, updateTime = ?, " +
                                 "visibility = ?, state = ?, tags = ?, pinned = ? " +
                                 "WHERE name = ? AND accountId = ? AND listType = ?",
-                            arrayOf(
+                            arrayOf<Any>(
                                 memo.content.orEmpty(),
                                 memo.createTime?.toEpochMilliseconds() ?: 0L,
                                 memo.updateTime?.toEpochMilliseconds() ?: 0L,
-                                memo.visibility?.name ?: "",
+                                memo.visibility.name,
                                 memo.state?.name ?: "",
                                 gson.toJson(memo.tags ?: emptyList<String>()),
                                 if (memo.pinned == true) 1 else 0,

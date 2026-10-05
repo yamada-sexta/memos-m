@@ -66,7 +66,7 @@ fun AppSettingsCard(
 
         if (category == AppSettingsCategory.NETWORK && Build.VERSION.SDK_INT >= 37) {
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.local_network_permission_title)) },
+                    content = { Text(stringResource(R.string.local_network_permission_title)) },
                     supportingContent = {
                         Text(stringResource(
                             if (networkPermission.granted) R.string.local_network_permission_allowed
@@ -84,7 +84,7 @@ fun AppSettingsCard(
 
         if (category == AppSettingsCategory.GENERAL) {
             ListItem(
-                headlineContent = { Text(stringResource(R.string.profile_app_settings_page_size)) },
+                content = { Text(stringResource(R.string.profile_app_settings_page_size)) },
                 supportingContent = {
                     Text(
                         text = pageSize.toString(),
@@ -102,7 +102,7 @@ fun AppSettingsCard(
         if (category == AppSettingsCategory.APPEARANCE) {
             ListItem(
                 modifier = Modifier.clip(RoundedCornerShape(4.dp)),
-                headlineContent = { Text(stringResource(R.string.profile_app_settings_header_scale)) },
+                content = { Text(stringResource(R.string.profile_app_settings_header_scale)) },
                 supportingContent = {
                     Column {
                         Text(

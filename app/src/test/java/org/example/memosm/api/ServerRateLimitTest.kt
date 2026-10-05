@@ -33,7 +33,7 @@ class ServerRateLimitTest {
             val builder = Request.Builder().url(host + path)
             if (method == "POST") builder.post("{}".toRequestBody())
             client.newCall(builder.build()).execute().use { response ->
-                if (response.code == 429) assertEquals(error, response.body!!.string())
+                if (response.code == 429) assertEquals(error, response.body.string())
             }
         }
         request(first)

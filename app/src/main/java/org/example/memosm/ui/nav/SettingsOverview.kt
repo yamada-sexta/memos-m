@@ -73,7 +73,7 @@ internal fun SettingsOverview(onOpenSection: (SettingsSection) -> Unit, modifier
                         group.forEach { section ->
                             ListItem(
                                 modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { onOpenSection(section) },
-                                headlineContent = { Text(stringResource(section.titleRes)) },
+                                content = { Text(stringResource(section.titleRes)) },
                                 supportingContent = section.summaryRes?.let { { Text(stringResource(it)) } },
                                 leadingContent = {
                                     Surface(

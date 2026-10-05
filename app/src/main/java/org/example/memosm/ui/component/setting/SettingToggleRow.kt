@@ -31,7 +31,7 @@ internal fun SettingToggleRow(
 ) {
     ListItem(
         modifier = Modifier.clip(RoundedCornerShape(4.dp)).toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
-        headlineContent = { Text(label) },
+        content = { Text(label) },
         supportingContent = description?.let { { Text(it) } },
         leadingContent = icon?.let { { Icon(it, contentDescription = null) } },
         trailingContent = {

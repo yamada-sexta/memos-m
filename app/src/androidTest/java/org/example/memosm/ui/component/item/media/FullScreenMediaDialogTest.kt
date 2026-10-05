@@ -22,6 +22,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
@@ -30,6 +32,7 @@ import androidx.test.espresso.Espresso.pressBack
 import org.example.memosm.model.Attachment
 import org.example.memosm.ui.theme.MemosMTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -65,6 +68,15 @@ class FullScreenMediaDialogTest {
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(1, dismissals) }
         compose.onNodeWithText("Viewer content").assertDoesNotExist()
+    }
+
+    @Test
+    fun downwardSwipeWithHorizontalDriftStillDismisses() {
+        showViewer()
+        compose.onNodeWithTag("attachment_viewer").performTouchInput {
+            swipe(start = center - Offset(0f, height * 0.3f), end = center + Offset(width * 0.1f, height * 0.3f))
+        }
+        compose.runOnIdle { assertEquals(1, dismissals) }
     }
 
     @Test
@@ -126,6 +138,73 @@ class FullScreenMediaDialogTest {
     }
 
     @Test
+    fun twoFingerZoomOutReturnsToFitWithoutNavigatingUntilNextGesture() {
+        showViewer(zoomable = true)
+        compose.onNodeWithTag("media").performTouchInput { doubleClick() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("media").performTouchInput {
+            val start = center
+            down(0, start - Offset(120f, 0f))
+            down(1, start + Offset(120f, 0f))
+            moveTo(0, start - Offset(43f, 0f))
+            moveTo(1, start + Offset(43f, 0f))
+            up(1)
+            // A remaining finger must not turn the pinch into swipe-to-dismiss.
+            moveTo(0, start + Offset(-43f, height * 0.3f))
+            up(0)
+        }
+        compose.runOnIdle { assertEquals(0, dismissals) }
+        compose.onNodeWithText("Attachment details").assertDoesNotExist()
+        compose.onNodeWithTag("attachment_viewer").performTouchInput { swipeDown() }
+        compose.runOnIdle { assertEquals(1, dismissals) }
+    }
+
+    @Test
+    fun pinchingInPastFittedViewDismissesOnce() {
+        showViewer(zoomable = true)
+        compose.onNodeWithTag("media").performTouchInput {
+            down(0, center - Offset(120f, 0f))
+            down(1, center + Offset(120f, 0f))
+            moveTo(0, center - Offset(60f, 0f))
+            moveTo(1, center + Offset(60f, 0f))
+            up(0)
+            up(1)
+        }
+        compose.runOnIdle { assertEquals(1, dismissals) }
+        compose.onNodeWithText("Viewer content").assertDoesNotExist()
+    }
+
+    @Test
+    fun zoomedPanGlidesAfterReleaseAndNextTouchStopsMomentum() {
+        showViewer(zoomable = true)
+        val media = compose.onNodeWithTag("media")
+        media.performTouchInput { doubleClick() }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        try {
+            media.performTouchInput {
+                swipe(center - Offset(50f, 0f), center + Offset(50f, 0f), durationMillis = 150)
+            }
+            compose.mainClock.advanceTimeByFrame()
+            val released = media.fetchSemanticsNode().positionInRoot.x
+            compose.mainClock.advanceTimeBy(48)
+            val gliding = media.fetchSemanticsNode().positionInRoot.x
+            assertTrue("Pan should continue after finger release", gliding > released)
+
+            media.performTouchInput { down(center) }
+            compose.mainClock.advanceTimeByFrame()
+            val stopped = media.fetchSemanticsNode().positionInRoot.x
+            compose.mainClock.advanceTimeBy(160)
+            assertEquals(stopped, media.fetchSemanticsNode().positionInRoot.x, 0.1f)
+            media.performTouchInput { up() }
+            compose.runOnIdle { assertEquals(0, dismissals) }
+            compose.onNodeWithText("Attachment details").assertDoesNotExist()
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
     fun predictiveBackCancellationRestoresViewerAndCompletionDismissesOnce() {
         showViewer()
         compose.runOnUiThread {
@@ -176,5 +255,58 @@ class FullScreenMediaDialogTest {
             assertEquals(1, dismissals)
             assertEquals("attachments/second", returnedAttachment?.name)
         }
+    }
+
+    @Test
+    fun horizontalPagingStaysHorizontalWhenFingerLaterMovesDownward() {
+        var currentPage = 0
+        compose.setContent {
+            MemosMTheme {
+                FullScreenAttachmentViewer(
+                    attachments = listOf(
+                        Attachment(filename = "first.pdf", type = "application/pdf"),
+                        Attachment(filename = "second.pdf", type = "application/pdf")
+                    ),
+                    initialIndex = 0, token = null, hostUrl = "",
+                    onDismiss = { dismissals++ }, onPageChanged = { currentPage = it }
+                )
+            }
+        }
+        compose.onNodeWithTag("attachment_viewer").performTouchInput {
+            down(Offset(width * 0.8f, height * 0.4f))
+            moveTo(Offset(width * 0.55f, height * 0.45f))
+            moveTo(Offset(width * 0.2f, height * 0.8f))
+            up()
+        }
+        compose.runOnIdle { assertEquals(0, dismissals); assertEquals(1, currentPage) }
+        compose.onNodeWithText("ID").assertDoesNotExist()
+        compose.onNodeWithText("Attachment Info").assertDoesNotExist()
+    }
+
+    @Test
+    fun fullScreenOverflowOffersSharedActionsAndInfoRevealsInlineDetails() {
+        compose.setContent {
+            MemosMTheme {
+                FullScreenAttachmentViewer(
+                    attachments = listOf(Attachment(name = "attachments/menu", filename = "menu.pdf", type = "application/pdf")),
+                    initialIndex = 0, token = null, hostUrl = "https://example.com",
+                    onDismiss = { dismissals++ }
+                )
+            }
+        }
+        compose.onNodeWithContentDescription("More").performClick()
+        listOf("Attachment Info", "Download", "Open on Web", "Share").forEach {
+            compose.onNodeWithText(it).performScrollTo().assertIsDisplayed()
+        }
+        compose.onNodeWithText("Attachment Info").performScrollTo().performClick()
+        compose.onNodeWithText("attachments/menu").assertIsDisplayed()
+        compose.onNodeWithText("Download").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Close").assertDoesNotExist()
+        pressBack()
+        compose.onNodeWithContentDescription("More").performClick()
+        compose.onNodeWithText("Download").performClick()
+        compose.onNodeWithText("Download File").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.runOnIdle { assertEquals(0, dismissals) }
     }
 }

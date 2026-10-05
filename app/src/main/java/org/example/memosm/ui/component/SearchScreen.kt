@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component
 
+import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -29,6 +30,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Sort
@@ -44,9 +47,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExpandedFullScreenSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
@@ -57,10 +61,12 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -68,34 +74,35 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.example.memosm.R
 import org.example.memosm.api.MemoOrderBy
 import org.example.memosm.model.Memo
 import org.example.memosm.model.Visibility
+import org.example.memosm.ui.component.item.MemoItem
 import org.example.memosm.ui.nav.SettingsSection
 import org.example.memosm.ui.profile.SettingsActivity
-import org.example.memosm.ui.component.item.MemoItem
 import org.example.memosm.viewmodel.MemosUiState
 import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.manager.LocalSearchFilter
-import android.text.format.DateFormat
-import java.util.Date
-import java.util.Locale
 
 /** The map has already loaded its history, so search can filter the same pool offline. */
 internal fun filterLocalSearchMemos(
@@ -132,8 +139,12 @@ fun MemoSearchBar(
     val cacheSettings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.refreshAfterProfileDetails()
     }
-    var query by rememberSaveable { mutableStateOf("") }
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    val queryState = rememberTextFieldState()
+    val query = queryState.text.toString()
+    val searchBarState = rememberSearchBarState()
+    val expanded = searchBarState.targetValue == SearchBarValue.Expanded
+    val searchScope = rememberCoroutineScope()
+    fun collapseSearch() { searchScope.launch { searchBarState.animateToCollapsed() } }
     val focusManager = LocalFocusManager.current
     val containerFocusRequester = remember { FocusRequester() }
 
@@ -248,105 +259,104 @@ fun MemoSearchBar(
             .focusable()
             .zIndex(1f)
     ) {
-        SearchBar(
-            modifier = Modifier.fillMaxWidth().testTag("memo_search_bar"), inputField = {
-                SearchBarDefaults.InputField(
-                    query = query,
-                    onQueryChange = { query = it },
-                    onSearch = {
-                        focusManager.clearFocus()
-                        if (filterActionLabel != null) expanded = false
-                    },
-                    expanded = expanded,
-                    onExpandedChange = {
-                        expanded = it
-                        onExpandedChange(it)
-                    },
-                    placeholder = { Text(placeholder) },
-                    leadingIcon = {
-                        if (expanded) {
+        val inputField: @Composable () -> Unit = {
+            SearchBarDefaults.InputField(
+                textFieldState = queryState,
+                searchBarState = searchBarState,
+                onSearch = {
+                    focusManager.clearFocus()
+                    if (filterActionLabel != null) collapseSearch()
+                },
+                placeholder = { Text(placeholder) },
+                leadingIcon = {
+                    if (expanded) {
+                        IconButton(onClick = {
+                            collapseSearch()
+                            onExpandedChange(false)
+                            focusManager.clearFocus()
+                        }) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = stringResource(R.string.memo_detail_back))
+                        }
+                    } else {
+                        Icon(Icons.Outlined.Search, contentDescription = null)
+                    }
+                },
+                trailingIcon = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (query.isNotEmpty() || searchSelectedTags.isNotEmpty() || startDateMillis != null || endDateMillis != null) {
                             IconButton(onClick = {
-                                expanded = false
-                                onExpandedChange(false)
-                                focusManager.clearFocus()
+                                queryState.setTextAndPlaceCursorAtEnd("")
+                                searchSelectedTags = emptySet()
+                                startDateMillis = null
+                                endDateMillis = null
                             }) {
-                                Icon(Icons.AutoMirrored.Outlined.ArrowBack,
-                                    contentDescription = stringResource(R.string.memo_detail_back))
-                            }
-                        } else {
-                            Icon(Icons.Outlined.Search, contentDescription = null)
-                        }
-                    },
-                    trailingIcon = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (query.isNotEmpty() || searchSelectedTags.isNotEmpty() || startDateMillis != null || endDateMillis != null) {
-                                IconButton(onClick = {
-                                    query = ""
-                                    searchSelectedTags = emptySet()
-                                    startDateMillis = null
-                                    endDateMillis = null
-                                }) {
-                                    Icon(Icons.Outlined.Clear, contentDescription = null)
-                                }
-                            }
-                            // Sync/cache status icon, hidden while search is expanded.
-                            // Lives inside the search bar's own trailing slot so
-                            // it is always vertically centered with the input.
-                            androidx.compose.animation.AnimatedVisibility(visible = !expanded && localMemos == null) {
-                                SyncStatusIconButton(
-                                    uiState = uiState,
-                                    onClick = { showSyncPanel = true }
-                                )
+                                Icon(Icons.Outlined.Clear, contentDescription = null)
                             }
                         }
-                    },
-                )
-            }, expanded = expanded, onExpandedChange = {
-                expanded = it
-                onExpandedChange(it)
-            },
-            // Reset window insets to zero since MemosScaffold already handles status bar padding
-            windowInsets = WindowInsets(0, 0, 0, 0)
+                        // Sync/cache status icon, hidden while search is expanded.
+                        // Lives inside the search bar's own trailing slot so
+                        // it is always vertically centered with the input.
+                        androidx.compose.animation.AnimatedVisibility(visible = !expanded && localMemos == null) {
+                            SyncStatusIconButton(
+                                uiState = uiState,
+                                onClick = { showSyncPanel = true }
+                            )
+                        }
+                    }
+                },
+            )
+        }
+        SearchBar(
+            state = searchBarState,
+            modifier = Modifier.fillMaxWidth().testTag("memo_search_bar"),
+            inputField = inputField
+        )
+        ExpandedFullScreenSearchBar(
+            state = searchBarState,
+            inputField = inputField,
+            // MemosScaffold already handles status bar padding.
+            windowInsets = { WindowInsets(0, 0, 0, 0) }
         ) {
-                SearchResultContent(
-                    query = query,
-                    selectedTags = searchSelectedTags,
-                    startDateMillis = startDateMillis,
-                    endDateMillis = endDateMillis,
-                    orderBy = orderBy,
-                    availableTags = availableTags,
-                    filteredMemos = searchMemos,
-                    uiState = uiState,
-                    filtersOnly = localMemos != null,
-                    extraFilters = extraFilters,
-                    filterActionLabel = filterActionLabel,
-                    onApplyFilters = { expanded = false; focusManager.clearFocus() },
-                    onTagClick = { tag ->
-                        searchSelectedTags = if (tag in searchSelectedTags) {
-                            searchSelectedTags - tag
-                        } else {
-                            searchSelectedTags + tag
-                        }
-                    },
-                    onStartDateSelected = { startDateMillis = it },
-                    onEndDateSelected = { endDateMillis = it },
-                    onOrderByChange = { orderBy = it },
-                    onMemoClick = { memo ->
-                        onMemoClick(memo)
-                    },
-                    onContentUpdate = { memo, newContent ->
-                        viewModel.memoActionDelegate.updateMemo(
-                            memo,
-                            newContent,
-                            memo.visibility,
-                            memo.attachments ?: emptyList(),
-                            memo.location,
-                            null
-                        )
-                    })
-            }
+            SearchResultContent(
+                query = query,
+                selectedTags = searchSelectedTags,
+                startDateMillis = startDateMillis,
+                endDateMillis = endDateMillis,
+                orderBy = orderBy,
+                availableTags = availableTags,
+                filteredMemos = searchMemos,
+                uiState = uiState,
+                filtersOnly = localMemos != null,
+                extraFilters = extraFilters,
+                filterActionLabel = filterActionLabel,
+                onApplyFilters = { collapseSearch(); focusManager.clearFocus() },
+                onTagClick = { tag ->
+                    searchSelectedTags = if (tag in searchSelectedTags) {
+                        searchSelectedTags - tag
+                    } else {
+                        searchSelectedTags + tag
+                    }
+                },
+                onStartDateSelected = { startDateMillis = it },
+                onEndDateSelected = { endDateMillis = it },
+                onOrderByChange = { orderBy = it },
+                onMemoClick = { memo ->
+                    onMemoClick(memo)
+                },
+                onContentUpdate = { memo, newContent ->
+                    viewModel.memoActionDelegate.updateMemo(
+                        memo,
+                        newContent,
+                        memo.visibility,
+                        memo.attachments ?: emptyList(),
+                        memo.location,
+                        null
+                    )
+                })
+        }
 
         if (showSyncPanel) {
             SyncStatusPanel(

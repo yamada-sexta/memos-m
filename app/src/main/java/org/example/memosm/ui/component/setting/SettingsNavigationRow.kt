@@ -28,7 +28,7 @@ internal fun SettingsNavigationRow(
 ) {
     ListItem(
         modifier = modifier.clip(RoundedCornerShape(4.dp)).clickable(enabled = enabled, onClick = onClick),
-        headlineContent = { Text(title) },
+        content = { Text(title) },
         supportingContent = supportingContent ?: summary?.let { { Text(it) } },
         leadingContent = icon?.let { { Icon(it, contentDescription = null) } },
         trailingContent = if (showChevron) {

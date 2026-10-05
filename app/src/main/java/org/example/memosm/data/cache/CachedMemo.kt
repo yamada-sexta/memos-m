@@ -69,7 +69,7 @@ data class CachedMemo(
                 content = memo.content.orEmpty(),
                 createTime = memo.createTime?.toEpochMilliseconds() ?: 0L,
                 updateTime = memo.updateTime?.toEpochMilliseconds() ?: 0L,
-                visibility = memo.visibility?.name ?: "",
+                visibility = memo.visibility.name,
                 state = memo.state?.name ?: "",
                 tags = gson.toJson(memo.tags ?: emptyList<String>()),
                 pinned = memo.pinned ?: false,

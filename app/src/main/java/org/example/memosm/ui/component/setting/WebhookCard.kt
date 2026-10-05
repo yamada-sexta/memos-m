@@ -65,7 +65,7 @@ fun WebhooksCard(
                 webhooks.forEach { webhook ->
                     ListItem(
                         modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { showEditDialog = webhook },
-                        headlineContent = { Text(webhook.displayName ?: "") },
+                        content = { Text(webhook.displayName ?: "") },
                         supportingContent = { Text(webhook.url, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         trailingContent = {
                             IconButton(onClick = { showDeleteConfirm = webhook }) {

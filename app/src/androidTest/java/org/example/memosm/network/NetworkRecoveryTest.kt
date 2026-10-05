@@ -106,7 +106,7 @@ class NetworkRecoveryTest {
                     assertTrue(viewModel.uiState.value.userMemoList.list.items.any { it.name == memo.name })
                     await("Cooldown recovery required another refresh or restart") {
                         viewModel.uiState.value.connectionState == ConnectionState.ONLINE &&
-                            viewModel.uiState.value.userMemoList.list.items.any { it.name == newMemo?.name }
+                            viewModel.uiState.value.userMemoList.list.items.any { it.name == newMemo.name }
                     }
                 } else if (deleteRemote) {
                     api.deleteMemo(memo.name!!)
@@ -114,7 +114,7 @@ class NetworkRecoveryTest {
                     val repository = GlobalContext.get().get<org.example.memosm.data.cache.MemoCacheRepository>()
                     await("Remote deletion remained in the list or offline cache") {
                         viewModel.uiState.value.userMemoList.list.items.none { it.name == memo.name } &&
-                            runBlocking { repository.getCachedMemo(account.id, memo.name!!) == null }
+                            runBlocking { repository.getCachedMemo(account.id, memo.name) == null }
                     }
                     assertTrue("Deleted memo survived in offline search",
                         repository.searchCachedMemos(account.id, "Network recovery regression").none { it.name == memo.name })

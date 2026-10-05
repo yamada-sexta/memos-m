@@ -159,7 +159,7 @@ internal fun NativeMemoMap(
     val view = remember(controller) {
         MapLibre.getInstance(context.applicationContext)
         HttpRequestUtil.setOkHttpClient(tileClient)
-        MapView(context, MapLibreMapOptions().textureMode(true).logoEnabled(false)
+        MapView(context, MapLibreMapOptions.createFromAttributes(context).textureMode(true).logoEnabled(false)
             .attributionGravity(Gravity.BOTTOM or Gravity.END).attributionMargins(intArrayOf(0, 0, 12, 12))
             .rotateGesturesEnabled(false).tiltGesturesEnabled(false).maxZoomPreference(19.0)).apply { onCreate(Bundle()) }
     }
@@ -180,6 +180,7 @@ internal fun NativeMemoMap(
         syncLifecycle()
         val memoryCallback = object : ComponentCallbacks2 {
             override fun onTrimMemory(level: Int) { view.onLowMemory() }
+            @Deprecated("Android no longer dispatches onLowMemory; use onTrimMemory")
             override fun onLowMemory() { view.onLowMemory() }
             override fun onConfigurationChanged(newConfig: Configuration) = Unit
         }
