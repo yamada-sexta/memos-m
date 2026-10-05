@@ -37,7 +37,7 @@ fun SetupScreen(
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(
-                Modifier.align(Alignment.TopCenter)
+                Modifier.align(Alignment.TopStart)
                     .widthIn(max = 480.dp).fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .heightIn(min = maxHeight)
