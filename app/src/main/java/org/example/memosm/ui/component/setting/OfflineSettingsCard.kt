@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -112,8 +113,13 @@ fun OfflineSettingsCard(
             if (fileLimitBytes != null && fileBytes != null) {
                 LinearProgressIndicator(
                     progress = { (fileBytes.toFloat() / fileLimitBytes).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
-                    gapSize = 2.dp
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(percent = 50)),
+                    strokeCap = StrokeCap.Butt,
+                    gapSize = 0.dp,
+                    drawStopIndicator = {}
                 )
                 Text(
                     text = stringResource(R.string.settings_cache_files_limit, formatBytes(fileLimitBytes)),
