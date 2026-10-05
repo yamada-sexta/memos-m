@@ -162,19 +162,27 @@ class MapNavigationTest {
             returnToMap()
             compose.onNodeWithTag("map_place_memos").performScrollToNode(hasText("My mapped memo"))
             compose.onNodeWithText("My mapped memo").performClick()
-            compose.waitUntil(15_000) {
-                compose.onAllNodesWithContentDescription(label(R.string.memo_detail_back))
-                    .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
-            }
             if (context.resources.configuration.screenWidthDp >= 840) {
+                compose.waitUntil(15_000) { compose.onAllNodesWithText("My mapped memo")
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).size == 2 }
                 compose.onNodeWithTag("map_place_panel").assertIsDisplayed()
                 val mapBounds = compose.onNodeWithTag("memo_map_canvas").fetchSemanticsNode().boundsInRoot
                 val panelBounds = compose.onNodeWithTag("map_place_panel").fetchSemanticsNode().boundsInRoot
-                val backBounds = compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).fetchSemanticsNode().boundsInRoot
-                assertTrue("The place sheet stays in the map pane", panelBounds.left >= mapBounds.left && panelBounds.right <= mapBounds.right)
-                assertTrue("The memo pane stays reachable beside the map", backBounds.left >= mapBounds.right)
+                assertTrue("The place sheet stays in the map pane", panelBounds.left >= mapBounds.left && panelBounds.right <= mapBounds.right &&
+                    panelBounds.top >= mapBounds.top && panelBounds.bottom <= mapBounds.bottom)
+                val menus = compose.onAllNodesWithContentDescription(label(R.string.memo_action_more))
+                val detailMenuIndex = menus.fetchSemanticsNodes().indexOfFirst { it.boundsInRoot.left >= mapBounds.right }
+                assertTrue("The memo actions stay reachable beside the map", detailMenuIndex >= 0)
+                menus[detailMenuIndex].performClick()
+                compose.onNodeWithText(label(R.string.memo_action_edit)).assertIsDisplayed()
+                Espresso.pressBack()
+            } else {
+                compose.waitUntil(15_000) {
+                    compose.onAllNodesWithContentDescription(label(R.string.memo_detail_back))
+                        .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+                }
+                compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             }
-            compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel")
                 .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         }

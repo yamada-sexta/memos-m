@@ -136,6 +136,8 @@ class NativeMemoMapTest {
                     ?.firstOrNull { it.hasProperty("cluster_id") && it.getNumberProperty("count").toInt() == 3 }
                 val geometry = cluster?.geometry() as? Point
                 if (map != null && geometry != null) {
+                    // Isolate the cluster tap from the still-running initial fit animation.
+                    map.cancelTransitions()
                     val screen = map.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(geometry.latitude(), geometry.longitude()))
                     point = Offset(screen.x, screen.y); zoom = map.cameraPosition.zoom; found = true
                 }
