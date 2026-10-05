@@ -457,4 +457,12 @@
     <string name="cache_now_running_text">텍스트 캐시 중…</string>
     <string name="cache_now_running_attachments">첨부 파일 캐시 중…</string>
     <string name="cache_text">텍스트</string>
+    <string name="video_seek">동영상 재생 위치</string>
+    <string name="video_rewind_10">10초 뒤로</string>
+    <string name="video_forward_10">10초 앞으로</string>
+    <string name="video_mute">동영상 음소거</string>
+    <string name="video_unmute">동영상 음소거 해제</string>
+    <string name="viewer_back">뒤로</string>
+    <string name="video_playback_speed">동영상 재생 속도</string>
+    <string name="video_playback_error">이 동영상을 재생할 수 없습니다.</string>
 </resources>

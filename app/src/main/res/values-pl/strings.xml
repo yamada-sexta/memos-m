@@ -413,4 +413,12 @@
     <string name="cache_now_running_text">Zapisywanie tekstu w pamięci podręcznej…</string>
     <string name="cache_now_running_attachments">Zapisywanie załączników w pamięci podręcznej…</string>
     <string name="cache_text">Tekst</string>
+    <string name="video_seek">Postęp odtwarzania filmu</string>
+    <string name="video_rewind_10">Cofnij o 10 sekund</string>
+    <string name="video_forward_10">Przewiń do przodu o 10 sekund</string>
+    <string name="video_mute">Wycisz film</string>
+    <string name="video_unmute">Włącz dźwięk filmu</string>
+    <string name="viewer_back">Wstecz</string>
+    <string name="video_playback_speed">Prędkość odtwarzania filmu</string>
+    <string name="video_playback_error">Nie można odtworzyć tego filmu.</string>
 </resources>

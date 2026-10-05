@@ -461,4 +461,12 @@
     <string name="cache_now_running_text">正在缓存文本…</string>
     <string name="cache_now_running_attachments">正在缓存附件…</string>
     <string name="cache_text">文本</string>
+    <string name="video_seek">视频播放进度</string>
+    <string name="video_rewind_10">后退 10 秒</string>
+    <string name="video_forward_10">前进 10 秒</string>
+    <string name="video_mute">视频静音</string>
+    <string name="video_unmute">取消视频静音</string>
+    <string name="viewer_back">返回</string>
+    <string name="video_playback_speed">视频播放速度</string>
+    <string name="video_playback_error">无法播放此视频。</string>
 </resources>

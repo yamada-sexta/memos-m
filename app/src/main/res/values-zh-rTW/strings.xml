@@ -456,4 +456,12 @@
     <string name="cache_now_running_text">正在快取文字…</string>
     <string name="cache_now_running_attachments">正在快取附件…</string>
     <string name="cache_text">文字</string>
+    <string name="video_seek">影片播放進度</string>
+    <string name="video_rewind_10">倒退 10 秒</string>
+    <string name="video_forward_10">快轉 10 秒</string>
+    <string name="video_mute">影片靜音</string>
+    <string name="video_unmute">取消影片靜音</string>
+    <string name="viewer_back">返回</string>
+    <string name="video_playback_speed">影片播放速度</string>
+    <string name="video_playback_error">無法播放此影片。</string>
 </resources>

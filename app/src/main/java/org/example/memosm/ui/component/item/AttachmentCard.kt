@@ -128,6 +128,8 @@ fun AttachmentCard(
             "video", ignoreCase = true
         )
     }
+    val isVisualMedia = isImage || isVideo
+    val fullScreenBackground = if (isVisualMedia) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerLow
 
     // Audio handling (temp file for base64 if needed)
     val audioUrl =
@@ -187,8 +189,7 @@ fun AttachmentCard(
 
     val backgroundColor by animateColorAsState(
         targetValue = when {
-            isFullScreen && isAudio -> MaterialTheme.colorScheme.surfaceContainerLow
-            isFullScreen -> Color.Transparent
+            isFullScreen -> fullScreenBackground
             isAudioPlaying -> MaterialTheme.colorScheme.primaryContainer
             else -> MaterialTheme.colorScheme.surfaceVariant
         },
@@ -465,9 +466,9 @@ fun AttachmentCard(
 
     if (isFullScreen) {
         CompositionLocalProvider(
-            LocalContentColor provides if (isAudio) MaterialTheme.colorScheme.onSurface else LocalContentColor.current
+            LocalContentColor provides if (isVisualMedia) LocalContentColor.current else MaterialTheme.colorScheme.onSurface
         ) {
-            Box(modifier.background(if (isAudio) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent)) {
+            Box(modifier.background(fullScreenBackground)) {
                 content()
             }
         }

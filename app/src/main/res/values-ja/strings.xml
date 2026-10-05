@@ -458,4 +458,12 @@
     <string name="cache_now_running_text">テキストをキャッシュ中…</string>
     <string name="cache_now_running_attachments">添付ファイルをキャッシュ中…</string>
     <string name="cache_text">テキスト</string>
+    <string name="video_seek">動画の再生位置</string>
+    <string name="video_rewind_10">10秒戻る</string>
+    <string name="video_forward_10">10秒進む</string>
+    <string name="video_mute">動画をミュート</string>
+    <string name="video_unmute">動画のミュートを解除</string>
+    <string name="viewer_back">戻る</string>
+    <string name="video_playback_speed">動画の再生速度</string>
+    <string name="video_playback_error">この動画を再生できません。</string>
 </resources>

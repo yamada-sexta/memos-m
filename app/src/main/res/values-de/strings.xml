@@ -457,4 +457,12 @@
     <string name="cache_now_running_text">Text wird zwischengespeichert…</string>
     <string name="cache_now_running_attachments">Anhänge werden zwischengespeichert…</string>
     <string name="cache_text">Text</string>
+    <string name="video_seek">Videofortschritt</string>
+    <string name="video_rewind_10">10 Sekunden zurückspulen</string>
+    <string name="video_forward_10">10 Sekunden vorspulen</string>
+    <string name="video_mute">Video stummschalten</string>
+    <string name="video_unmute">Videoton einschalten</string>
+    <string name="viewer_back">Zurück</string>
+    <string name="video_playback_speed">Videowiedergabegeschwindigkeit</string>
+    <string name="video_playback_error">Dieses Video kann nicht abgespielt werden.</string>
 </resources>
