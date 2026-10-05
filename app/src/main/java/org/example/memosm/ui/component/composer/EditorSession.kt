@@ -147,13 +147,19 @@ object EditorSessionStore {
                 session.saveFailed = true
                 Log.e("EditorSession", "Could not save editor session", error)
             }
-        }.also { writes[session.id] = it }
+        }.also { job ->
+            writes[session.id] = job
+            if (remove) job.invokeOnCompletion { writes.remove(session.id, job) }
+        }
     }
 
     suspend fun awaitWrites(id: String?) {
         if (id == null) return
-        writes[id]?.join()
-        writes.remove(id)
+        while (true) {
+            val write = writes[id] ?: return
+            write.join()
+            if (writes.remove(id, write)) return
+        }
     }
 }
 
@@ -206,6 +212,10 @@ class EditorSession(val id: String, stored: StoredEditorSession) {
         busy = false
         submitting = false
         changed()
+    }
+
+    fun close() {
+        if (!closing) flush(remove = true)
     }
 
     fun submitted() {

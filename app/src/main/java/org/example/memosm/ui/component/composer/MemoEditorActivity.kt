@@ -80,9 +80,20 @@ class MemoEditorActivity : ProfileActivity() {
                 .putExtra(EXTRA_ACCOUNT, request.accountId)
     }
 
+    override fun onPause() {
+        // Activity results can reach the caller before onStop, so start the final save now.
+        editor.session?.flush()
+        super.onPause()
+    }
+
     override fun onStop() {
         editor.session?.flush(remove = isFinishing)
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        if (isFinishing) editor.session?.close()
+        super.onDestroy()
     }
 }
 

@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.graphics.RectF
 import android.view.Gravity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,6 +20,8 @@ import androidx.compose.runtime.saveable.Saver as StateSaver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
@@ -54,6 +57,7 @@ import org.maplibre.geojson.Point
 private const val MEMO_SOURCE = "memosm-locations"
 private const val COUNT_SOURCE = "memosm-location-counts"
 private const val PIN_LAYER = "memosm-pins"
+private const val PIN_OUTLINE_LAYER = "memosm-pin-outlines"
 private const val COUNT_LAYER = "memosm-counts"
 private const val SELECTION_SOURCE = "memosm-selection"
 
@@ -66,9 +70,28 @@ internal fun mapFeatures(memos: List<Memo>): FeatureCollection = FeatureCollecti
     }.map { (coordinates, group) ->
         Feature.fromGeometry(Point.fromLngLat(coordinates.second!!, coordinates.first!!)).apply {
             addNumberProperty("count", group.size)
+            // Rendered feature geometry comes from vector tiles and may be rounded.
+            // Keep the original coordinates for selection and exact-place matching.
+            addNumberProperty("latitude", coordinates.first!!)
+            addNumberProperty("longitude", coordinates.second!!)
         }
     }
 )
+
+internal fun mapPinLabelColor(fill: Color, preferred: Color? = null): Color {
+    fun contrast(other: Color): Float {
+        val first = fill.luminance(); val second = other.luminance()
+        return (maxOf(first, second) + 0.05f) / (minOf(first, second) + 0.05f)
+    }
+    if (preferred != null && contrast(preferred) >= 4.5f) return preferred
+    return if (contrast(Color.Black) >= contrast(Color.White)) Color.Black else Color.White
+}
+
+private fun Feature.originalMapLocation(): Location? {
+    if (!hasProperty("latitude") || !hasProperty("longitude")) return null
+    return Location(latitude = getNumberProperty("latitude").toDouble(), longitude = getNumberProperty("longitude").toDouble())
+        .takeIf { it.hasValidCoordinates() }
+}
 
 internal class MemoMapController {
     companion object {
@@ -113,10 +136,10 @@ internal fun NativeMemoMap(
     color: Color,
     modifier: Modifier = Modifier,
     retry: Int = 0,
+    labelColor: Color = mapPinLabelColor(color),
     initialFitReady: Boolean = true,
     selection: Location? = null,
-    panelSize: IntSize = IntSize.Zero,
-    desktop: Boolean = false,
+    panelBounds: Rect? = null,
     onPlace: (MapPlace) -> Unit,
     onTileError: (Boolean) -> Unit
 ) {
@@ -126,6 +149,7 @@ internal fun NativeMemoMap(
     val errorCallback by rememberUpdatedState(onTileError)
     val currentMemos by rememberUpdatedState(memos)
     val currentColor by rememberUpdatedState(color)
+    val currentLabelColor by rememberUpdatedState(labelColor)
     val currentSelection by rememberUpdatedState(selection)
     var ready by remember { mutableStateOf(false) }
     var loadedStyle by remember { mutableIntStateOf(0) }
@@ -169,9 +193,21 @@ internal fun NativeMemoMap(
             controller.map = map
             map.cameraPosition = controller.savedCamera ?: CameraPosition.Builder().target(LatLng(0.0, 0.0)).zoom(1.0).build()
             map.addOnCameraIdleListener { controller.savedCamera = map.cameraPosition }
-            map.addOnMapClickListener { location ->
-                val features = map.queryRenderedFeatures(map.projection.toScreenLocation(location), PIN_LAYER)
-                val feature = features.firstOrNull()
+            fun selectPlace(location: LatLng) {
+                val screen = map.projection.toScreenLocation(location)
+                val tolerance = 8f * context.resources.displayMetrics.density
+                val features = map.queryRenderedFeatures(RectF(screen.x - tolerance, screen.y - tolerance,
+                    screen.x + tolerance, screen.y + tolerance), PIN_LAYER)
+                // Include the visible halo in the hit area and choose the closest
+                // circle if a finger overlaps more than one rendered feature.
+                val feature = features.minByOrNull {
+                    val point = it.geometry() as? Point
+                    if (point == null) Double.POSITIVE_INFINITY else {
+                        val center = map.projection.toScreenLocation(LatLng(point.latitude(), point.longitude()))
+                        val dx = center.x - screen.x; val dy = center.y - screen.y
+                        (dx * dx + dy * dy).toDouble()
+                    }
+                }
                 when {
                     feature == null -> placeCallback(MapPlace(Location(latitude = location.latitude, longitude = location.longitude)))
                     feature.hasProperty("cluster_id") -> {
@@ -179,21 +215,18 @@ internal fun NativeMemoMap(
                         val point = feature.geometry() as? Point
                         if (point != null && source != null) {
                             val leaves = source.getClusterLeaves(feature, currentMemos.size.toLong(), 0)
-                                .features().orEmpty().mapNotNull { leaf -> (leaf.geometry() as? Point)?.let {
-                                    Location(latitude = it.latitude(), longitude = it.longitude())
-                                } }
+                                .features().orEmpty().mapNotNull { it.originalMapLocation() }
                             placeCallback(MapPlace(Location(latitude = point.latitude(), longitude = point.longitude()), leaves))
                         }
                     }
                     else -> {
-                        val point = feature.geometry() as? Point
-                        if (point != null) placeCallback(MapPlace(Location(latitude = point.latitude(), longitude = point.longitude())))
+                        feature.originalMapLocation()?.let { placeCallback(MapPlace(it)) }
                     }
                 }
-                true
             }
+            map.addOnMapClickListener { location -> selectPlace(location); true }
             map.addOnMapLongClickListener { location ->
-                placeCallback(MapPlace(Location(latitude = location.latitude, longitude = location.longitude))); true
+                selectPlace(location); true
             }
             ready = true
         }
@@ -233,14 +266,17 @@ internal fun NativeMemoMap(
                 .withCluster(true).withClusterRadius(44).withClusterMaxZoom(17)
                 .withClusterProperty("count", literal("+"), get("count"))
             loaded.addSource(GeoJsonSource(MEMO_SOURCE, features, options))
+            // A white halo with a dark outer edge remains visible on both basemaps.
+            loaded.addLayer(CircleLayer(PIN_OUTLINE_LAYER, MEMO_SOURCE).withProperties(
+                circleRadius(18f), circleColor(android.graphics.Color.WHITE), circleStrokeWidth(1f), circleStrokeColor(android.graphics.Color.BLACK)))
             loaded.addLayer(CircleLayer(PIN_LAYER, MEMO_SOURCE).withProperties(
-                circleRadius(16f), circleColor(currentColor.toArgb()), circleStrokeWidth(2f), circleStrokeColor(android.graphics.Color.WHITE)))
+                circleRadius(16f), circleColor(currentColor.toArgb())))
             // A missing glyph delays every layer in its source, including circles. Keep
             // labels separate so pins remain visible when fonts are unavailable offline.
             loaded.addSource(GeoJsonSource(COUNT_SOURCE, features, options))
             loaded.addLayer(SymbolLayer(COUNT_LAYER, COUNT_SOURCE).withProperties(
                 textField(org.maplibre.android.style.expressions.Expression.toString(get("count"))),
-                textFont(arrayOf("Noto Sans Regular")), textSize(12f), textColor(android.graphics.Color.WHITE), textAllowOverlap(true)))
+                textFont(arrayOf("Noto Sans Regular")), textSize(12f), textColor(currentLabelColor.toArgb()), textAllowOverlap(true)))
             loaded.addSource(GeoJsonSource(SELECTION_SOURCE, selectionFeatures(currentSelection)))
             loaded.addLayer(CircleLayer("memosm-selected-pin", SELECTION_SOURCE).withProperties(
                 circleRadius(21f), circleColor(android.graphics.Color.TRANSPARENT),
@@ -254,12 +290,13 @@ internal fun NativeMemoMap(
             view.removeOnDidFailLoadingMapListener(failure)
         }
     }
-    LaunchedEffect(memos, color, ready, loadedStyle) {
+    LaunchedEffect(memos, color, labelColor, ready, loadedStyle) {
         controller.memos = memos
         val features = mapFeatures(memos)
         controller.map?.style?.getSourceAs<GeoJsonSource>(MEMO_SOURCE)?.setGeoJson(features)
         controller.map?.style?.getSourceAs<GeoJsonSource>(COUNT_SOURCE)?.setGeoJson(features)
         controller.map?.style?.getLayerAs<CircleLayer>(PIN_LAYER)?.setProperties(circleColor(color.toArgb()))
+        controller.map?.style?.getLayerAs<SymbolLayer>(COUNT_LAYER)?.setProperties(textColor(labelColor.toArgb()))
     }
     // Fit the complete history after both the style and the native viewport exist. Fitting
     // the first cached page hides locations loaded later and can save an unfitted camera.
@@ -270,16 +307,23 @@ internal fun NativeMemoMap(
             controller.fitAll()
         }
     }
-    LaunchedEffect(selection, panelSize, ready, loadedStyle) {
+    LaunchedEffect(selection, panelBounds, ready, loadedStyle, viewportSize) {
         val map = controller.map ?: return@LaunchedEffect
         map.style?.getSourceAs<GeoJsonSource>(SELECTION_SOURCE)?.setGeoJson(selectionFeatures(selection))
-        if (selection.hasValidCoordinates() && panelSize != IntSize.Zero) {
+        if (selection.hasValidCoordinates() && panelBounds != null && panelBounds.height > 0f) {
             val point = map.projection.toScreenLocation(LatLng(selection!!.latitude!!, selection.longitude!!))
-            val right = (view.width - if (desktop) panelSize.width + 40 else 32).coerceAtLeast(48).toFloat()
-            val bottom = (view.height - if (desktop) 32 else panelSize.height + 32).coerceAtLeast(48).toFloat()
-            val dx = point.x - point.x.coerceIn(32f, right)
-            val dy = point.y - point.y.coerceIn(32f, bottom)
-            if (dx != 0f || dy != 0f) map.scrollBy(dx, dy, 200)
+            // Both rectangles use pixels relative to this MapView. Tablet rails and
+            // adaptive panes can offset it from the window; window dimensions cannot
+            // be used to decide whether the actual place sheet covers a pin.
+            val bounds = panelBounds.inflate(32f)
+            if (point.x in bounds.left..bounds.right && point.y in bounds.top..bounds.bottom) {
+                if (panelBounds.width >= view.width * 0.75f) {
+                    map.scrollBy(0f, bounds.top.coerceAtLeast(32f) - point.y, 200)
+                } else {
+                    val target = if (bounds.left > 32f) bounds.left else bounds.right.coerceAtMost(view.width - 32f)
+                    map.scrollBy(target - point.x, 0f, 200)
+                }
+            }
         }
     }
     AndroidView(factory = { view }, modifier = modifier)

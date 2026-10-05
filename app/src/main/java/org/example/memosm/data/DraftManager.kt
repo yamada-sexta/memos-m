@@ -7,6 +7,8 @@ import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -32,6 +34,8 @@ class DraftManager(private val context: Context) {
 
     private val gson = Gson()
     private val mutex = Mutex()
+    private val draftChanges = MutableSharedFlow<String>(extraBufferCapacity = 64)
+    val changes = draftChanges.asSharedFlow()
 
     companion object {
         private const val TAG = "DraftManager"
@@ -101,7 +105,10 @@ class DraftManager(private val context: Context) {
         org.example.memosm.data.backup.BackupCoordinator.withStorageLock { mutex.withLock { action() } }
 
     suspend fun replaceDrafts(accountId: String, drafts: List<Draft>): Unit = withContext(Dispatchers.IO) {
-        withDraftLock { saveDraftsInternal(accountId, drafts) }
+        withDraftLock {
+            saveDraftsInternal(accountId, drafts)
+            draftChanges.tryEmit(accountId)
+        }
     }
 
     /**
@@ -306,6 +313,7 @@ class DraftManager(private val context: Context) {
                 }
 
                 saveDraftsInternal(accountId, drafts)
+                draftChanges.tryEmit(accountId)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -326,6 +334,7 @@ class DraftManager(private val context: Context) {
                     val removed = drafts.removeAll { it.id == draftId }
                     if (removed) {
                         saveDraftsInternal(accountId, drafts)
+                        draftChanges.tryEmit(accountId)
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error deleting draft $draftId for account $accountId", e)
@@ -341,7 +350,7 @@ class DraftManager(private val context: Context) {
             try {
                 val file = getDraftsFile(accountId)
                 if (file.exists()) {
-                    file.delete()
+                    if (file.delete()) draftChanges.tryEmit(accountId)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error clearing drafts for account $accountId", e)

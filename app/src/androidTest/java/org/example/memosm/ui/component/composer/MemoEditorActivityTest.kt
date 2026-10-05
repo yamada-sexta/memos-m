@@ -10,6 +10,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.text.TextRange
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso
@@ -36,6 +38,7 @@ import org.example.memosm.ui.profile.DraftsActivity
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.GlobalContext
@@ -46,15 +49,26 @@ class MemoEditorActivityTest {
     private val context get() = instrumentation.targetContext
     private val accountId = "editor-activity-test"
     private val draftId = "editor-test-draft"
+    private val sessionIds = mutableSetOf<String>()
     private fun label(id: Int) = context.getString(id)
     private fun input() = compose.onNode(hasSetTextAction())
+    private fun submit(labelRes: Int) = compose.onNode(
+        hasText(label(labelRes)) or hasContentDescription(label(labelRes))
+    ).performClick()
     private fun drafts() = runBlocking { GlobalContext.get().get<DraftManager>().getDrafts(accountId) }
-    private fun intent(request: EditorRequest) = runBlocking { MemoEditorActivity.createIntent(context, request) }
+    private fun intent(request: EditorRequest) = runBlocking {
+        MemoEditorActivity.createIntent(context, request).also { sessionIds += it.getStringExtra("editor_session")!! }
+    }
+
+    @After
+    fun awaitFinalSaves() = runBlocking {
+        sessionIds.forEach { EditorSessionStore.awaitWrites(it) }
+    }
     private fun request(draft: Draft? = null) = EditorRequest(accountId,
         titleRes = R.string.memo_composer_fab_new_memo, draft = draft, draftId = draft?.id ?: draftId)
 
     @Before
-    fun seedAccount() = runBlocking {
+    fun seedAccount(): Unit = runBlocking {
         BackupCoordinator.awaitStartupRecovery()
         val koin = GlobalContext.get()
         koin.get<DraftManager>().clearDrafts(accountId)
@@ -162,7 +176,7 @@ class MemoEditorActivityTest {
         val launch = intent(request(Draft(id = draftId, content = "Publish offline")))
         ActivityScenario.launch<MemoEditorActivity>(launch).use { scenario ->
             awaitInput()
-            compose.onNodeWithText(label(R.string.memo_publish)).performClick()
+            submit(R.string.memo_publish)
             compose.waitUntil(30_000) { scenario.state == Lifecycle.State.DESTROYED }
             runBlocking { EditorSessionStore.awaitWrites(launch.getStringExtra("editor_session")) }
             SystemClock.sleep(700)
@@ -199,6 +213,76 @@ class MemoEditorActivityTest {
     }
 
     @Test
+    fun updateAndCommentModesPersistOfflineBeforeClosing() {
+        val memo = Memo(name = "memos/editor-test", creator = "users/1", content = "Cached editor memo",
+            state = MemoState.NORMAL)
+        ActivityScenario.launch<MemoEditorActivity>(intent(EditorRequest(accountId, ComposerMode.UPDATE,
+            R.string.memo_dialog_edit_title, memo = memo))).use { scenario ->
+            awaitInput()
+            input().assertTextEquals("Cached editor memo")
+            input().performTextReplacement("Updated offline")
+            submit(R.string.memo_action_update)
+            compose.waitUntil(30_000) { scenario.state == Lifecycle.State.DESTROYED }
+            val cached = runBlocking { GlobalContext.get().get<MemoCacheRepository>()
+                .getCachedMemo(accountId, memo.name!!) }
+            assertEquals("Updated offline", cached!!.content)
+        }
+        ActivityScenario.launch<MemoEditorActivity>(intent(EditorRequest(accountId, ComposerMode.COMMENT,
+            R.string.memo_detail_add_comment, parentMemo = memo))).use { scenario ->
+            awaitInput()
+            input().performTextInput("Comment offline")
+            submit(R.string.memo_action_post)
+            compose.waitUntil(30_000) { scenario.state == Lifecycle.State.DESTROYED }
+            val comments = runBlocking { GlobalContext.get().get<MemoCacheRepository>()
+                .getCachedMemos(accountId, CacheListType.COMMENT, parentName = memo.name) }
+            assertTrue(comments.any { it.content == "Comment offline" })
+        }
+        assertTrue(drafts().isEmpty())
+    }
+
+    @Test
+    fun sharedTextOpensEditorActivityAndBackReturnsToFeed() {
+        val share = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_SEND
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, "Shared editor text")
+        }
+        ActivityScenario.launch<MainActivity>(share).use {
+            awaitInput()
+            awaitResumed(MemoEditorActivity::class.java)
+            input().assertTextEquals("Shared editor text")
+            compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
+            awaitResumed(MainActivity::class.java)
+            compose.onNodeWithTag("memo_feed_tabs").assertIsDisplayed()
+            compose.waitUntil(10_000) { drafts().any { it.content == "Shared editor text" } }
+        }
+    }
+
+    @Test
+    fun deletingLastDraftShowsEmptyStateAndRemovesFeedCardOnReturn() {
+        runBlocking { GlobalContext.get().get<DraftManager>().saveDraft(accountId,
+            Draft(id = draftId, content = "Delete last draft")) }
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(20_000) {
+                compose.onAllNodesWithText(label(R.string.drafts_card_message)).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText(label(R.string.drafts_card_message)).performClick()
+            awaitResumed(DraftsActivity::class.java)
+            compose.onNodeWithContentDescription(label(R.string.memo_action_more)).performClick()
+            compose.onNodeWithText(label(R.string.memo_action_delete)).performClick()
+            compose.onNodeWithText(label(R.string.common_delete)).performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText(label(R.string.drafts_empty)).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
+            awaitResumed(MainActivity::class.java)
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText(label(R.string.drafts_card_message)).fetchSemanticsNodes().isEmpty()
+            }
+        }
+    }
+
+    @Test
     fun accountChangeClosesEditorAndKeepsDraftBoundToOriginalAccount() {
         val launch = intent(request())
         ActivityScenario.launch<MemoEditorActivity>(launch).use { scenario ->
@@ -225,10 +309,17 @@ class MemoEditorActivityTest {
             compose.waitUntil(20_000) { compose.onAllNodesWithText("Predictive draft").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Predictive draft").performClick()
             awaitInput()
+            input().performClick()
+            awaitKeyboard(visible = true)
             Espresso.closeSoftKeyboard()
+            awaitKeyboard(visible = false)
             backGesture(cancel = true)
             awaitResumed(MemoEditorActivity::class.java)
             input().assertTextEquals("Predictive draft")
+            // System transitions run outside Compose's animation clock.
+            SystemClock.sleep(1_000)
+            Espresso.closeSoftKeyboard()
+            awaitKeyboard(visible = false)
             backGesture(cancel = false)
             awaitResumed(DraftsActivity::class.java)
         }
@@ -237,6 +328,12 @@ class MemoEditorActivityTest {
     private fun awaitInput() {
         compose.waitUntil(20_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size == 1 }
         compose.waitForIdle()
+        instrumentation.runOnMainSync {
+            ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                .filterIsInstance<MemoEditorActivity>().forEach { activity ->
+                    activity.intent.getStringExtra("editor_session")?.let { sessionIds += it }
+                }
+        }
     }
 
     private fun awaitResumed(type: Class<*>) {
@@ -249,6 +346,20 @@ class MemoEditorActivityTest {
             resumed
         }
         compose.waitForIdle()
+    }
+
+    private fun awaitKeyboard(visible: Boolean) {
+        compose.waitUntil(10_000) {
+            var keyboardVisible = false
+            instrumentation.runOnMainSync {
+                val activity = ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED).filterIsInstance<MemoEditorActivity>().singleOrNull()
+                keyboardVisible = activity?.let {
+                    ViewCompat.getRootWindowInsets(it.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime())
+                } == true
+            }
+            keyboardVisible == visible
+        }
     }
 
     private fun backGesture(cancel: Boolean) {

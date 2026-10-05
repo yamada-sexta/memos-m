@@ -44,6 +44,12 @@ class DraftDelegateImpl(
     private val onRefreshUserMemos: () -> Unit
 ) : DraftDelegate {
 
+    init {
+        scope.launch {
+            draftManager.changes.collect { accountId -> loadDraftsForAccount(accountId) }
+        }
+    }
+
     override fun loadDraftsForAccount(accountId: String) {
         val context = accountSession.current ?: return
         if (context.account.id != accountId) return

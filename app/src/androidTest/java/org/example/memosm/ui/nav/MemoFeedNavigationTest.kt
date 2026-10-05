@@ -74,7 +74,7 @@ class MemoFeedNavigationTest {
             awaitFeed(MemoFeed.EXPLORE)
             compose.onNodeWithText("Explore memo 0").assertIsDisplayed()
             screenshot("memo-feed-explore.png")
-            openAndCloseComposer()
+            openAndCloseComposer(MemoFeed.EXPLORE)
             compose.onNodeWithTag("memo_feed_pager").performTouchInput { swipeRight() }
             awaitFeed(MemoFeed.MEMOS)
             compose.onNodeWithTag("memo_feed_pager").performTouchInput { swipeLeft() }
@@ -194,6 +194,7 @@ class MemoFeedNavigationTest {
             awaitFeed(MemoFeed.EXPLORE)
             compose.onNodeWithTag("memo_feed_compose").performClick()
             compose.onNodeWithText(label(R.string.drafts_prompt_continue)).performClick()
+            awaitEditor()
             compose.onNode(hasSetTextAction() and hasText("Unfinished feed draft")).assertIsDisplayed()
             compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             awaitFeed(MemoFeed.EXPLORE)
@@ -210,6 +211,7 @@ class MemoFeedNavigationTest {
                 activity.intent = launchIntent
             }
             compose.onNodeWithText(label(R.string.drafts_prompt_start_fresh)).performClick()
+            awaitEditor()
             compose.onNode(hasSetTextAction() and hasText("Unfinished feed draft")).assertDoesNotExist()
             compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             awaitFeed(MemoFeed.MEMOS)
@@ -239,9 +241,16 @@ class MemoFeedNavigationTest {
         compose.waitForIdle()
     }
 
-    private fun openAndCloseComposer() {
+    private fun awaitEditor() {
+        compose.waitUntil(15_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+    }
+
+    private fun openAndCloseComposer(feed: MemoFeed = MemoFeed.MEMOS) {
         compose.onNodeWithTag("memo_feed_compose").performClick()
+        awaitEditor()
         compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
+        awaitFeed(feed)
         compose.onNodeWithTag("memo_feed_tabs").assertIsDisplayed()
     }
 

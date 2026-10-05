@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.click
@@ -29,6 +30,90 @@ import org.maplibre.geojson.Point
 /** Checks native rendered features, rather than only the Compose controls above the map. */
 class NativeMemoMapTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun placeSheetMovesTheSelectedPinIntoTheVisibleMap() {
+        val controller = MemoMapController()
+        val original = memo("visible", 41.881832, -87.623177)
+        val selection = mutableStateOf<MapPlace?>(null)
+        val panel = mutableStateOf<Rect?>(null)
+        compose.setContent {
+            MaterialTheme {
+                NativeMemoMap(controller, listOf(original), false, MaterialTheme.colorScheme.primary,
+                    Modifier.fillMaxSize().testTag("native_map"), selection = selection.value?.location, panelBounds = panel.value,
+                    onPlace = { selection.value = it }, onTileError = {})
+            }
+        }
+        awaitPins(controller, 1)
+        val viewport = compose.onNodeWithTag("native_map").fetchSemanticsNode().boundsInRoot.size
+        compose.runOnIdle {
+            controller.map!!.cancelTransitions()
+            val point = controller.map!!.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(
+                original.location!!.latitude!!, original.location.longitude!!))
+            panel.value = Rect(0f, point.y - 120f, viewport.width, viewport.height)
+            selection.value = MapPlace(original.location)
+        }
+        awaitVisiblePin(controller, original) { x, y -> y < panel.value!!.top - 20f }
+        compose.runOnIdle {
+            val point = controller.map!!.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(
+                original.location!!.latitude!!, original.location.longitude!!))
+            panel.value = Rect(point.x - 120f, 0f, viewport.width, viewport.height)
+        }
+        awaitVisiblePin(controller, original) { x, y -> x < panel.value!!.left - 20f }
+    }
+
+    private fun awaitVisiblePin(controller: MemoMapController, memo: Memo, visible: (Float, Float) -> Boolean) {
+        compose.waitUntil(15_000) {
+            var found = false
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val point = controller.map!!.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(
+                    memo.location!!.latitude!!, memo.location.longitude!!))
+                found = visible(point.x, point.y)
+            }
+            found
+        }
+    }
+
+    @Test fun tappedPinAndSelectionRingUseTheOriginalMemoCoordinates() {
+        val controller = MemoMapController()
+        val original = memo("precise", 41.881832, -87.623177)
+        val selection = mutableStateOf<MapPlace?>(null)
+        compose.setContent {
+            MaterialTheme {
+                NativeMemoMap(controller, listOf(original), false, MaterialTheme.colorScheme.primary,
+                    Modifier.fillMaxSize().testTag("native_map"), selection = selection.value?.location,
+                    onPlace = { selection.value = it }, onTileError = {})
+            }
+        }
+        awaitPins(controller, 1)
+        var point = Offset.Zero
+        compose.runOnIdle {
+            val screen = controller.map!!.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(
+                original.location!!.latitude!!, original.location.longitude!!))
+            point = Offset(screen.x, screen.y)
+        }
+        compose.onNodeWithTag("native_map").performTouchInput { click(point) }
+        compose.waitUntil(10_000) { selection.value != null }
+        compose.runOnIdle {
+            assertEquals(original.location!!.latitude, selection.value!!.location.latitude)
+            assertEquals(original.location.longitude, selection.value!!.location.longitude)
+            assertEquals(listOf(original), memosAtMapPlace(listOf(original), selection.value!!))
+        }
+        compose.waitUntil(15_000) {
+            var aligned = false
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val map = controller.map!!
+                val rectangle = RectF(0f, 0f, 2000f, 3000f)
+                val pin = map.queryRenderedFeatures(rectangle, "memosm-pins").firstOrNull()?.geometry() as? Point
+                val ring = map.queryRenderedFeatures(rectangle, "memosm-selected-pin").firstOrNull()?.geometry() as? Point
+                if (pin != null && ring != null) {
+                    val center = map.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(pin.latitude(), pin.longitude()))
+                    val selected = map.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(ring.latitude(), ring.longitude()))
+                    aligned = kotlin.math.abs(center.x - selected.x) < 1f && kotlin.math.abs(center.y - selected.y) < 1f
+                }
+            }
+            aligned
+        }
+    }
 
     @Test fun clusterTapOpensAllItsMemosWithoutZooming() {
         val controller = MemoMapController()
@@ -59,6 +144,7 @@ class NativeMemoMapTest {
             found
         }
         compose.onNodeWithTag("native_map").performTouchInput { click(point) }
+        compose.waitUntil(10_000) { selected != null }
         compose.runOnIdle {
             assertEquals(setOf("memos/first", "memos/coincident", "memos/nearby"), memosAtMapPlace(memos, selected!!).map { it.name }.toSet())
             assertEquals(zoom, controller.map!!.cameraPosition.zoom, 0.01)

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,8 +26,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
@@ -42,6 +46,7 @@ import org.example.memosm.ui.component.composer.EditorRequest
 import org.example.memosm.ui.component.composer.rememberMemoEditorLauncher
 import org.example.memosm.ui.component.map.MemoMapController
 import org.example.memosm.ui.component.map.NativeMemoMap
+import org.example.memosm.ui.component.map.mapPinLabelColor
 import org.example.memosm.viewmodel.MemosViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,7 +70,8 @@ fun MapScreen(
     var searchResults by remember { mutableStateOf<List<Memo>?>(null) }
     var searchExpanded by remember { mutableStateOf(false) }
     var place by remember(map.scope) { mutableStateOf<MapPlace?>(null) }
-    var panelSize by remember(map.scope) { mutableStateOf(IntSize.Zero) }
+    var mapBounds by remember { mutableStateOf(Rect.Zero) }
+    var panelBounds by remember(map.scope) { mutableStateOf<Rect?>(null) }
     val openEditor = rememberMemoEditorLauncher(viewModel)
     var tileError by remember { mutableStateOf(false) }
     var tileRetry by remember { mutableIntStateOf(0) }
@@ -73,8 +79,7 @@ fun MapScreen(
     var controlsHeight by remember { mutableIntStateOf(0) }
     val controlsBottom = with(LocalDensity.current) { controlsHeight.toDp() } + 12.dp
     val configuration = LocalConfiguration.current
-    val desktop = configuration.screenWidthDp >= 600
-    val bottom = if (!desktop && isNavBarVisible) 80.dp else 0.dp
+    val bottom = if (configuration.screenWidthDp < 600 && isNavBarVisible && !searchExpanded) 80.dp else 0.dp
     val dark = MaterialTheme.colorScheme.background.let { it.red + it.green + it.blue < 1.5f }
     val visible = remember(map.memos, searchResults) {
         val current = map.memos.associateBy { it.name }
@@ -96,13 +101,18 @@ fun MapScreen(
         onToggleNavBar = { onToggleNavBar?.invoke(it) },
         isNavBarVisible = isNavBarVisible,
         listPane = { onMemoClick ->
-            Box(Modifier.fillMaxSize().padding(bottom = bottom).testTag("memo_map")) {
+            BoxWithConstraints(Modifier.fillMaxSize().padding(bottom = bottom).testTag("memo_map")) {
+                val desktop = maxWidth >= 600.dp
+                val sheetMaxHeight = maxHeight * 0.7f
                 Box(Modifier.fillMaxSize()) {
                     key(map.scope) {
                         NativeMemoMap(controller, visible, dark, MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.fillMaxSize().testTag("memo_map_canvas"), retry = tileRetry,
+                            modifier = Modifier.fillMaxSize().testTag("memo_map_canvas")
+                                .onGloballyPositioned { mapBounds = it.boundsInWindow() }, retry = tileRetry,
+                            labelColor = mapPinLabelColor(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary),
                             initialFitReady = !map.isLoading && (map.complete || map.isOffline || map.loadFailed),
-                            selection = place?.location, panelSize = panelSize, desktop = desktop,
+                            selection = place?.location,
+                            panelBounds = if (place != null && !searchExpanded) panelBounds?.translate(-mapBounds.left, -mapBounds.top) else null,
                             onPlace = { place = it }, onTileError = { tileError = it })
                     }
                     Box(Modifier.fillMaxSize().padding(top = controlsBottom)) {
@@ -131,15 +141,19 @@ fun MapScreen(
                         }
                         place?.takeIf { !searchExpanded }?.let { selection ->
                             val point = selection.location
-                            Surface(modifier = Modifier
+                            BottomSheetScaffold(modifier = Modifier
                                 .align(if (desktop) Alignment.CenterEnd else Alignment.BottomCenter)
                                 .then(if (desktop) Modifier.padding(12.dp).widthIn(max = 380.dp) else Modifier)
-                                .fillMaxWidth()
-                                .heightIn(max = if (desktop) 480.dp else (configuration.screenHeightDp * 0.55f).dp)
-                                .onSizeChanged { panelSize = it }.testTag("map_place_panel"),
-                                shape = if (desktop) MaterialTheme.shapes.large else RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                                tonalElevation = 6.dp, shadowElevation = 6.dp) {
-                                Column(Modifier.padding(12.dp)) {
+                                .fillMaxSize(),
+                                containerColor = Color.Transparent,
+                                sheetPeekHeight = 280.dp,
+                                sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                                sheetShadowElevation = 6.dp,
+                                sheetContent = {
+                                Column(Modifier.fillMaxWidth()
+                                    .heightIn(max = sheetMaxHeight)
+                                    .onGloballyPositioned { panelBounds = it.boundsInWindow() }
+                                    .testTag("map_place_panel").padding(horizontal = 16.dp, vertical = 8.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(sharedMapLabel(selected).takeIf { selection.memoLocations.distinct().size == 1 }
                                             ?: "${point.latitude}, ${point.longitude}",
@@ -149,17 +163,20 @@ fun MapScreen(
                                     Text(stringResource(R.string.map_place_count, selected.size),
                                         style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 12.dp))
                                     if (ui.session.currUser != null) {
-                                        Button(onClick = {
+                                        FilledTonalButton(onClick = {
                                             ui.accounts.firstOrNull { it.isActive }?.let { account ->
                                                 openEditor(EditorRequest(account.id, titleRes = R.string.map_draft_here,
                                                     location = ownMapLocation(point, selected, ui.session.currUser?.name),
                                                     visibility = ui.session.userSettings?.memoVisibility ?: org.example.memosm.model.Visibility.PRIVATE))
                                             }
-                                        }, modifier = Modifier.fillMaxWidth().testTag("map_new_here")) {
+                                        }, shape = RoundedCornerShape(50), modifier = Modifier.testTag("map_new_here")) {
+                                            Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
                                             Text(stringResource(R.string.map_draft_here))
                                         }
                                     }
-                                    LazyColumn(Modifier.weight(1f, fill = false).testTag("map_place_memos")) {
+                                    LazyColumn(Modifier.weight(1f, fill = false).testTag("map_place_memos"),
+                                        contentPadding = PaddingValues(bottom = 16.dp)) {
                                         if (selected.isEmpty()) item {
                                             Text(stringResource(R.string.map_place_empty), modifier = Modifier.padding(12.dp))
                                         }
@@ -174,15 +191,16 @@ fun MapScreen(
                                         }
                                     }
                                 }
-                            }
+                            }) {}
                         }
                     }
-                    Column(Modifier.align(Alignment.TopCenter).padding(top = 12.dp)
+                    Column(Modifier.align(Alignment.TopCenter)
+                        .then(if (searchExpanded) Modifier.fillMaxSize() else Modifier.fillMaxWidth().padding(top = 12.dp))
                         .onSizeChanged { controlsHeight = it.height }) {
                       MemoSearchBar(viewModel = viewModel, onMemoClick = onMemoClick,
                         localMemos = map.memos, onLocalResultsChanged = { searchResults = it },
-                        onExpandedChange = { searchExpanded = it }, filterActionLabel = stringResource(R.string.map_show_results),
-                        modifier = Modifier.heightIn(max = (configuration.screenHeightDp * 0.65f).dp),
+                        onExpandedChange = { searchExpanded = it; onToggleNavBar?.invoke(!it) },
+                        filterActionLabel = stringResource(R.string.map_show_results),
                         extraFilters = {
                             if (map.scope == MapScope.MEMOS && ui.userMemoList.shortcuts.isNotEmpty()) {
                                 Box(Modifier.padding(horizontal = 16.dp)) {

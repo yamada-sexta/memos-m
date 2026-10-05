@@ -23,6 +23,7 @@ import org.example.memosm.model.*
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertTrue
 import org.koin.core.context.GlobalContext
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.MapLibreMap
@@ -33,6 +34,8 @@ class MapNavigationTest {
     @get:Rule val compose = createEmptyComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val accountId = "map-navigation-test"
+    private val latitude = 41.881832
+    private val longitude = -87.623177
     private val settings get() = GlobalContext.get().get<DataStoreManager>()
     private fun label(id: Int) = context.getString(id)
 
@@ -43,7 +46,7 @@ class MapNavigationTest {
         koin.get<MemoCacheRepository>().clearCache(accountId)
         koin.get<MemoCacheRepository>().cacheMemos(accountId, CacheListType.USER, listOf(
             Memo(name = "memos/own", creator = "users/1", content = "My mapped memo", state = MemoState.NORMAL,
-                location = Location(placeholder = "My place", latitude = 0.0, longitude = 0.0), tags = listOf("place")),
+                location = Location(placeholder = "My place", latitude = latitude, longitude = longitude), tags = listOf("place")),
             Memo(name = "memos/unlocated", creator = "users/1", content = "Unlocated memo", state = MemoState.NORMAL,
                 tags = listOf("unmapped"))
         ))
@@ -79,7 +82,14 @@ class MapNavigationTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             openMap()
             compose.onNodeWithTag("map_fit_all").assertIsEnabled()
+            val searchBounds = compose.onNodeWithTag("memo_search_bar").fetchSemanticsNode().boundsInRoot
+            val scopeBounds = compose.onNodeWithTag("map_scopes").fetchSemanticsNode().boundsInRoot
+            assertTrue("Scope pills belong directly below search", scopeBounds.top >= searchBounds.bottom && scopeBounds.top - searchBounds.bottom < 80f)
             compose.onNodeWithTag("memo_search_bar").performClick()
+            compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_scopes").fetchSemanticsNodes().isEmpty() }
+            val expandedBounds = compose.onNodeWithTag("memo_search_bar").fetchSemanticsNode().boundsInRoot
+            val mapBounds = compose.onNodeWithTag("memo_map_canvas").fetchSemanticsNode().boundsInRoot
+            assertTrue("Expanded search fills the map viewport", expandedBounds.height >= mapBounds.height * 0.85f)
             compose.onNodeWithText("#place").assertExists()
             compose.onNodeWithText("#unmapped").assertDoesNotExist()
             compose.onNodeWithText(label(R.string.map_show_results)).performScrollTo().performClick()
@@ -112,34 +122,35 @@ class MapNavigationTest {
         runBlocking {
             GlobalContext.get().get<MemoCacheRepository>().cacheMemos(accountId, CacheListType.USER, listOf(
                 Memo(name = "memos/second", creator = "users/1", content = "Another memo at my place", state = MemoState.NORMAL,
-                    location = Location(placeholder = "My place", latitude = 0.0, longitude = 0.0))
+                    location = Location(placeholder = "My place", latitude = latitude, longitude = longitude))
             ), replace = false)
         }
         ActivityScenario.launch(MainActivity::class.java).use {
             openMap()
             tapRenderedPin()
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("map_place_panel").performTouchInput { swipeUp() }
             compose.onNodeWithText("My mapped memo").assertIsDisplayed()
-            compose.onNodeWithText("Another memo at my place").assertIsDisplayed()
+            compose.onNodeWithText("Another memo at my place").performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("map_new_here").performClick()
             awaitEditor()
             compose.onNode(hasSetTextAction()).performTextInput("A draft at this place")
             compose.waitUntil(15_000) {
                 runBlocking { GlobalContext.get().get<DraftManager>().getDrafts(accountId) }
-                    .any { it.content == "A draft at this place" && it.location?.latitude == 0.0 && it.location.longitude == 0.0 }
+                    .any { it.content == "A draft at this place" && it.location?.latitude == latitude && it.location.longitude == longitude }
             }
             returnToMap()
         }
     }
 
     private fun awaitEditor() {
-        compose.waitUntil(20_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size == 1 }
+        compose.waitUntil(20_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes(atLeastOneRootRequired = false).size == 1 }
         compose.onNodeWithText(label(R.string.map_draft_here)).assertIsDisplayed()
     }
 
     private fun returnToMap() {
         compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag("memo_map_canvas").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag("memo_map_canvas").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
     }
 
     private fun tapRenderedPin() {
