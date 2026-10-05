@@ -5,9 +5,18 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.example.memosm.model.Location
 
 class LocationNamesTest {
     private val chicago = LocationNameKey(41.881832, -87.623177, "en-US")
+
+    @Test fun `legacy coordinate labels and failed lookup labels are named again`() {
+        val location = Location(latitude = chicago.latitude, longitude = chicago.longitude)
+        assertNull(location.copy(placeholder = "${chicago.latitude}, ${chicago.longitude}")
+            .customLocationName("Current Location"))
+        assertNull(location.copy(placeholder = "Current Location").customLocationName("Current Location"))
+        assertEquals("My place", location.copy(placeholder = " My place ").customLocationName("Current Location"))
+    }
 
     @Test fun `repeated positions reuse successful names`() = runTest {
         val cache = LruCache<LocationNameKey, String>(2)

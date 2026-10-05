@@ -2,6 +2,7 @@ package org.example.memosm.ui.nav
 
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +29,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
@@ -96,6 +98,7 @@ fun MapScreen(
         viewModel.memoMapManager.open()
         onDispose { viewModel.memoMapManager.close() }
     }
+    BackHandler(place != null && !searchExpanded && ui.detailPane.selectedMemo == null) { place = null }
     MemosScaffold(
         viewModel = viewModel,
         memos = map.memos,
@@ -116,7 +119,7 @@ fun MapScreen(
                             labelColor = mapPinLabelColor(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary),
                             initialFitReady = !map.isLoading && (map.complete || map.isOffline || map.loadFailed),
                             selection = place?.location,
-                            panelBounds = if (place != null && !searchExpanded && ui.detailPane.selectedMemo == null)
+                            panelBounds = if (place != null && !searchExpanded)
                                 panelBounds?.translate(-mapBounds.left, -mapBounds.top) else null,
                             onPlace = { place = it }, onTileError = { tileError = it })
                     }
@@ -144,15 +147,21 @@ fun MapScreen(
                             MapNotice(stringResource(if (map.memos.isNotEmpty() || map.savedView != null)
                                 R.string.map_no_results else R.string.map_empty), modifier = Modifier.align(Alignment.Center).padding(24.dp))
                         }
-                        place?.takeIf { !searchExpanded && ui.detailPane.selectedMemo == null }?.let { selection ->
+                        place?.takeIf { !searchExpanded }?.let { selection ->
                             val point = selection.location
-                            ModalBottomSheet(
-                                onDismissRequest = { place = null },
-                                sheetState = rememberModalBottomSheetState(),
+                            val sheetState = rememberBottomSheetState(initialValue = SheetValue.PartiallyExpanded)
+                            LaunchedEffect(sheetState.currentValue) {
+                                if (sheetState.currentValue == SheetValue.Hidden) place = null
+                            }
+                            BottomSheetScaffold(
+                                modifier = Modifier.fillMaxSize(),
+                                scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = sheetState),
+                                sheetPeekHeight = 280.dp,
                                 sheetMaxWidth = sheetWidth,
-                                dragHandle = { BottomSheetDefaults.DragHandle(Modifier.testTag("map_place_drag_handle")) },
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                            ) {
+                                sheetDragHandle = { BottomSheetDefaults.DragHandle(Modifier.testTag("map_place_drag_handle")) },
+                                containerColor = Color.Transparent,
+                                sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                sheetContent = {
                                 Column(Modifier.fillMaxWidth()
                                     .heightIn(max = sheetMaxHeight)
                                     .onGloballyPositioned { panelBounds = it.boundsInWindow() }
@@ -199,7 +208,7 @@ fun MapScreen(
                                         }
                                     }
                                 }
-                            }
+                            }) {}
                         }
                     }
                     Column(Modifier.align(Alignment.TopCenter)

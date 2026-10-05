@@ -135,7 +135,7 @@ class MapNavigationTest {
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel").fetchSemanticsNodes().isNotEmpty() }
             compose.waitForIdle()
             val collapsedTop = compose.onNodeWithTag("map_place_panel").fetchSemanticsNode().boundsInRoot.top
-            compose.onNodeWithTag("map_place_drag_handle").performTouchInput {
+            compose.onNodeWithTag("map_place_drag_handle", useUnmergedTree = true).performTouchInput {
                 swipe(start = center, end = Offset(center.x, center.y - 600f), durationMillis = 500)
             }
             compose.waitForIdle()
@@ -165,6 +165,14 @@ class MapNavigationTest {
             compose.waitUntil(15_000) {
                 compose.onAllNodesWithContentDescription(label(R.string.memo_detail_back))
                     .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            }
+            if (context.resources.configuration.screenWidthDp >= 840) {
+                compose.onNodeWithTag("map_place_panel").assertIsDisplayed()
+                val mapBounds = compose.onNodeWithTag("memo_map_canvas").fetchSemanticsNode().boundsInRoot
+                val panelBounds = compose.onNodeWithTag("map_place_panel").fetchSemanticsNode().boundsInRoot
+                val backBounds = compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).fetchSemanticsNode().boundsInRoot
+                assertTrue("The place sheet stays in the map pane", panelBounds.left >= mapBounds.left && panelBounds.right <= mapBounds.right)
+                assertTrue("The memo pane stays reachable beside the map", backBounds.left >= mapBounds.right)
             }
             compose.onNodeWithContentDescription(label(R.string.memo_detail_back)).performClick()
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel")

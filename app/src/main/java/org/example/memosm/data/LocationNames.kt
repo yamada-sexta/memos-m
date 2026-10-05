@@ -27,13 +27,19 @@ internal suspend fun cachedLocationName(
     lookup: suspend () -> String?
 ): String? = cache[key] ?: lookup()?.takeIf { it.isNotBlank() }?.also { cache.put(key, it) }
 
+internal fun Location.customLocationName(defaultName: String): String? = placeholder?.trim()?.takeIf {
+    it.isNotBlank() && it != defaultName && it != "$latitude, $longitude"
+}
+
 /** Shared naming for GPS locations and places selected on the map. Keep custom names. */
 suspend fun resolveLocationName(context: Context, location: Location): Location = withContext(Dispatchers.IO) {
-    if (!location.placeholder.isNullOrBlank() || !location.hasValidCoordinates()) return@withContext location
+    if (!location.hasValidCoordinates()) return@withContext location
+    val defaultName = context.getString(R.string.memo_composer_location_default_placeholder)
+    location.customLocationName(defaultName)?.let { return@withContext location.copy(placeholder = it) }
     val locale = Locale.getDefault()
     val key = LocationNameKey(location.latitude!!, location.longitude!!, locale.toLanguageTag())
     val name = cachedLocationName(key) { reverseGeocode(context, key, locale) }
-    location.copy(placeholder = name ?: context.getString(R.string.memo_composer_location_default_placeholder))
+    location.copy(placeholder = name ?: defaultName)
 }
 
 private suspend fun reverseGeocode(context: Context, key: LocationNameKey, locale: Locale): String? =
