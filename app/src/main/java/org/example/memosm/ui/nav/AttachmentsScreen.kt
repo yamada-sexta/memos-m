@@ -43,9 +43,9 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
-import org.example.memosm.model.isAudioAttachmentType
 import org.example.memosm.ui.component.ErrorView
 import org.example.memosm.ui.component.item.AttachmentCard
+import org.example.memosm.ui.component.item.AttachmentCompactMode
 import org.example.memosm.ui.component.item.media.AttachmentOrigins
 import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import org.example.memosm.ui.component.item.media.attachmentOrigin
@@ -227,15 +227,15 @@ fun AttachmentsScreen(
                         mediaModifier = Modifier.attachmentOrigin(attachmentOrigins, attachment),
                         token = uiState.session.token,
                         hostUrl = uiState.session.hostUrl,
+                        compactMode = AttachmentCompactMode.Width,
                         gallery = true,
-                        showInfo = false,
                         modifier = modifier,
                         onClick = {
                             fullScreenInitialIndex = item.index
                             showFullScreenViewer = true
                         },
-                        onRatioAvailable = { ratio, exact ->
-                            if (exact && !isAudioAttachmentType(attachment.displayType)) viewModel.updateAttachmentAspectRatio(
+                        onMediaRatioAvailable = { ratio, exact ->
+                            if (exact) viewModel.updateAttachmentAspectRatio(
                                 accountIdentity?.id, accountIdentity?.generation ?: 0,
                                 attachment.identityKey, ratio
                             )

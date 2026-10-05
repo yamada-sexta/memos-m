@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,7 +48,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExpandedFullScreenSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -253,7 +253,7 @@ fun MemoSearchBar(
 
     Box(
         modifier = modifier
-            .then(if (expanded) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
+            .then(if (expanded) Modifier.fillMaxSize().imePadding() else Modifier.fillMaxWidth())
             .padding(horizontal = if (expanded) 0.dp else 16.dp)
             .focusRequester(containerFocusRequester)
             .focusable()
@@ -309,16 +309,19 @@ fun MemoSearchBar(
                 },
             )
         }
+        // The inline overload respects the list pane's bounds and scaffold insets.
+        // The newer expanded variants use separate dialog/popup windows.
+        @Suppress("DEPRECATION")
         SearchBar(
-            state = searchBarState,
-            modifier = Modifier.fillMaxWidth().testTag("memo_search_bar"),
-            inputField = inputField
-        )
-        ExpandedFullScreenSearchBar(
-            state = searchBarState,
             inputField = inputField,
-            // MemosScaffold already handles status bar padding.
-            windowInsets = { WindowInsets(0, 0, 0, 0) }
+            expanded = expanded,
+            onExpandedChange = { expand ->
+                if (expand) searchScope.launch { searchBarState.animateToExpanded() }
+                else collapseSearch()
+            },
+            modifier = Modifier.fillMaxWidth().testTag("memo_search_bar"),
+            // This surface stays inside MemosScaffold, which handles system bars and cutouts.
+            windowInsets = WindowInsets(0, 0, 0, 0)
         ) {
             SearchResultContent(
                 query = query,

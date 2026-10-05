@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,14 +19,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Forward30
+import androidx.compose.material.icons.outlined.Replay30
+import androidx.compose.material.icons.automirrored.outlined.VolumeDown
+import androidx.compose.material.icons.automirrored.outlined.VolumeMute
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
@@ -40,15 +51,19 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -56,59 +71,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.example.memosm.R
 import java.util.Locale
 
 enum class AudioPlayerMode {
-    WIDE, NORMAL, COMPACT, GALLERY
-}
-
-internal data class AudioTrackMetadata(
-    val title: String? = null,
-    val artist: String? = null,
-    val album: String? = null,
-    val durationMs: Long? = null
-)
-
-internal data class AudioMetadataText(val title: String, val subtitle: String?, val details: String?)
-
-internal fun audioMetadataText(
-    filename: String, metadata: AudioTrackMetadata, fileType: String?, fileSize: String?
-): AudioMetadataText {
-    fun String?.nonBlank() = this?.trim()?.takeIf { it.isNotEmpty() }
-    val tags = listOfNotNull(
-        metadata.title.nonBlank()?.takeIf { it != filename }, metadata.artist.nonBlank(), metadata.album.nonBlank()
-    )
-    val subtitle = tags.joinToString(" • ").takeIf { it.isNotEmpty() }
-    val details = listOfNotNull(
-        metadata.durationMs?.takeIf { it > 0 }?.let(::formatAudioTime),
-        fileType.nonBlank(), fileSize.nonBlank()
-    ).joinToString(" • ").takeIf { it.isNotEmpty() }
-    return AudioMetadataText(filename, subtitle, details)
-}
-
-@Composable
-internal fun AudioMetadataContent(
-    filename: String,
-    metadata: AudioTrackMetadata = AudioTrackMetadata(),
-    fileType: String? = null,
-    fileSize: String? = null,
-    modifier: Modifier = Modifier
-) {
-    val text = audioMetadataText(filename, metadata, fileType, fileSize)
-    Column(
-        modifier = modifier.padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(Icons.Outlined.AudioFile, contentDescription = null, modifier = Modifier.size(24.dp))
-        Spacer(Modifier.height(4.dp))
-        Text(text.title, style = MaterialTheme.typography.bodySmall, maxLines = 2,
-            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-        text.details?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-        }
-    }
+    WIDE, NORMAL, COMPACT, FULL_SCREEN
 }
 
 @OptIn(UnstableApi::class)
@@ -120,8 +87,6 @@ fun AudioPlayer(
     modifier: Modifier = Modifier,
     mode: AudioPlayerMode = AudioPlayerMode.NORMAL,
     showContainer: Boolean = true,
-    fileType: String? = null,
-    fileSize: String? = null,
     onPlayingStateChanged: (Boolean) -> Unit = {}
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
@@ -134,41 +99,35 @@ fun AudioPlayer(
         ).build()
     }
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
-    var progress by remember(exoPlayer) { mutableFloatStateOf(0f) }
+    var playWhenReady by remember(exoPlayer) { mutableStateOf(false) }
     var duration by remember(exoPlayer) { mutableLongStateOf(0L) }
     var currentPosition by remember(exoPlayer) { mutableLongStateOf(0L) }
+    var scrubPosition by remember(exoPlayer) { mutableStateOf<Long?>(null) }
     var isPrepared by remember(exoPlayer) { mutableStateOf(false) }
-
-    var trackMetadata by remember(exoPlayer) { mutableStateOf(AudioTrackMetadata()) }
+    var isSeekable by remember(exoPlayer) { mutableStateOf(false) }
+    var isBuffering by remember(exoPlayer) { mutableStateOf(false) }
+    var volume by remember(exoPlayer) { mutableFloatStateOf(exoPlayer.volume) }
+    var audibleVolume by remember(exoPlayer) { mutableFloatStateOf(1f) }
+    val onPlayingChanged by rememberUpdatedState(onPlayingStateChanged)
+    val controlsEnabled = !LocalViewerGesturesBlocked.current
+    val displayedPosition = scrubPosition ?: currentPosition
+    val progress = audioProgress(displayedPosition, duration)
+    val canSeek = isPrepared && isSeekable && duration > 0 && controlsEnabled
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
-            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
-                trackMetadata = AudioTrackMetadata(
-                    title = mediaMetadata.title?.toString(),
-                    artist = mediaMetadata.artist?.toString(),
-                    album = mediaMetadata.albumTitle?.toString(),
-                    durationMs = duration
-                )
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    isPrepared = true
-                    duration = exoPlayer.duration
-                    trackMetadata = trackMetadata.copy(durationMs = duration)
-                } else if (playbackState == Player.STATE_ENDED) {
-                    progress = 0f
-                    currentPosition = 0
-                    exoPlayer.pause()
-                    exoPlayer.seekTo(0)
-                    onPlayingStateChanged(false)
-                }
+            override fun onEvents(player: Player, events: Player.Events) {
+                duration = player.duration.coerceAtLeast(0L)
+                currentPosition = player.currentPosition.coerceAtLeast(0L)
+                isPrepared = player.playbackState != Player.STATE_IDLE
+                playWhenReady = player.playWhenReady && player.playbackState != Player.STATE_ENDED
+                isSeekable = player.isCurrentMediaItemSeekable
+                isBuffering = player.playbackState == Player.STATE_BUFFERING
             }
 
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
-                onPlayingStateChanged(playing)
+                onPlayingChanged(playing)
             }
         }
         exoPlayer.addListener(listener)
@@ -177,48 +136,157 @@ fun AudioPlayer(
         onDispose {
             exoPlayer.removeListener(listener)
             exoPlayer.release()
+            onPlayingChanged(false)
         }
     }
 
-    LaunchedEffect(isPlaying) {
+    LaunchedEffect(exoPlayer, isPlaying) {
         while (isPlaying) {
-            currentPosition = exoPlayer.currentPosition
-            progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
-            delay(500)
+            currentPosition = exoPlayer.currentPosition.coerceAtLeast(0L)
+            delay(250)
         }
     }
 
     val togglePlayback = {
-        if (isPrepared) {
-            if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+        when {
+            exoPlayer.playbackState == Player.STATE_ENDED -> {
+                exoPlayer.seekTo(0L)
+                exoPlayer.play()
+            }
+            exoPlayer.playWhenReady -> exoPlayer.pause()
+            else -> exoPlayer.play()
         }
     }
+    val seekTo: (Long) -> Unit = { position ->
+        val target = audioSeekPosition(position, duration)
+        exoPlayer.seekTo(target)
+        currentPosition = target
+    }
+    val changeVolume: (Float) -> Unit = { requested ->
+        volume = requested.coerceIn(0f, 1f)
+        if (volume > 0f) audibleVolume = volume
+        exoPlayer.volume = volume
+    }
+    val seekLabel = stringResource(R.string.audio_seek)
+    val playbackLabel = stringResource(if (playWhenReady) R.string.memo_action_pause else R.string.memo_action_play)
+    val seekDescription = "${formatAudioTime(displayedPosition)} / ${formatAudioTime(duration)}"
+    val seekSlider: @Composable (Modifier) -> Unit = { sliderModifier ->
+        val sliderState = remember(exoPlayer) { SliderState(value = progress) }
+        LaunchedEffect(progress) { sliderState.value = progress }
+        Slider(
+            state = sliderState,
+            enabled = canSeek,
+            onValueChange = { scrubPosition = (it * duration).toLong() },
+            onValueChangeFinished = {
+                scrubPosition?.let(seekTo)
+                scrubPosition = null
+            },
+            modifier = sliderModifier.semantics {
+                contentDescription = seekLabel
+                stateDescription = seekDescription
+            }
+        )
+    }
+
     val content = @Composable {
         when (mode) {
-            AudioPlayerMode.GALLERY -> BoxWithConstraints(Modifier.fillMaxSize()) {
-                val text = audioMetadataText(filename, trackMetadata, fileType, fileSize)
-                val showTags = maxHeight >= 160.dp
+            AudioPlayerMode.FULL_SCREEN -> Box(
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
+            ) {
                 Column(
-                    Modifier.fillMaxSize().padding(8.dp),
+                    modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth()
+                        .verticalScroll(rememberScrollState()).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    PlayPauseButton(
-                        isPlaying = isPlaying, isPrepared = isPrepared, onToggle = togglePlayback,
-                        modifier = Modifier.size(48.dp), iconSize = 28.dp
+                    Text(
+                        text = filename, style = MaterialTheme.typography.titleLarge,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
-                    Text(text.title, style = MaterialTheme.typography.bodySmall, maxLines = if (showTags) 2 else 1,
-                        overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                    if (showTags) text.subtitle?.let {
-                        Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(formatAudioTime(displayedPosition), style = MaterialTheme.typography.labelMedium)
+                        seekSlider(Modifier.weight(1f))
+                        Text(formatAudioTime(duration), style = MaterialTheme.typography.labelMedium)
                     }
-                    text.details?.let {
-                        Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val skipColors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        FilledTonalIconButton(
+                            onClick = { seekTo(currentPosition - 30_000L) }, enabled = canSeek,
+                            modifier = Modifier.weight(1f).height(80.dp),
+                            shape = MaterialTheme.shapes.extraLarge, colors = skipColors
+                        ) {
+                            Icon(Icons.Outlined.Replay30, stringResource(R.string.audio_rewind_30))
+                        }
+                        FilledIconButton(
+                            onClick = togglePlayback, enabled = isPrepared && controlsEnabled,
+                            modifier = Modifier.weight(1.3f).height(96.dp)
+                                .semantics { contentDescription = playbackLabel },
+                            shape = MaterialTheme.shapes.extraLarge
+                        ) {
+                            if (isBuffering) CircularProgressIndicator(
+                                modifier = Modifier.size(32.dp),
+                                color = MaterialTheme.colorScheme.onPrimary
+                            ) else Icon(
+                                if (playWhenReady) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                        FilledTonalIconButton(
+                            onClick = { seekTo(currentPosition + 30_000L) }, enabled = canSeek,
+                            modifier = Modifier.weight(1f).height(80.dp),
+                            shape = MaterialTheme.shapes.extraLarge, colors = skipColors
+                        ) {
+                            Icon(Icons.Outlined.Forward30, stringResource(R.string.audio_forward_30))
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val volumeDescription = stringResource(R.string.audio_volume, (volume * 100).toInt())
+                        FilledTonalIconButton(
+                            onClick = { changeVolume(if (volume > 0f) 0f else audibleVolume) },
+                            enabled = controlsEnabled,
+                            modifier = Modifier.size(48.dp).semantics { stateDescription = volumeDescription }
+                        ) {
+                            Icon(
+                                if (volume > 0f) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeMute,
+                                stringResource(if (volume > 0f) R.string.audio_mute else R.string.audio_unmute)
+                            )
+                        }
+                        FilledTonalIconButton(
+                            onClick = { changeVolume(volume - 0.1f) },
+                            enabled = controlsEnabled && volume > 0f,
+                            modifier = Modifier.weight(1f).height(48.dp)
+                                .semantics { stateDescription = volumeDescription }
+                        ) {
+                            Icon(Icons.AutoMirrored.Outlined.VolumeDown, stringResource(R.string.audio_volume_down))
+                        }
+                        FilledTonalIconButton(
+                            onClick = { changeVolume(volume + 0.1f) },
+                            enabled = controlsEnabled && volume < 1f,
+                            modifier = Modifier.weight(1f).height(48.dp)
+                                .semantics { stateDescription = volumeDescription }
+                        ) {
+                            Icon(Icons.AutoMirrored.Outlined.VolumeUp, stringResource(R.string.audio_volume_up))
+                        }
                     }
                 }
             }
+
             AudioPlayerMode.WIDE -> Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -236,21 +304,16 @@ fun AudioPlayer(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     PlayPauseButton(
-                        isPlaying = isPlaying, isPrepared = isPrepared, onToggle = togglePlayback)
+                        isPlaying = playWhenReady, isPrepared = isPrepared && controlsEnabled,
+                        onToggle = togglePlayback)
                     Column(modifier = Modifier.weight(1f)) {
-                        val sliderState = remember { SliderState(value = progress) }
-                        LaunchedEffect(progress) { sliderState.value = progress }
-                        Slider(state = sliderState, onValueChange = {
-                            if (isPrepared) {
-                                progress = it; exoPlayer.seekTo((it * duration).toLong())
-                            }
-                        }, modifier = Modifier.height(24.dp))
+                        seekSlider(Modifier.height(24.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = formatAudioTime(currentPosition),
+                                text = formatAudioTime(displayedPosition),
                                 style = MaterialTheme.typography.labelSmall
                             )
                             Text(
@@ -264,7 +327,7 @@ fun AudioPlayer(
 
             else -> {
                 Column(
-                    modifier = modifier
+                    modifier = Modifier
                         .fillMaxSize()
                         .padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -277,7 +340,8 @@ fun AudioPlayer(
                             .fillMaxWidth()
                     ) {
                         PlayPauseButton(
-                            isPlaying = isPlaying, isPrepared = isPrepared, onToggle = togglePlayback, modifier = Modifier.size(48.dp)
+                            isPlaying = playWhenReady, isPrepared = isPrepared && controlsEnabled,
+                            onToggle = togglePlayback, modifier = Modifier.size(48.dp)
                         )
                     }
 
@@ -298,7 +362,7 @@ fun AudioPlayer(
 
     if (showContainer) {
         Card(
-            modifier = modifier.then(if (mode != AudioPlayerMode.WIDE && mode != AudioPlayerMode.GALLERY) Modifier.height(100.dp) else Modifier),
+            modifier = modifier.then(if (mode == AudioPlayerMode.NORMAL || mode == AudioPlayerMode.COMPACT) Modifier.height(100.dp) else Modifier),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = MaterialTheme.shapes.medium
         ) { content() }
@@ -370,9 +434,17 @@ fun PlayPauseButton(
     }
 }
 
+internal fun audioSeekPosition(position: Long, duration: Long): Long =
+    position.coerceIn(0L, duration.coerceAtLeast(0L))
+
+internal fun audioProgress(position: Long, duration: Long): Float =
+    if (duration > 0L) audioSeekPosition(position, duration).toFloat() / duration else 0f
+
 internal fun formatAudioTime(ms: Long): String {
     val totalSeconds = ms.coerceAtLeast(0L) / 1000
-    val minutes = totalSeconds / 60
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds / 60) % 60
     val seconds = totalSeconds % 60
-    return String.format(Locale.US, "%02d:%02d", minutes, seconds)
+    return if (hours > 0) String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+    else String.format(Locale.US, "%02d:%02d", minutes, seconds)
 }

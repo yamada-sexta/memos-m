@@ -51,7 +51,8 @@ fun VideoPlayer(
     modifier: Modifier = Modifier,
     isFullScreen: Boolean = false,
     onClick: (() -> Unit)? = null,
-    onRatioAvailable: (Float) -> Unit = {}
+    onRatioAvailable: (Float) -> Unit = {},
+    onLongClick: (() -> Unit)? = null
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
@@ -137,6 +138,9 @@ fun VideoPlayer(
             }, update = { view ->
                 view.player = if (isFullscreen) null else exoPlayer
                 view.useController = isFullScreen
+                view.setOnLongClickListener(if (!isFullScreen && onLongClick != null) {
+                    android.view.View.OnLongClickListener { onLongClick(); true }
+                } else null)
             }, modifier = Modifier
                 .fillMaxSize()
                 .alpha(if (isReady) 1f else 0f)

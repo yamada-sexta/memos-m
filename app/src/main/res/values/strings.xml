@@ -109,6 +109,14 @@
     <string name="memo_action_add_reaction">Add Reaction</string>
     <string name="memo_action_play">Play</string>
     <string name="memo_action_pause">Pause</string>
+    <string name="audio_seek">Playback progress</string>
+    <string name="audio_rewind_30">Rewind 30 seconds</string>
+    <string name="audio_forward_30">Forward 30 seconds</string>
+    <string name="audio_mute">Mute</string>
+    <string name="audio_unmute">Unmute</string>
+    <string name="audio_volume_down">Decrease volume</string>
+    <string name="audio_volume_up">Increase volume</string>
+    <string name="audio_volume">Volume %1$d%%</string>
 
     <string name="memo_composer_placeholder">What\'s on your mind?</string>
     <string name="memo_composer_remove_attachment">Remove</string>
@@ -466,4 +474,5 @@
     <string name="login_sso_failed">SSO sign-in failed. Please try again. Your administrator may need to register the app callback URI.</string>
     <string name="login_sso_token_failed">Signed in, but could not create an app access token. Please try again.</string>
     <string name="attachments_unknown_date">Unknown date</string>
+    <string name="attachments_video">Video</string>
 </resources>

@@ -1,6 +1,6 @@
 package org.example.memosm.ui.component.item.media
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -124,7 +124,7 @@ fun FileThumbnail(
     mode: FileThumbnailMode,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    details: String? = null
+    onLongClick: (() -> Unit)? = null
 ) {
     // Better identification by looking at both the type and the name
     val fileType = remember(displayType, filename) {
@@ -136,7 +136,7 @@ fun FileThumbnail(
             Row(
                 modifier = modifier
                     .fillMaxSize()
-                    .clickable { onClick() }
+                    .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center) {
@@ -161,29 +161,25 @@ fun FileThumbnail(
             Column(
                 modifier = modifier
                     .fillMaxSize()
-                    .clickable { onClick() }
-                    .padding(if (details != null) 8.dp else 16.dp),
+                    .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Icon(
                     imageVector = fileType.icon,
                     contentDescription = null,
-                    modifier = Modifier.size(if (details != null) 24.dp else 32.dp),
+                    modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
                 if (mode == FileThumbnailMode.NORMAL) {
-                    Spacer(modifier = Modifier.height(if (details != null) 4.dp else 8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = filename,
-                        style = if (details != null) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
                     )
-                }
-                details?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                 }
             }
         }

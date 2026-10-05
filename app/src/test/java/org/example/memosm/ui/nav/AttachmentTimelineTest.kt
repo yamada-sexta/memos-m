@@ -166,12 +166,14 @@ class AttachmentTimelineTest {
         val entries = attachmentTimelineEntries(days, emptyMap(), 400f, 120f)
         val rows = entries.filterIsInstance<AttachmentTimelineEntry.Row>()
         assertEquals(listOf(0, 1, 2, 3, 4), rows.flatMap { row -> row.attachments.map { it.index } })
-        assertEquals(2, rows.size)
         assertEquals(1, entries.filterIsInstance<AttachmentTimelineEntry.Day>().size)
         val key = days.single().attachments[1].key
         assertTrue((entries[timelineRowIndex(entries, key)!!] as AttachmentTimelineEntry.Row).attachments.size > 1)
         rows.forEach { row ->
-            row.geometry.widths.forEach { width -> assertEquals(row.geometry.height, width, 0.001f) }
+            row.attachments.forEachIndexed { column, item ->
+                val expectedRatio = if (item.attachment.displayType.contains("image", ignoreCase = true)) 1f else 2f
+                assertEquals(expectedRatio, row.geometry.widths[column] / row.geometry.height, 0.001f)
+            }
         }
     }
 

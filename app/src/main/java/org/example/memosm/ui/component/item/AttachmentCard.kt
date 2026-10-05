@@ -6,9 +6,8 @@ import android.util.Base64
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,8 +17,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,34 +36,31 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import org.example.memosm.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.example.memosm.R
 import org.example.memosm.model.Attachment
-import org.example.memosm.model.isAudioAttachmentType
 import org.example.memosm.ui.component.item.media.AttachmentOrigin
 import org.example.memosm.ui.component.item.media.AudioPlayer
 import org.example.memosm.ui.component.item.media.AudioPlayerMode
-import org.example.memosm.ui.component.item.media.AudioMetadataContent
 import org.example.memosm.ui.component.item.media.FileThumbnail
 import org.example.memosm.ui.component.item.media.FileThumbnailMode
 import org.example.memosm.ui.component.item.media.FullScreenImageViewer
 import org.example.memosm.ui.component.item.media.MemoImage
-import org.example.memosm.ui.component.item.media.LocalViewerGesturesBlocked
 import org.example.memosm.ui.component.item.media.VideoPlayer
 import org.example.memosm.viewmodel.manager.AttachmentManager
 import java.io.File
+
+internal val AttachmentCardMetadataHeight = 56.dp
 
 enum class AttachmentCompactMode {
     Area, Width, Height, Always, Never
@@ -81,18 +83,21 @@ fun AttachmentCard(
     onClick: (() -> Unit)? = null,
     onRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> },
     mediaModifier: Modifier = Modifier,
-    gallery: Boolean = false
+    gallery: Boolean = false,
+    onMediaRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> }
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
     val origin = remember { AttachmentOrigin() }
     var showInfoDialog by remember { mutableStateOf(false) }
-    var showGalleryActions by remember(attachment, accountIdentity) { mutableStateOf(false) }
-    val gesturesBlocked = LocalViewerGesturesBlocked.current
-    val moreLabel = stringResource(R.string.memo_action_more)
     var showFullScreenImage by remember { mutableStateOf(false) }
     var isAudioPlaying by remember { mutableStateOf(false) }
+    var showAttachmentActions by remember(attachment, uri, accountIdentity) { mutableStateOf(false) }
+    val onLongClick: (() -> Unit)? = if (gallery && showInfo && showActions && !isFullScreen) {
+        { showAttachmentActions = true }
+    } else null
+    val moreLabel = stringResource(R.string.memo_action_more)
 
     val info = rememberAttachmentInfo(attachment, uri)
     val filename = info.filename
@@ -105,14 +110,10 @@ fun AttachmentCard(
         )
     }
     val isAudio = remember(displayType) {
-        isAudioAttachmentType(displayType)
+        displayType.startsWith("audio/", ignoreCase = true) || displayType.contains(
+            "audio", ignoreCase = true
+        )
     }
-    val galleryClickModifier = if (gallery) Modifier.combinedClickable(
-        enabled = !gesturesBlocked,
-        onClick = { onClick?.invoke() ?: run { showInfoDialog = true } },
-        onLongClickLabel = moreLabel,
-        onLongClick = if (showActions) ({ showGalleryActions = true }) else null
-    ) else Modifier
     val isVideo = remember(displayType) {
         displayType.startsWith("video/", ignoreCase = true) || displayType.contains(
             "video", ignoreCase = true
@@ -176,18 +177,30 @@ fun AttachmentCard(
     var isIntrinsicExact by remember(attachment, uri, accountIdentity) { mutableStateOf(false) }
 
     val backgroundColor by animateColorAsState(
-        targetValue = if (isAudioPlaying) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+        targetValue = when {
+            isFullScreen && isAudio -> MaterialTheme.colorScheme.surfaceContainerLow
+            isAudioPlaying -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
         label = "AttachmentCardBackground",
         animationSpec = tween(durationMillis = 300)
     )
 
     Card(
-        modifier = modifier.then(if (gallery && isAudio) galleryClickModifier else Modifier),
-        shape = if (gallery) RoundedCornerShape(2.dp) else MaterialTheme.shapes.medium,
+        modifier = modifier.then(
+            if (gallery && !isFullScreen) Modifier.combinedClickable(
+                onClick = onClick ?: {
+                    if (isImage) showFullScreenImage = true else showInfoDialog = true
+                },
+                onLongClick = onLongClick,
+                onLongClickLabel = moreLabel
+            ) else Modifier
+        ),
+        shape = if (gallery) RectangleShape else MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(defaultElevation = if (gallery) 0.dp else 2.dp)
     ) {
         @Suppress("COMPOSE_APPLIER_CALL_MISMATCH") BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val isCompact = gallery || when (compactMode) {
+            val isCompact = when (compactMode) {
                 AttachmentCompactMode.Always -> true
                 AttachmentCompactMode.Never -> false
                 AttachmentCompactMode.Width -> maxWidth < 160.dp
@@ -198,8 +211,8 @@ fun AttachmentCard(
                 }
             }
             val isWide = !isCompact && maxWidth > 240.dp
-            val showFooter =
-                !gallery && showInfo && !isCompact && (showFilename || showSize || attachment?.createTime != null)
+            val showFooter = showInfo && !gallery && !isCompact &&
+                (showFilename || showSize || attachment?.createTime != null)
 
             // Report total ratio to parent
             LaunchedEffect(
@@ -208,14 +221,13 @@ fun AttachmentCard(
                 maxWidth,
                 isCompact,
                 isWide,
-                showInfo,
+                showFooter,
                 showFilename,
                 showActions,
                 showSize
             ) {
                 val w = maxWidth.value
-                val footerHeight =
-                    if (showInfo && !isCompact && (showFilename || showSize || attachment?.createTime != null)) 56f else 0f
+                val footerHeight = if (showFooter) AttachmentCardMetadataHeight.value else 0f
 
                 val calculatedRatio = if (isImage || isVideo) {
                     if (w > 0 && footerHeight > 0) {
@@ -243,6 +255,7 @@ fun AttachmentCard(
                 // If it's not an image/video, the calculated ratio is always exact (we defined it)
                 val isExact = if (isImage || isVideo) isIntrinsicExact else true
                 onRatioAvailable(calculatedRatio, isExact)
+                onMediaRatioAvailable(if (isImage || isVideo) intrinsicRatio else 2f, isExact)
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
@@ -255,10 +268,6 @@ fun AttachmentCard(
                         .then(mediaModifier),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Only the gallery overlay exposes actions to accessibility services.
-                    val mediaContentModifier = Modifier.fillMaxSize().then(
-                        if (gallery && !isAudio) Modifier.clearAndSetSemantics {} else Modifier
-                    )
                     if (isImage) {
                         MemoImage(
                             attachment = attachment,
@@ -266,12 +275,13 @@ fun AttachmentCard(
                             hostUrl = hostUrl,
                             uri = uri,
                             filename = filename,
-                            modifier = mediaContentModifier,
+                            modifier = Modifier.fillMaxSize(),
                             onRatioAvailable = {
                                 intrinsicRatio = it
                                 isIntrinsicExact = true
                             },
                             onClick = if (isFullScreen) null else { onClick ?: { showFullScreenImage = true } },
+                            onLongClick = onLongClick,
                             isFullScreen = isFullScreen
                         )
                     } else if (isVideo) {
@@ -292,9 +302,10 @@ fun AttachmentCard(
                             VideoPlayer(
                                 url = videoUrl,
                                 token = token,
-                                modifier = mediaContentModifier,
+                                modifier = Modifier.fillMaxSize(),
                                 isFullScreen = isFullScreen,
                                 onClick = if (isFullScreen) null else onClick,
+                                onLongClick = onLongClick,
                                 onRatioAvailable = {
                                     intrinsicRatio = it
                                     isIntrinsicExact = true
@@ -306,20 +317,16 @@ fun AttachmentCard(
                             filename = filename,
                             token = token,
                             mode = when {
-                                gallery -> AudioPlayerMode.GALLERY
-                                isFullScreen -> AudioPlayerMode.NORMAL
+                                isFullScreen -> AudioPlayerMode.FULL_SCREEN
+                                gallery -> AudioPlayerMode.WIDE
                                 isWide -> AudioPlayerMode.WIDE
                                 isCompact -> AudioPlayerMode.COMPACT
                                 else -> AudioPlayerMode.NORMAL
                             },
                             showContainer = false,
-                            fileType = displayType,
-                            fileSize = info.size,
                             onPlayingStateChanged = { isAudioPlaying = it },
-                            modifier = mediaContentModifier
+                            modifier = Modifier.fillMaxSize()
                         )
-                    } else if (gallery && isAudio) {
-                        AudioMetadataContent(filename, fileType = displayType, fileSize = info.size, modifier = mediaContentModifier)
                     } else {
                         // Check if it's a profile picture/avatar
                         val isProfilePicture = remember(displayType) {
@@ -336,30 +343,45 @@ fun AttachmentCard(
                                 uri = uri,
                                 filename = filename,
                                 isRound = true,
-                                modifier = mediaContentModifier,
+                                modifier = Modifier.fillMaxSize(),
                                 onClick = if (isFullScreen) null else { onClick ?: { showFullScreenImage = true } },
+                                onLongClick = onLongClick,
                                 isFullScreen = isFullScreen
                             )
                         } else {
                             FileThumbnail(
                                 displayType = displayType,
                                 filename = filename,
-                                details = if (gallery) listOfNotNull(info.size, displayType.takeIf { it.isNotBlank() }).joinToString(" • ") else null,
                                 mode = when {
-                                    gallery -> FileThumbnailMode.NORMAL
                                     isFullScreen -> FileThumbnailMode.NORMAL
+                                    gallery -> FileThumbnailMode.WIDE
                                     isWide -> FileThumbnailMode.WIDE
                                     isCompact -> FileThumbnailMode.COMPACT
                                     else -> FileThumbnailMode.NORMAL
                                 },
                                 onClick = if (isFullScreen) { {} } else { onClick ?: { showInfoDialog = true } },
-                                modifier = mediaContentModifier
+                                onLongClick = onLongClick,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
+                    if (isVideo && !isFullScreen) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Videocam,
+                                contentDescription = stringResource(R.string.attachments_video),
+                                modifier = Modifier.padding(4.dp).size(20.dp)
                             )
                         }
                     }
 
                     // Floating menu button
-                    if (!gallery && showInfo && showActions) {
+                    if (showInfo && showActions && !gallery) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -372,17 +394,13 @@ fun AttachmentCard(
                             )
                         }
                     }
-                    if (gallery && !isAudio) {
-                        // Thumbnail controls live in the viewer; the overlay owns gallery actions.
-                        Box(Modifier.fillMaxSize().semantics { contentDescription = filename }.then(galleryClickModifier))
-                    }
                 }
 
                 if (showFooter) {
                     Column(
                         modifier = Modifier
                             .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .height(48.dp)
+                            .height(AttachmentCardMetadataHeight - 8.dp)
                     ) {
                         if (showFilename) {
                             Text(
@@ -422,10 +440,12 @@ fun AttachmentCard(
         }
     }
 
-    if (gallery && showActions) {
-        AttachmentActionsMenu(
-            attachment, token, hostUrl, filename, onShowInfo = { showInfoDialog = true },
-            visible = showGalleryActions, onDismiss = { showGalleryActions = false }
+    if (gallery && showInfo && showActions) {
+        AttachmentActionsButton(
+            attachment = attachment, token = token, hostUrl = hostUrl,
+            filename = filename, onShowInfo = { showInfoDialog = true },
+            showButton = false, expanded = showAttachmentActions,
+            onDismiss = { showAttachmentActions = false }
         )
     }
 

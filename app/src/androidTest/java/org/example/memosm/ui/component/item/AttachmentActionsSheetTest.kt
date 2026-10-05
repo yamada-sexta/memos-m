@@ -6,30 +6,35 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso.pressBack
 import org.example.memosm.model.Attachment
 import org.example.memosm.ui.theme.MemosMTheme
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertEquals
 
 class AttachmentActionsSheetTest {
     @get:Rule val compose = createComposeRule()
 
     private fun showCard(
-        attachment: Attachment? = null, showActions: Boolean = true,
-        gallery: Boolean = false, onClick: (() -> Unit)? = null
+        attachment: Attachment? = null,
+        showActions: Boolean = true,
+        gallery: Boolean = false,
+        onClick: (() -> Unit)? = null
     ) {
         compose.setContent {
             MemosMTheme {
                 AttachmentCard(
                     attachment = attachment, token = null, hostUrl = "https://example.com",
-                    modifier = Modifier.size(240.dp), showActions = showActions,
-                    gallery = gallery, onClick = onClick
+                    modifier = Modifier.size(240.dp).testTag("attachment"),
+                    showActions = showActions, gallery = gallery, onClick = onClick
                 )
             }
         }
@@ -77,22 +82,25 @@ class AttachmentActionsSheetTest {
     }
 
     @Test
-    fun galleryTapOpensAttachmentAndLongPressReusesTheActionsSheet() {
-        var opened = 0
+    fun galleryLongPressOpensExistingActionsAndNormalTapStillOpensTheAttachment() {
+        var opens = 0
         showCard(
-            Attachment(name = "attachments/test", filename = "test.pdf", type = "application/pdf"),
-            gallery = true, onClick = { opened++ }
+            attachment = Attachment(name = "attachments/test", filename = "test.pdf", type = "application/pdf"),
+            gallery = true,
+            onClick = { opens++ }
         )
-        compose.onNodeWithContentDescription("test.pdf").performClick()
-        compose.runOnIdle { org.junit.Assert.assertEquals(1, opened) }
-        compose.onNodeWithContentDescription("test.pdf").performTouchInput { longClick() }
-        compose.runOnIdle { org.junit.Assert.assertEquals(1, opened) }
+        compose.onNodeWithContentDescription("More").assertDoesNotExist()
+        compose.onNodeWithTag("attachment").performTouchInput { longClick() }
+        compose.runOnIdle { assertEquals(0, opens) }
+        listOf("Attachment Info", "Download", "Open on Web", "Share").forEach {
+            compose.onNodeWithText(it).performScrollTo().assertIsDisplayed()
+        }
+        compose.onNodeWithText("Download").performScrollTo().performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithTag("attachment").performClick()
+        compose.runOnIdle { assertEquals(1, opens) }
+        compose.onNodeWithTag("attachment").performTouchInput { longClick() }
         compose.onNodeWithText("Attachment Info").performClick()
         compose.onNodeWithText("Filename").assertIsDisplayed()
-        pressBack()
-        compose.onNodeWithContentDescription("test.pdf").performTouchInput { longClick() }
-        compose.onNodeWithText("Download").performClick()
-        compose.onNodeWithText("Cancel").performClick()
     }
-
 }

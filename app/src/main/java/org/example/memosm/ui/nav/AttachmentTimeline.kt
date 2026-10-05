@@ -91,7 +91,12 @@ internal fun attachmentTimelineEntries(
         if (month != null && month != previousMonth) add(AttachmentTimelineEntry.Month(month))
         previousMonth = month
         add(AttachmentTimelineEntry.Day(day.date))
-        val rows = justifiedRows(day.attachments.map { ratios[it.attachment.identityKey] ?: 1f }, width, targetHeight)
+        val rows = justifiedRows(day.attachments.map {
+            val type = it.attachment.displayType
+            if (type.contains("image", ignoreCase = true) || type.contains("video", ignoreCase = true)) {
+                ratios[it.attachment.identityKey] ?: 1f
+            } else 2f
+        }, width, targetHeight)
         for (row in rows) add(AttachmentTimelineEntry.Row(day.attachments.slice(row.indices), row))
     }
 }

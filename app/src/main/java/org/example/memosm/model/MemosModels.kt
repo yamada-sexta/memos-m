@@ -5,8 +5,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-internal fun isAudioAttachmentType(type: String): Boolean = type.contains("audio", ignoreCase = true)
-
 data class ListMemosResponse(
     val memos: List<Memo>?, val nextPageToken: String?
 )

@@ -2,7 +2,7 @@ package org.example.memosm.ui.component.item.media
 
 import android.net.Uri
 import android.util.Base64
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -53,7 +53,8 @@ fun MemoImage(
     placeholderIcon: ImageVector? = null,
     onRatioAvailable: (Float) -> Unit = {},
     onClick: (() -> Unit)? = null,
-    isFullScreen: Boolean = false
+    isFullScreen: Boolean = false,
+    onLongClick: (() -> Unit)? = null
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
@@ -137,7 +138,9 @@ fun MemoImage(
             val imgModifier = Modifier
                 .fillMaxSize()
                 .then(if (isRound) Modifier.clip(CircleShape) else Modifier)
-                .then(if (onClick != null && !isFullScreen) Modifier.clickable { onClick() } else Modifier)
+                .then(if (onClick != null && !isFullScreen) Modifier.combinedClickable(
+                    onClick = onClick, onLongClick = onLongClick
+                ) else Modifier)
 
             AsyncImage(
                 model = imageRequest,
