@@ -112,6 +112,15 @@
     <string name="audio_seek">Playback progress</string>
     <string name="audio_rewind_30">Rewind 30 seconds</string>
     <string name="audio_forward_30">Forward 30 seconds</string>
+    <string name="video_seek">Video playback progress</string>
+    <string name="video_rewind_10">Rewind 10 seconds</string>
+    <string name="video_forward_10">Forward 10 seconds</string>
+    <string name="video_mute">Mute video</string>
+    <string name="video_unmute">Unmute video</string>
+    <string name="viewer_back">Back</string>
+    <string name="video_playback_speed">Video playback speed</string>
+    <string name="video_speed_value" translatable="false">%1$s×</string>
+    <string name="video_playback_error">Unable to play this video.</string>
 
     <string name="memo_composer_placeholder">What\'s on your mind?</string>
     <string name="memo_composer_remove_attachment">Remove</string>

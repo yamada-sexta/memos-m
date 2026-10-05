@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -48,16 +49,15 @@ fun VideoPlayer(
     onLongClick: (() -> Unit)? = null,
     infoContent: (@Composable () -> Unit)? = null,
     actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null,
-    onDurationAvailable: (Long) -> Unit = {}
+    onDurationAvailable: (Long) -> Unit = {},
+    filename: String? = null
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
-    val immersive = LocalViewerImmersive.current
-    val toggleImmersive = LocalViewerToggleImmersive.current
     val reportDuration by rememberUpdatedState(onDurationAvailable)
+    val reportRatio by rememberUpdatedState(onRatioAvailable)
     var isFullscreen by remember { mutableStateOf(false) }
-    var isReady by remember { mutableStateOf(false) }
 
     // Use cached ratio if available - must use LaunchedEffect to avoid calling during composition
     val cachedRatio = MediaCache.getAspectRatio(url)
@@ -77,9 +77,18 @@ fun VideoPlayer(
         }
     }
 
+    var isReady by remember(exoPlayer) { mutableStateOf(false) }
     var mediaSize by remember(exoPlayer) { mutableStateOf(IntSize.Zero) }
 
     DisposableEffect(exoPlayer) {
+        fun reportVideoSize(videoSize: VideoSize) {
+            if (videoSize.width > 0 && videoSize.height > 0) {
+                mediaSize = IntSize(videoSize.width, videoSize.height)
+                val ratio = videoSize.width.toFloat() / videoSize.height
+                MediaCache.setAspectRatio(url, ratio)
+                reportRatio(ratio)
+            }
+        }
         val listener = object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 player.duration.takeIf { it > 0L }?.let(reportDuration)
@@ -88,23 +97,12 @@ fun VideoPlayer(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     isReady = true
-                    val videoSize = exoPlayer.videoSize
-                    if (videoSize.width > 0 && videoSize.height > 0) {
-                        mediaSize = IntSize(videoSize.width, videoSize.height)
-                        val ratio = videoSize.width.toFloat() / videoSize.height
-                        MediaCache.setAspectRatio(url, ratio)
-                        onRatioAvailable(ratio)
-                    }
+                    reportVideoSize(exoPlayer.videoSize)
                 }
             }
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
-                if (videoSize.width > 0 && videoSize.height > 0) {
-                    mediaSize = IntSize(videoSize.width, videoSize.height)
-                    val ratio = videoSize.width.toFloat() / videoSize.height
-                    MediaCache.setAspectRatio(url, ratio)
-                    onRatioAvailable(ratio)
-                }
+                reportVideoSize(videoSize)
             }
         }
         exoPlayer.addListener(listener)
@@ -118,55 +116,28 @@ fun VideoPlayer(
         modifier = modifier.background(if (isFullScreen) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = isFullScreen && !immersive
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    if (isFullScreen) {
-                        setFullscreenButtonClickListener { toggleImmersive?.invoke() }
-                        controllerShowTimeoutMs = 0
-                    }
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-
-                    if (!isFullScreen) {
-                        setOnClickListener { onClick?.invoke() ?: run { isFullscreen = true } }
-                    }
-                }
-            }, update = { view ->
-                view.player = if (isFullscreen) null else exoPlayer
-                view.useController = isFullScreen && !immersive
-                if (isFullScreen) {
-                    view.setOnClickListener { toggleImmersive?.invoke() }
-                    view.setFullscreenButtonClickListener { toggleImmersive?.invoke() }
-                    if (!immersive) view.showController()
-                }
-                view.setOnLongClickListener(if (!isFullScreen && onLongClick != null) {
-                    android.view.View.OnLongClickListener { onLongClick(); true }
-                } else null)
-            }, modifier = Modifier
-                .fillMaxSize()
-                .alpha(if (isReady) 1f else 0f)
-                .zoomable(isFullScreen, mediaSize)
-        )
-        if (!isReady) CircularProgressIndicator(modifier = Modifier.size(32.dp))
+        if (isFullScreen) {
+            VideoPlaybackSurface(exoPlayer, mediaSize)
+        } else {
+            VideoSurface(
+                player = if (isFullscreen) null else exoPlayer,
+                modifier = Modifier.fillMaxSize().alpha(if (isReady) 1f else 0f),
+                onClick = { onClick?.invoke() ?: run { isFullscreen = true } },
+                onLongClick = onLongClick
+            )
+            if (!isReady) CircularProgressIndicator(modifier = Modifier.size(32.dp))
+        }
     }
 
     if (isFullscreen) {
         FullScreenMediaDialog(
             onDismiss = { isFullscreen = false },
+            title = filename,
             mediaAspectRatio = mediaSize.takeIf { it.width > 0 && it.height > 0 }
                 ?.let { it.width.toFloat() / it.height },
             infoContent = infoContent,
             actionsContent = actionsContent
         ) {
-            val videoImmersive = LocalViewerImmersive.current
-            val toggleVideoImmersive = LocalViewerToggleImmersive.current
             val activity = context.findActivity()
             val videoSize = exoPlayer.videoSize
             val isVertical =
@@ -181,30 +152,60 @@ fun VideoPlayer(
                 }
                 onDispose { activity?.requestedOrientation = originalOrientation }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Transparent)
-            ) {
-                AndroidView(factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        player = exoPlayer
-                        useController = !videoImmersive
-                        controllerShowTimeoutMs = 0
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
-                }, update = { view ->
-                    view.useController = !videoImmersive
-                    view.setOnClickListener { toggleVideoImmersive?.invoke() }
-                    view.setFullscreenButtonClickListener { toggleVideoImmersive?.invoke() }
-                    if (!videoImmersive) view.showController()
-                }, modifier = Modifier.fillMaxSize().zoomable(true, mediaSize))
-            }
+            VideoPlaybackSurface(exoPlayer, mediaSize)
         }
     }
+}
+
+@Composable
+private fun VideoPlaybackSurface(player: Player, mediaSize: IntSize) {
+    val pollPosition = LocalViewerMediaActive.current && !LocalViewerGesturesBlocked.current && !LocalViewerImmersive.current
+    val playback = rememberVideoPlaybackState(player, pollPosition)
+    key(player) {
+        VideoPlaybackControls(
+            state = playback.snapshot,
+            onTogglePlayback = playback::togglePlayback,
+            onSeekTo = playback::seekTo,
+            onSeekBy = playback::seekBy,
+            onChangeSpeed = playback::changeSpeed,
+            onToggleMute = playback::toggleMute,
+            onRetry = playback::retry,
+            mediaSize = mediaSize
+        ) { VideoSurface(player, Modifier.fillMaxSize()) }
+    }
+}
+
+@OptIn(UnstableApi::class)
+@Composable
+private fun VideoSurface(
+    player: Player?,
+    modifier: Modifier,
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null
+) {
+    AndroidView(
+        factory = { context ->
+            PlayerView(context).apply {
+                useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+        },
+        update = { view ->
+            view.player = player
+            view.useController = false
+            view.setOnClickListener(if (onClick != null) android.view.View.OnClickListener { onClick() } else null)
+            view.isClickable = onClick != null
+            view.setOnLongClickListener(if (onLongClick != null) android.view.View.OnLongClickListener {
+                onLongClick(); true
+            } else null)
+            view.isLongClickable = onLongClick != null
+        },
+        onRelease = { it.player = null },
+        modifier = modifier
+    )
 }

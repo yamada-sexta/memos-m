@@ -299,6 +299,7 @@ fun AttachmentCard(
                         if (!videoUrl.isNullOrBlank()) {
                             VideoPlayer(
                                 url = videoUrl,
+                                filename = filename,
                                 token = token,
                                 modifier = Modifier.fillMaxSize(),
                                 isFullScreen = isFullScreen,

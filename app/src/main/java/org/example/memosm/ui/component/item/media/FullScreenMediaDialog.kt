@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -106,6 +105,7 @@ internal fun FullScreenMediaDialog(
     infoContent: (@Composable () -> Unit)? = null,
     actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null,
     gestureKey: Any? = null,
+    title: String? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val density = LocalDensity.current
@@ -398,17 +398,22 @@ internal fun FullScreenMediaDialog(
                         }
                     }
                     AnimatedVisibility(
-                        visible = actionsContent != null && !immersive && !infoVisible,
+                        visible = !immersive,
                         enter = slideInVertically(tween(220)) { -it } + fadeIn(tween(220)),
                         exit = slideOutVertically(tween(220)) { -it } + fadeOut(tween(220)),
-                        modifier = Modifier.align(Alignment.TopEnd)
+                        modifier = Modifier.align(Alignment.TopCenter)
                     ) {
                         Box(
-                            Modifier.statusBarsPadding().padding(16.dp)
+                            Modifier.fillMaxWidth()
                                 .graphicsLayer { this.alpha = if (entering || exiting) 0f else alpha }
                         ) {
                             CompositionLocalProvider(LocalViewerGesturesBlocked provides (entering || exiting || backing)) {
-                                actionsContent?.invoke(showInfo)
+                                ViewerHeader(
+                                    title = title.takeUnless { infoVisible },
+                                    enabled = !entering && !exiting && !backing,
+                                    onBack = { backOwner.onBackPressedDispatcher.onBackPressed() },
+                                    actions = { if (!infoVisible) actionsContent?.invoke(showInfo) }
+                                )
                             }
                         }
                     }

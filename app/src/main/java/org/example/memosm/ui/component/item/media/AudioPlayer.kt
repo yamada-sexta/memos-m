@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Forward30
@@ -104,7 +106,7 @@ fun AudioPlayer(
     val onPlayingChanged by rememberUpdatedState(onPlayingStateChanged)
     val controlsEnabled = !LocalViewerGesturesBlocked.current
     val displayedPosition = scrubPosition ?: currentPosition
-    val progress = mediaProgress(displayedPosition, duration)
+    val progress = playbackProgress(displayedPosition, duration)
     val canSeek = isPrepared && isSeekable && duration > 0 && controlsEnabled
 
     DisposableEffect(exoPlayer) {
@@ -141,10 +143,10 @@ fun AudioPlayer(
     }
 
     val togglePlayback = {
-        toggleMediaPlayback(exoPlayer)
+        togglePlayback(exoPlayer)
     }
     val seekTo: (Long) -> Unit = { position ->
-        val target = mediaSeekPosition(position, duration)
+        val target = playbackSeekPosition(position, duration)
         exoPlayer.seekTo(target)
         currentPosition = target
     }
@@ -328,7 +330,8 @@ fun PlayPauseButton(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
     iconSize: androidx.compose.ui.unit.Dp = 32.dp,
-    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    filledIcons: Boolean = false
 ) {
     val rotation = remember { Animatable(0f) }
     val scale = remember { Animatable(1f) }
@@ -371,7 +374,12 @@ fun PlayPauseButton(
                 }, label = "IconSwap"
             ) { playing ->
                 Icon(
-                    imageVector = if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                    imageVector = when {
+                        filledIcons && playing -> Icons.Filled.Pause
+                        filledIcons -> Icons.Filled.PlayArrow
+                        playing -> Icons.Outlined.Pause
+                        else -> Icons.Outlined.PlayArrow
+                    },
                     contentDescription = androidx.compose.ui.res.stringResource(
                         if (playing) org.example.memosm.R.string.memo_action_pause
                         else org.example.memosm.R.string.memo_action_play

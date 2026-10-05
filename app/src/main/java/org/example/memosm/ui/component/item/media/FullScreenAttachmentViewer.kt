@@ -41,6 +41,12 @@ fun FullScreenAttachmentViewer(
         onDismiss = onDismiss,
         mediaAspectRatio = aspectRatio,
         gestureKey = pagerState.currentPage,
+        title = attachments[pagerState.currentPage.coerceIn(attachments.indices)].let { attachment ->
+            attachment.filename.takeIf {
+                attachment.displayType.contains("image", ignoreCase = true) ||
+                    attachment.displayType.contains("video", ignoreCase = true)
+            }
+        },
         originBounds = { originBounds?.invoke(attachments[pagerState.currentPage.coerceIn(attachments.indices)]) },
         infoContent = {
             val attachment = attachments[pagerState.currentPage.coerceIn(attachments.indices)]
@@ -57,19 +63,19 @@ fun FullScreenAttachmentViewer(
             key = { page -> attachmentKeys?.get(page) ?: page }
         ) { page ->
             CompositionLocalProvider(LocalViewerMediaActive provides (page == pagerState.currentPage)) {
-            AttachmentCard(
-                attachment = attachments[page], token = token, hostUrl = hostUrl,
-                modifier = Modifier.fillMaxSize(), showInfo = false, showActions = false,
-                showSize = false, showFilename = false, compactMode = AttachmentCompactMode.Never,
-                isFullScreen = true,
-                onRatioAvailable = { ratio, exact ->
-                    val type = attachments[page].displayType
-                    if (page == pagerState.currentPage && exact &&
-                        (type.contains("image", ignoreCase = true) || type.contains("video", ignoreCase = true))) {
-                        aspectRatio = ratio
+                AttachmentCard(
+                    attachment = attachments[page], token = token, hostUrl = hostUrl,
+                    modifier = Modifier.fillMaxSize(), showInfo = false, showActions = false,
+                    showSize = false, showFilename = false, compactMode = AttachmentCompactMode.Never,
+                    isFullScreen = true,
+                    onRatioAvailable = { ratio, exact ->
+                        val type = attachments[page].displayType
+                        if (page == pagerState.currentPage && exact &&
+                            (type.contains("image", ignoreCase = true) || type.contains("video", ignoreCase = true))) {
+                            aspectRatio = ratio
+                        }
                     }
-                }
-            )
+                )
             }
         }
     }

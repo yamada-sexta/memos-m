@@ -40,6 +40,7 @@ fun FullScreenImageViewer(
     }
     FullScreenMediaDialog(
         onDismiss = onDismiss,
+        title = filename,
         mediaAspectRatio = if (imageSize.height > 0) imageSize.width.toFloat() / imageSize.height else null,
         originBounds = originBounds,
         infoContent = infoContent,

@@ -11,23 +11,6 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import kotlinx.coroutines.delay
 
-internal fun mediaSeekPosition(position: Long, duration: Long): Long =
-    position.coerceIn(0L, duration.coerceAtLeast(0L))
-
-internal fun mediaProgress(position: Long, duration: Long): Float =
-    if (duration > 0L) mediaSeekPosition(position, duration).toFloat() / duration else 0f
-
-internal fun toggleMediaPlayback(player: Player) {
-    when {
-        player.playbackState == Player.STATE_ENDED -> {
-            if (player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) player.seekTo(0L)
-            player.play()
-        }
-        player.playWhenReady -> player.pause()
-        else -> player.play()
-    }
-}
-
 internal enum class VideoTapAction { Rewind, PlayPause, Forward }
 
 internal fun videoTapAction(x: Float, width: Float): VideoTapAction = when {
@@ -85,13 +68,13 @@ internal class VideoPlaybackState(private val player: Player) {
 
     fun togglePlayback() {
         if (!snapshot.canPlayPause) return
-        toggleMediaPlayback(player)
+        togglePlayback(player)
         refresh()
     }
 
     fun seekTo(position: Long) {
         if (!snapshot.canSeek) return
-        player.seekTo(mediaSeekPosition(position, player.duration))
+        player.seekTo(playbackSeekPosition(position, player.duration))
         refresh()
     }
 
