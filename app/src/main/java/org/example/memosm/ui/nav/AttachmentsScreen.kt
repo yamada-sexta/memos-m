@@ -42,6 +42,8 @@ import org.example.memosm.R
 import org.example.memosm.ui.component.ErrorView
 import org.example.memosm.ui.component.item.AttachmentCard
 import org.example.memosm.ui.component.item.AttachmentCompactMode
+import org.example.memosm.ui.component.item.media.AttachmentOrigins
+import org.example.memosm.ui.component.item.media.attachmentOrigin
 import org.example.memosm.ui.component.item.media.FullScreenAttachmentViewer
 import org.example.memosm.ui.component.rememberStaggeredGridScrollContext
 import org.example.memosm.viewmodel.MemosViewModel
@@ -56,6 +58,7 @@ fun AttachmentsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyStaggeredGridState()
 
+    val attachmentOrigins = remember { AttachmentOrigins() }
     var showFullScreenViewer by remember { mutableStateOf(false) }
     var fullScreenInitialIndex by remember { mutableStateOf(0) }
 
@@ -203,6 +206,7 @@ fun AttachmentsScreen(
 
                         AttachmentCard(
                             attachment = attachment,
+                            mediaModifier = Modifier.attachmentOrigin(attachmentOrigins, attachment),
                             token = uiState.session.token,
                             hostUrl = uiState.session.hostUrl,
                             compactMode = AttachmentCompactMode.Width,
@@ -262,6 +266,7 @@ fun AttachmentsScreen(
             token = uiState.session.token,
             hostUrl = uiState.session.hostUrl,
             onDismiss = { showFullScreenViewer = false },
+            originBounds = attachmentOrigins::boundsFor,
             onPageChanged = { index ->
                 if (index >= uiState.attachmentList.list.items.size - 5 && uiState.attachmentList.list.nextPageToken != null && !uiState.attachmentList.list.isLoading) {
                     viewModel.loadMoreAttachments()

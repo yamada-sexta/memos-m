@@ -89,6 +89,8 @@ import org.example.memosm.ui.VisibilityIcon
 import org.example.memosm.ui.component.ActionSheet
 import org.example.memosm.ui.component.ActionSheetItem
 import org.example.memosm.ui.component.item.markdown.NativeComposeMarkdown
+import org.example.memosm.ui.component.item.media.AttachmentOrigins
+import org.example.memosm.ui.component.item.media.attachmentOrigin
 import org.example.memosm.ui.component.item.media.FullScreenAttachmentViewer
 import org.example.memosm.ui.component.resolveResourceUrl
 
@@ -121,6 +123,7 @@ fun MemoItem(
     var showMenu by remember { mutableStateOf(false) }
     var showReactionPicker by remember { mutableStateOf(false) }
     var showRawTextDialog by remember { mutableStateOf(false) }
+    val attachmentOrigins = remember { AttachmentOrigins() }
     var showFullScreenViewer by remember { mutableStateOf(false) }
     var fullScreenInitialIndex by remember { mutableStateOf(0) }
     val context = LocalContext.current
@@ -415,6 +418,7 @@ fun MemoItem(
                                 }
                                 AttachmentCard(
                                     attachment = attachment,
+                                    mediaModifier = Modifier.attachmentOrigin(attachmentOrigins, attachment),
                                     token = token,
                                     hostUrl = hostUrl,
                                     modifier = Modifier
@@ -465,6 +469,7 @@ fun MemoItem(
                                 key = { index, it -> "${it.externalLink ?: "link"}_${it.filename}_${it.createTime ?: 0}_$index" }) { index, attachment ->
                                 AttachmentCard(
                                     attachment = attachment,
+                                    mediaModifier = Modifier.attachmentOrigin(attachmentOrigins, attachment),
                                     token = token,
                                     hostUrl = hostUrl,
                                     modifier = Modifier.size(width = 240.dp, height = 160.dp),
@@ -696,7 +701,8 @@ fun MemoItem(
             initialIndex = fullScreenInitialIndex,
             token = token,
             hostUrl = hostUrl,
-            onDismiss = { showFullScreenViewer = false }
+            onDismiss = { showFullScreenViewer = false },
+            originBounds = attachmentOrigins::boundsFor
         )
     }
 }

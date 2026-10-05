@@ -1,20 +1,12 @@
 package org.example.memosm.ui.component.item
 
-import android.app.DownloadManager
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
-import android.os.Environment
-import android.text.format.Formatter
 import android.util.Base64
 import android.util.Log
-import android.webkit.MimeTypeMap
-import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,25 +17,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +31,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -63,8 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.example.memosm.R
 import org.example.memosm.model.Attachment
+import org.example.memosm.ui.component.item.media.AttachmentOrigin
 import org.example.memosm.ui.component.item.media.AudioPlayer
 import org.example.memosm.ui.component.item.media.AudioPlayerMode
 import org.example.memosm.ui.component.item.media.FileThumbnail
@@ -95,62 +73,22 @@ fun AttachmentCard(
     isFullScreen: Boolean = false,
     onClick: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
-    onRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> }
+    onRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> },
+    mediaModifier: Modifier = Modifier
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
+    val origin = remember { AttachmentOrigin() }
     var showInfoDialog by remember { mutableStateOf(false) }
-    var showDownloadDialog by remember { mutableStateOf(false) }
-    var showMenu by remember { mutableStateOf(false) }
     var showFullScreenImage by remember { mutableStateOf(false) }
     var isAudioPlaying by remember { mutableStateOf(false) }
 
-    val dateMillis by produceState<Long?>(initialValue = null, attachment?.createTime) {
-        if (attachment?.createTime != null) {
-            value = attachment.createTime.toEpochMilliseconds()
-        }
-    }
-
-    val formattedDate = if (dateMillis != null) {
-        android.text.format.DateUtils.formatDateTime(
-            context,
-            dateMillis!!,
-            android.text.format.DateUtils.FORMAT_SHOW_DATE or android.text.format.DateUtils.FORMAT_SHOW_TIME or android.text.format.DateUtils.FORMAT_SHOW_YEAR or android.text.format.DateUtils.FORMAT_ABBREV_MONTH
-        )
-    } else ""
-
-    val formattedSize by produceState(initialValue = "", attachment?.size) {
-        if (attachment?.size != null) {
-            value = withContext(Dispatchers.Default) {
-                val bytes = attachment.size.toLongOrNull()
-                if (bytes != null) Formatter.formatFileSize(context, bytes) else attachment.size
-            }
-        }
-    }
-
-    val displayType by produceState(
-        initialValue = attachment?.displayType ?: "", uri, attachment?.displayType
-    ) {
-        value = withContext(Dispatchers.IO) {
-            if (uri != Uri.EMPTY) {
-                val crType = context.contentResolver.getType(uri)
-                if (crType != null) crType
-                else {
-                    val ext = MimeTypeMap.getFileExtensionFromUrl(uri.toString()).lowercase()
-                    MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: ""
-                }
-            } else {
-                attachment?.displayType ?: ""
-            }
-        }
-    }
-
-    val unknownFilename = stringResource(R.string.attachments_unknown_filename)
-    val filename = remember(attachment?.filename, uri, unknownFilename) {
-        attachment?.filename ?: uri.lastPathSegment ?: unknownFilename
-    }
-
+    val info = rememberAttachmentInfo(attachment, uri)
+    val filename = info.filename
+    val displayType = info.type
+    val formattedSize = info.size.orEmpty()
+    val formattedDate = info.created.orEmpty()
     val isImage = remember(displayType) {
         displayType.startsWith("image/", ignoreCase = true) || displayType.contains(
             "image", ignoreCase = true
@@ -297,7 +235,9 @@ fun AttachmentCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .background(backgroundColor),
+                        .background(backgroundColor)
+                        .onGloballyPositioned { origin.coordinates = it }
+                        .then(mediaModifier),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isImage) {
@@ -395,8 +335,6 @@ fun AttachmentCard(
                         }
                     }
 
-                    val errorOpenLinkString = stringResource(R.string.attachments_error_open_link)
-
                     // Floating menu button
                     if (showInfo && showActions) {
                         Box(
@@ -405,109 +343,10 @@ fun AttachmentCard(
                                 .padding(4.dp),
                             contentAlignment = Alignment.TopEnd
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clickable { showMenu = true }) {
-                                    Icon(
-                                        Icons.Outlined.MoreVert,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    val openWebUrl = remember(attachment, hostUrl) {
-                                        AttachmentManager.getAttachmentUrl(hostUrl, attachment)
-                                    }
-
-                                    DropdownMenu(
-                                        expanded = showMenu,
-                                        onDismissRequest = { showMenu = false }) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.attachments_info_title)) },
-                                            onClick = { showMenu = false; showInfoDialog = true },
-                                            leadingIcon = {
-                                                Icon(
-                                                    Icons.Outlined.Info, contentDescription = null
-                                                )
-                                            })
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.attachments_download_button)) },
-                                            onClick = {
-                                                showMenu = false; showDownloadDialog = true
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    Icons.Outlined.Download,
-                                                    contentDescription = null
-                                                )
-                                            })
-                                        if (openWebUrl != null) {
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.memo_action_open_web)) },
-                                                onClick = {
-                                                    showMenu = false
-                                                    try {
-                                                        val intent = Intent(
-                                                            Intent.ACTION_VIEW, openWebUrl.toUri()
-                                                        )
-                                                        context.startActivity(intent)
-                                                    } catch (e: Exception) {
-                                                        Log.e(
-                                                            "AttachmentCard",
-                                                            "Failed to open link",
-                                                            e
-                                                        )
-                                                        Toast.makeText(
-                                                            context,
-                                                            errorOpenLinkString,
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                                },
-                                                leadingIcon = {
-                                                    Icon(
-                                                        Icons.Outlined.Language,
-                                                        contentDescription = null
-                                                    )
-                                                })
-
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.common_share)) },
-                                                onClick = {
-                                                    showMenu = false
-                                                    try {
-                                                        val sendIntent = Intent().apply {
-                                                            action = Intent.ACTION_SEND
-                                                            putExtra(Intent.EXTRA_TEXT, openWebUrl)
-                                                            type = "text/plain"
-                                                        }
-                                                        val shareIntent =
-                                                            Intent.createChooser(sendIntent, null)
-                                                        context.startActivity(shareIntent)
-                                                    } catch (e: Exception) {
-                                                        Log.e(
-                                                            "AttachmentCard",
-                                                            "Failed to share link",
-                                                            e
-                                                        )
-                                                    }
-                                                },
-                                                leadingIcon = {
-                                                    Icon(
-                                                        Icons.Outlined.Share,
-                                                        contentDescription = null
-                                                    )
-                                                })
-                                        }
-                                    }
-                                }
-                            }
+                            AttachmentActionsButton(
+                                attachment = attachment, token = token, hostUrl = hostUrl,
+                                filename = filename, onShowInfo = { showInfoDialog = true }
+                            )
                         }
                     }
                 }
@@ -557,54 +396,7 @@ fun AttachmentCard(
     }
 
     if (showInfoDialog) {
-        AlertDialog(
-            onDismissRequest = { showInfoDialog = false },
-            title = { Text(stringResource(R.string.attachments_info_title)) },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    AttachmentInfoRow(stringResource(R.string.attachments_info_filename), filename)
-                    AttachmentInfoRow(stringResource(R.string.attachments_info_type), displayType)
-                    if (attachment?.size != null) AttachmentInfoRow(
-                        stringResource(R.string.attachments_info_size), formattedSize
-                    )
-                    if (attachment?.createTime != null) AttachmentInfoRow(
-                        stringResource(R.string.attachments_info_created), formattedDate
-                    )
-                    if (attachment?.name != null) AttachmentInfoRow(
-                        stringResource(R.string.attachments_info_id), attachment.name
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) {
-                    Text(stringResource(R.string.common_close))
-                }
-            })
-    }
-
-    if (showDownloadDialog) {
-        AlertDialog(
-            onDismissRequest = { showDownloadDialog = false },
-            title = { Text(stringResource(R.string.attachments_download_dialog_title)) },
-            text = { Text(stringResource(R.string.attachments_download_dialog_confirm, filename)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (attachment != null) downloadAttachmentFile(
-                        context, attachment, token, hostUrl
-                    )
-                    showDownloadDialog = false
-                }) {
-                    Text(stringResource(R.string.attachments_download_button))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDownloadDialog = false }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-            })
+        AttachmentInfoSheet(info = info, onDismiss = { showInfoDialog = false })
     }
 
     if (showFullScreenImage && isImage) {
@@ -635,43 +427,13 @@ fun AttachmentCard(
                 model = model,
                 filename = filename,
                 token = token,
-                onDismiss = { showFullScreenImage = false })
+                onDismiss = { showFullScreenImage = false },
+                originBounds = origin::boundsOnScreen,
+                infoContent = { AttachmentInfoContent(info) },
+                actionsContent = { showInfo ->
+                    AttachmentActionsButton(attachment, token, hostUrl, filename, showInfo)
+                })
         }
-    }
-}
-
-@Composable
-fun AttachmentInfoRow(label: String, value: String) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(text = value, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-private fun downloadAttachmentFile(
-    context: Context, attachment: Attachment, token: String?, hostUrl: String
-) {
-    val url = AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: return
-    try {
-        var request = DownloadManager.Request(url.toUri()).setTitle(attachment.filename)
-            .setDescription(context.getString(R.string.attachments_download_started))
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, attachment.filename)
-//            .addRequestHeader("Authorization", "Bearer $token")
-        if (token != null) request = request.addRequestHeader("Authorization", "Bearer $token")
-        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        manager.enqueue(request)
-        Toast.makeText(
-            context, context.getString(R.string.attachments_download_started), Toast.LENGTH_SHORT
-        ).show()
-    } catch (e: Exception) {
-        Log.e("AttachmentCard", "Download failed", e)
-        val message = context.getString(R.string.attachments_error_download_failed)
-        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
     }
 }
 

@@ -1,46 +1,22 @@
 package org.example.memosm.ui.component.item.media
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
-import androidx.activity.compose.PredictiveBackHandler
-import kotlinx.coroutines.flow.catch
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
-import kotlinx.coroutines.launch
-import org.example.memosm.R
+import androidx.compose.ui.geometry.Rect
 import org.example.memosm.model.Attachment
 import org.example.memosm.ui.component.item.AttachmentCard
+import org.example.memosm.ui.component.item.AttachmentActionsButton
 import org.example.memosm.ui.component.item.AttachmentCompactMode
-import kotlin.math.abs
+import org.example.memosm.ui.component.item.AttachmentInfoContent
+import org.example.memosm.ui.component.item.rememberAttachmentInfo
 
 @Composable
 fun FullScreenAttachmentViewer(
@@ -49,140 +25,43 @@ fun FullScreenAttachmentViewer(
     token: String?,
     hostUrl: String,
     onDismiss: () -> Unit,
-    onPageChanged: ((Int) -> Unit)? = null
+    onPageChanged: ((Int) -> Unit)? = null,
+    originBounds: ((Attachment) -> Rect?)? = null
 ) {
-    if (attachments.isEmpty() || initialIndex < 0 || initialIndex >= attachments.size) {
-        return
+    if (attachments.isEmpty() || initialIndex !in attachments.indices) return
+
+    val pagerState = rememberPagerState(initialPage = initialIndex, pageCount = { attachments.size })
+    var aspectRatio by remember(pagerState.currentPage) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(pagerState.currentPage) {
+        onPageChanged?.invoke(pagerState.currentPage)
     }
-
-    Dialog(
-        onDismissRequest = onDismiss, properties = DialogProperties(
-            usePlatformDefaultWidth = false, decorFitsSystemWindows = false
-        )
-    ) {
-        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-        if (window != null) {
-            SideEffect {
-                val controller = WindowCompat.getInsetsController(window, window.decorView)
-                controller.hide(WindowInsetsCompat.Type.systemBars())
-                controller.systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
+    FullScreenMediaDialog(
+        onDismiss = onDismiss,
+        mediaAspectRatio = aspectRatio,
+        originBounds = { originBounds?.invoke(attachments[pagerState.currentPage.coerceIn(attachments.indices)]) },
+        infoContent = {
+            val attachment = attachments[pagerState.currentPage.coerceIn(attachments.indices)]
+            AttachmentInfoContent(rememberAttachmentInfo(attachment))
+        },
+        actionsContent = { showInfo ->
+            val attachment = attachments[pagerState.currentPage.coerceIn(attachments.indices)]
+            AttachmentActionsButton(attachment, token, hostUrl, attachment.filename, showInfo)
         }
-
-        val pagerState = rememberPagerState(initialPage = initialIndex, pageCount = { attachments.size })
-        val coroutineScope = rememberCoroutineScope()
-
-        // Vertical drag to dismiss
-        val dismissOffset = remember { Animatable(0f) }
-
-        // Predictive back gesture state
-        val backProgress = remember { Animatable(0f) }
-        val backEdgeProgress = remember { Animatable(0f) }
-
-        val dismissDragProgress = (abs(dismissOffset.value) / 300f).coerceIn(0f, 1f)
-
-        // Combine background alpha and scale from both gestures
-        val combinedAlpha = ((1f - dismissDragProgress) * (1f - backProgress.value * 0.5f)).coerceIn(0f, 1f)
-        val combinedScale = ((1f - (abs(dismissOffset.value) / 1000f)) * (1f - backProgress.value * 0.1f)).coerceIn(0.6f, 1f)
-
-        LaunchedEffect(pagerState.currentPage) {
-            onPageChanged?.invoke(pagerState.currentPage)
-        }
-
-        PredictiveBackHandler { progress ->
-            try {
-                progress.collect { backEvent ->
-                    backProgress.snapTo(backEvent.progress)
-                    // Edge 0 is left, 1 is right
-                    backEdgeProgress.snapTo(if (backEvent.swipeEdge == 0) 1f else -1f)
-                }
-                onDismiss()
-            } catch (e: Exception) {
-                // Cancelled
-                backProgress.animateTo(0f)
-                backEdgeProgress.animateTo(0f)
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = combinedAlpha))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                coroutineScope.launch {
-                                    if (abs(dismissOffset.value) > 200f) {
-                                        onDismiss()
-                                    } else {
-                                        dismissOffset.animateTo(0f)
-                                    }
-                                }
-                            },
-                            onVerticalDrag = { change, dragAmount ->
-                                change.consume()
-                                coroutineScope.launch {
-                                    dismissOffset.snapTo(dismissOffset.value + dragAmount)
-                                }
-                            }
-                        )
+    ) { dismiss ->
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), userScrollEnabled = !LocalViewerGesturesBlocked.current) { page ->
+            AttachmentCard(
+                attachment = attachments[page], token = token, hostUrl = hostUrl,
+                modifier = Modifier.fillMaxSize(), showInfo = false, showActions = false,
+                showSize = false, showFilename = false, compactMode = AttachmentCompactMode.Never,
+                isFullScreen = true, onDismiss = dismiss,
+                onRatioAvailable = { ratio, exact ->
+                    val type = attachments[page].displayType
+                    if (page == pagerState.currentPage && exact &&
+                        (type.contains("image", ignoreCase = true) || type.contains("video", ignoreCase = true))) {
+                        aspectRatio = ratio
                     }
-                    .graphicsLayer {
-                        scaleX = combinedScale
-                        scaleY = combinedScale
-                        translationY = dismissOffset.value
-                        // Shift horizontally slightly based on predictive back edge
-                        translationX = backProgress.value * 100f * backEdgeProgress.value
-                    }
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
-                    val attachment = attachments[page]
-
-                    // The AttachmentCard should handle its own zooming internally if isFullScreen=true.
-                    // The swipe up/down gesture is captured by the parent box above,
-                    // unless the child consumes it (which it shouldn't if we just want swipe to dismiss).
-                    AttachmentCard(
-                        attachment = attachment,
-                        token = token,
-                        hostUrl = hostUrl,
-                        modifier = Modifier.fillMaxSize(),
-                        showInfo = false,
-                        showActions = false,
-                        showSize = false,
-                        showFilename = false,
-                        compactMode = AttachmentCompactMode.Never,
-                        isFullScreen = true,
-                        onDismiss = onDismiss
-                    )
                 }
-            }
-
-            // Close Button
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-                    .statusBarsPadding()
-                    .graphicsLayer { alpha = combinedAlpha }) {
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = stringResource(R.string.common_close),
-                        tint = Color.White
-                    )
-                }
-            }
+            )
         }
     }
 }
