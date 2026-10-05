@@ -28,10 +28,6 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Forward30
 import androidx.compose.material.icons.outlined.Replay30
-import androidx.compose.material.icons.automirrored.outlined.VolumeDown
-import androidx.compose.material.icons.automirrored.outlined.VolumeMute
-import androidx.compose.material.icons.automirrored.outlined.VolumeOff
-import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -48,7 +44,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,12 +101,10 @@ fun AudioPlayer(
     var isPrepared by remember(exoPlayer) { mutableStateOf(false) }
     var isSeekable by remember(exoPlayer) { mutableStateOf(false) }
     var isBuffering by remember(exoPlayer) { mutableStateOf(false) }
-    var volume by remember(exoPlayer) { mutableFloatStateOf(exoPlayer.volume) }
-    var audibleVolume by remember(exoPlayer) { mutableFloatStateOf(1f) }
     val onPlayingChanged by rememberUpdatedState(onPlayingStateChanged)
     val controlsEnabled = !LocalViewerGesturesBlocked.current
     val displayedPosition = scrubPosition ?: currentPosition
-    val progress = audioProgress(displayedPosition, duration)
+    val progress = mediaProgress(displayedPosition, duration)
     val canSeek = isPrepared && isSeekable && duration > 0 && controlsEnabled
 
     DisposableEffect(exoPlayer) {
@@ -148,24 +141,12 @@ fun AudioPlayer(
     }
 
     val togglePlayback = {
-        when {
-            exoPlayer.playbackState == Player.STATE_ENDED -> {
-                exoPlayer.seekTo(0L)
-                exoPlayer.play()
-            }
-            exoPlayer.playWhenReady -> exoPlayer.pause()
-            else -> exoPlayer.play()
-        }
+        toggleMediaPlayback(exoPlayer)
     }
     val seekTo: (Long) -> Unit = { position ->
-        val target = audioSeekPosition(position, duration)
+        val target = mediaSeekPosition(position, duration)
         exoPlayer.seekTo(target)
         currentPosition = target
-    }
-    val changeVolume: (Float) -> Unit = { requested ->
-        volume = requested.coerceIn(0f, 1f)
-        if (volume > 0f) audibleVolume = volume
-        exoPlayer.volume = volume
     }
     val seekLabel = stringResource(R.string.audio_seek)
     val playbackLabel = stringResource(if (playWhenReady) R.string.memo_action_pause else R.string.memo_action_play)
@@ -250,38 +231,6 @@ fun AudioPlayer(
                             shape = MaterialTheme.shapes.extraLarge, colors = skipColors
                         ) {
                             Icon(Icons.Outlined.Forward30, stringResource(R.string.audio_forward_30))
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val volumeDescription = stringResource(R.string.audio_volume, (volume * 100).toInt())
-                        FilledTonalIconButton(
-                            onClick = { changeVolume(if (volume > 0f) 0f else audibleVolume) },
-                            enabled = controlsEnabled,
-                            modifier = Modifier.size(48.dp).semantics { stateDescription = volumeDescription }
-                        ) {
-                            Icon(
-                                if (volume > 0f) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeMute,
-                                stringResource(if (volume > 0f) R.string.audio_mute else R.string.audio_unmute)
-                            )
-                        }
-                        FilledTonalIconButton(
-                            onClick = { changeVolume(volume - 0.1f) },
-                            enabled = controlsEnabled && volume > 0f,
-                            modifier = Modifier.weight(1f).height(48.dp)
-                                .semantics { stateDescription = volumeDescription }
-                        ) {
-                            Icon(Icons.AutoMirrored.Outlined.VolumeDown, stringResource(R.string.audio_volume_down))
-                        }
-                        FilledTonalIconButton(
-                            onClick = { changeVolume(volume + 0.1f) },
-                            enabled = controlsEnabled && volume < 1f,
-                            modifier = Modifier.weight(1f).height(48.dp)
-                                .semantics { stateDescription = volumeDescription }
-                        ) {
-                            Icon(Icons.AutoMirrored.Outlined.VolumeUp, stringResource(R.string.audio_volume_up))
                         }
                     }
                 }
@@ -434,9 +383,3 @@ fun PlayPauseButton(
         }
     }
 }
-
-internal fun audioSeekPosition(position: Long, duration: Long): Long =
-    position.coerceIn(0L, duration.coerceAtLeast(0L))
-
-internal fun audioProgress(position: Long, duration: Long): Float =
-    if (duration > 0L) audioSeekPosition(position, duration).toFloat() / duration else 0f

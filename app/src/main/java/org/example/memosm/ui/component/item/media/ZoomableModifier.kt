@@ -32,7 +32,8 @@ import kotlinx.coroutines.launch
 fun Modifier.zoomable(
     enabled: Boolean,
     imageSize: IntSize = IntSize.Zero,
-    doubleTapZoom: Boolean = true
+    doubleTapZoom: Boolean = true,
+    handleTapGestures: Boolean = true
 ): Modifier = composed {
     if (!enabled) return@composed this
 
@@ -75,8 +76,8 @@ fun Modifier.zoomable(
 
     this
         .onSizeChanged { viewSize = it }
-        .pointerInput(doubleTapZoom, gesturesBlocked, zoomState) {
-            if (gesturesBlocked || (!doubleTapZoom && toggleImmersive == null)) return@pointerInput
+        .pointerInput(handleTapGestures, doubleTapZoom, gesturesBlocked, zoomState) {
+            if (!handleTapGestures || gesturesBlocked || (!doubleTapZoom && toggleImmersive == null)) return@pointerInput
             detectTapGestures(onTap = { toggleImmersive?.invoke() }, onDoubleTap = if (doubleTapZoom) { position ->
                 settleJob?.cancel()
                 val target = viewerDoubleTapTarget(zoomStep, viewSize, currentImageSize)

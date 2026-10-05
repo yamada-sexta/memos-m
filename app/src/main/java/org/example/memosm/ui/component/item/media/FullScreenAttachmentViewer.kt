@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,7 @@ fun FullScreenAttachmentViewer(
             userScrollEnabled = !LocalViewerGesturesBlocked.current,
             key = { page -> attachmentKeys?.get(page) ?: page }
         ) { page ->
+            CompositionLocalProvider(LocalViewerMediaActive provides (page == pagerState.currentPage)) {
             AttachmentCard(
                 attachment = attachments[page], token = token, hostUrl = hostUrl,
                 modifier = Modifier.fillMaxSize(), showInfo = false, showActions = false,
@@ -68,6 +70,7 @@ fun FullScreenAttachmentViewer(
                     }
                 }
             )
+            }
         }
     }
 }

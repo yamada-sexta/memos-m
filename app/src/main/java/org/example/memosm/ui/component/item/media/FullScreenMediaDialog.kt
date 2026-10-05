@@ -85,6 +85,8 @@ import kotlin.math.min
 internal val LocalViewerGesturesBlocked = compositionLocalOf { false }
 internal val LocalViewerImmersive = compositionLocalOf { false }
 internal val LocalViewerToggleImmersive = compositionLocalOf<(() -> Unit)?> { null }
+internal val LocalViewerSetImmersive = compositionLocalOf<((Boolean) -> Unit)?> { null }
+internal val LocalViewerMediaActive = compositionLocalOf { true }
 internal enum class ViewerDragIntent { None, Dismiss, Details }
 
 internal fun detailsSnapTarget(offset: Int, snapOffset: Int, minDistance: Float, velocity: Float, minVelocity: Float): Int = when {
@@ -193,9 +195,10 @@ internal fun FullScreenMediaDialog(
                     .coerceAtLeast(height / 3f)
                 val snapOffset = (detailsTop - height / 3f).toInt().coerceAtLeast(1)
                 val infoVisible = scroll.value > 0
-                val toggleImmersive = {
-                    if (!infoVisible && !backing && !exiting && !entering) immersive = !immersive
+                val setImmersive: (Boolean) -> Unit = { value ->
+                    if (!infoVisible && !backing && !exiting && !entering) immersive = value
                 }
+                val toggleImmersive = { setImmersive(!immersive) }
                 val currentToggleImmersive by rememberUpdatedState(toggleImmersive)
                 LaunchedEffect(infoVisible) {
                     if (infoVisible) immersive = false
@@ -276,6 +279,7 @@ internal fun FullScreenMediaDialog(
                         LocalViewerZoomState provides zoomState,
                         LocalViewerImmersive provides immersive,
                         LocalViewerToggleImmersive provides toggleImmersive,
+                        LocalViewerSetImmersive provides setImmersive,
                         LocalContentColor provides contentColor
                     ) {
                         Box(

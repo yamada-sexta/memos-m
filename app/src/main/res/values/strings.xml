@@ -112,11 +112,6 @@
     <string name="audio_seek">Playback progress</string>
     <string name="audio_rewind_30">Rewind 30 seconds</string>
     <string name="audio_forward_30">Forward 30 seconds</string>
-    <string name="audio_mute">Mute</string>
-    <string name="audio_unmute">Unmute</string>
-    <string name="audio_volume_down">Decrease volume</string>
-    <string name="audio_volume_up">Increase volume</string>
-    <string name="audio_volume">Volume %1$d%%</string>
 
     <string name="memo_composer_placeholder">What\'s on your mind?</string>
     <string name="memo_composer_remove_attachment">Remove</string>
