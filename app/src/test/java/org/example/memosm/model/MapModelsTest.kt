@@ -43,7 +43,7 @@ class MapModelsTest {
         val point = Location(latitude = 0.0, longitude = 0.0)
         val other = Memo(name = "memos/other", content = "other", creator = "users/2", location = point.copy(placeholder = "Their place"))
         val own = Memo(name = "memos/own", content = "own", creator = "users/1", location = point.copy(placeholder = "My place"))
-        assertEquals("0.0, 0.0", ownMapLocation(point, listOf(other), "users/1").placeholder)
+        assertNull(ownMapLocation(point, listOf(other), "users/1").placeholder)
         assertEquals("My place", ownMapLocation(point, listOf(other, own), "users/1").placeholder)
         assertNull(sharedMapLabel(listOf(other, own)))
         assertEquals("My place", sharedMapLabel(listOf(own)))

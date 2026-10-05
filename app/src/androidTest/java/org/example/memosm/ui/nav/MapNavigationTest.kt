@@ -124,15 +124,27 @@ class MapNavigationTest {
             GlobalContext.get().get<MemoCacheRepository>().cacheMemos(accountId, CacheListType.USER, listOf(
                 Memo(name = "memos/second", creator = "users/1", content = "Another memo at my place", state = MemoState.NORMAL,
                     location = Location(placeholder = "My place", latitude = latitude, longitude = longitude))
-            ), replace = false)
+            ) + (1..3).map { index ->
+                Memo(name = "memos/extra-$index", creator = "users/1", content = "Extra memo $index", state = MemoState.NORMAL,
+                    location = Location(placeholder = "My place", latitude = latitude, longitude = longitude))
+            }, replace = false)
         }
         ActivityScenario.launch(MainActivity::class.java).use {
             openMap()
             tapRenderedPin()
             compose.waitUntil(15_000) { compose.onAllNodesWithTag("map_place_panel").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithTag("map_place_panel").performTouchInput { swipeUp() }
-            compose.onNodeWithText("My mapped memo").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Another memo at my place").performScrollTo().assertIsDisplayed()
+            compose.waitForIdle()
+            val collapsedTop = compose.onNodeWithTag("map_place_panel").fetchSemanticsNode().boundsInRoot.top
+            compose.onNodeWithTag("map_place_drag_handle").performTouchInput {
+                swipe(start = center, end = Offset(center.x, center.y - 600f), durationMillis = 500)
+            }
+            compose.waitForIdle()
+            val expandedTop = compose.onNodeWithTag("map_place_panel").fetchSemanticsNode().boundsInRoot.top
+            assertTrue("The standard sheet handle expands the place panel", expandedTop < collapsedTop - 80f)
+            compose.onNodeWithTag("map_place_memos").performScrollToNode(hasText("My mapped memo"))
+            compose.onNodeWithText("My mapped memo").assertIsDisplayed()
+            compose.onNodeWithTag("map_place_memos").performScrollToNode(hasText("Another memo at my place"))
+            compose.onNodeWithText("Another memo at my place").assertIsDisplayed()
             compose.onAllNodes(hasContentDescription(label(R.string.memo_action_more)) and
                 hasAnyAncestor(hasTestTag("map_place_memos")))[0].performScrollTo().performClick()
             compose.onNodeWithText(label(R.string.memo_action_edit)).assertIsDisplayed()
@@ -145,10 +157,11 @@ class MapNavigationTest {
             compose.onNode(hasSetTextAction()).performTextInput("A draft at this place")
             compose.waitUntil(15_000) {
                 runBlocking { GlobalContext.get().get<DraftManager>().getDrafts(accountId) }
-                    .any { it.content == "A draft at this place" && it.location?.latitude == latitude && it.location.longitude == longitude }
+                    .any { it.content == "A draft at this place" && it.location?.latitude == latitude && it.location.longitude == longitude && it.location.placeholder == "My place" }
             }
             returnToMap()
-            compose.onNodeWithText("My mapped memo").performScrollTo().performClick()
+            compose.onNodeWithTag("map_place_memos").performScrollToNode(hasText("My mapped memo"))
+            compose.onNodeWithText("My mapped memo").performClick()
             compose.waitUntil(15_000) {
                 compose.onAllNodesWithContentDescription(label(R.string.memo_detail_back))
                     .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
@@ -187,7 +200,7 @@ class MapNavigationTest {
             instrumentation.runOnMainSync {
                 val nativeMap = map
                 val geometry = nativeMap?.queryRenderedFeatures(RectF(0f, 0f, 2000f, 3000f), "memosm-pins")
-                    ?.firstOrNull { it.getNumberProperty("count").toInt() == 2 }?.geometry() as? Point
+                    ?.firstOrNull { it.getNumberProperty("count").toInt() == 5 }?.geometry() as? Point
                 if (nativeMap != null && geometry != null) {
                     val screen = nativeMap.projection.toScreenLocation(org.maplibre.android.geometry.LatLng(geometry.latitude(), geometry.longitude()))
                     point = Offset(screen.x, screen.y); found = true

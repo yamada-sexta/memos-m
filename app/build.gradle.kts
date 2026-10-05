@@ -181,6 +181,7 @@ dependencies {
 
 
     // Location
+    implementation(libs.androidx.collection)
     implementation(libs.google.play.services.location)
     implementation(libs.maplibre.android)
 

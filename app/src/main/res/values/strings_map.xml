@@ -11,7 +11,6 @@
     <string name="map_fit_all">Fit all locations</string>
     <string name="map_no_results">No locations match these filters.</string>
     <string name="map_empty">No memos with locations yet. Tap the map to write at a place.</string>
-    <string name="map_close">Close</string>
     <string name="map_all">All</string>
     <string name="map_show_results">Show on map</string>
     <string name="map_draft_here">Draft memo here</string>

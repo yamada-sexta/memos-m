@@ -337,7 +337,6 @@ fun MemosScaffold(
         val uiState by viewModel.uiState.collectAsState()
         val focusManager = LocalFocusManager.current
 
-
         LaunchedEffect(listState, isLoading, nextPageToken, isActive) {
             if (!isActive) return@LaunchedEffect
             snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }.collect { lastIndex ->

@@ -53,5 +53,5 @@ fun ownMapLocation(location: Location, memos: List<Memo>, creator: String?): Loc
     placeholder = memos.firstOrNull {
         creator != null && it.creator == creator && it.location?.latitude == location.latitude &&
             it.location?.longitude == location.longitude && !it.location?.placeholder.isNullOrBlank()
-    }?.location?.placeholder ?: "${location.latitude}, ${location.longitude}"
+    }?.location?.placeholder
 )

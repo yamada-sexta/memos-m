@@ -11,7 +11,6 @@
     <string name="map_fit_all">모든 위치 보기</string>
     <string name="map_no_results">필터와 일치하는 위치가 없습니다.</string>
     <string name="map_empty">위치가 있는 메모가 없습니다. 지도를 탭하여 메모를 작성하세요.</string>
-    <string name="map_close">닫기</string>
     <string name="map_all">전체</string>
     <string name="map_show_results">지도에 표시</string>
     <string name="map_draft_here">여기서 초안 작성</string>

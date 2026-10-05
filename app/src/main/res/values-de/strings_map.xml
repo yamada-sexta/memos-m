@@ -11,7 +11,6 @@
     <string name="map_fit_all">Alle Orte anzeigen</string>
     <string name="map_no_results">Keine Orte entsprechen diesen Filtern.</string>
     <string name="map_empty">Noch keine Memos mit Standort. Tippe auf die Karte, um hier zu schreiben.</string>
-    <string name="map_close">Schließen</string>
     <string name="map_all">Alle</string>
     <string name="map_show_results">Auf Karte anzeigen</string>
     <string name="map_draft_here">Memo hier entwerfen</string>

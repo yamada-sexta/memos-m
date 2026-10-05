@@ -34,6 +34,7 @@ slf4j = "2.0.19"
 core = "1.7.0"
 
 [libraries]
+androidx-collection = { module = "androidx.collection:collection", version = "1.6.0" }
 androidx-browser = { module = "androidx.browser:browser", version = "1.10.0" }
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
 msgpack-core = { module = "org.msgpack:msgpack-core", version = "0.9.12" }

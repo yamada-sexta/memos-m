@@ -1,5 +1,6 @@
 package org.example.memosm.ui.component.item.markdown
 
+import androidx.collection.LruCache
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -10,11 +11,18 @@ import dev.snipme.highlights.model.BoldHighlight
 import dev.snipme.highlights.model.ColorHighlight
 import dev.snipme.highlights.model.SyntaxLanguage
 import dev.snipme.highlights.model.SyntaxThemes
+import java.util.Locale
 
 object CodeHighlighter {
+    private data class Key(val code: String, val language: SyntaxLanguage, val dark: Boolean)
+    private val cache = object : LruCache<Key, AnnotatedString>(250_000) {
+        override fun sizeOf(key: Key, value: AnnotatedString): Int = key.code.length.coerceAtLeast(1)
+    }
 
     fun highlightCode(code: String, language: String, isDarkMode: Boolean = true): AnnotatedString {
         val syntaxLanguage = getSyntaxLanguage(language)
+        val key = Key(code, syntaxLanguage, isDarkMode)
+        cache[key]?.let { return it }
         val theme = SyntaxThemes.default(isDarkMode)
 
         val highlights =
@@ -49,11 +57,11 @@ object CodeHighlighter {
                     }
                 }
             }
-        }
+        }.also { cache.put(key, it) }
     }
 
     private fun getSyntaxLanguage(alias: String): SyntaxLanguage {
-        return when (alias.lowercase()) {
+        return when (alias.trim().lowercase(Locale.ROOT)) {
             "c" -> SyntaxLanguage.C
             "cpp", "c++" -> SyntaxLanguage.CPP
             "csharp", "c#" -> SyntaxLanguage.CSHARP

@@ -2,7 +2,6 @@ package org.example.memosm.ui.nav
 
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -11,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Explore
@@ -23,13 +21,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.example.memosm.R
@@ -44,6 +42,8 @@ import org.example.memosm.ui.component.MemoSearchBar
 import org.example.memosm.ui.component.MemoPreviewItem
 import org.example.memosm.ui.component.composer.EditorRequest
 import org.example.memosm.ui.component.composer.rememberMemoEditorLauncher
+import org.example.memosm.data.resolveLocationName
+import kotlinx.coroutines.launch
 import org.example.memosm.ui.component.map.MemoMapController
 import org.example.memosm.ui.component.map.NativeMemoMap
 import org.example.memosm.ui.component.map.mapPinLabelColor
@@ -74,6 +74,9 @@ fun MapScreen(
     var mapBounds by remember { mutableStateOf(Rect.Zero) }
     var panelBounds by remember(map.scope) { mutableStateOf<Rect?>(null) }
     val openEditor = rememberMemoEditorLauncher(viewModel)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isDrafting by remember { mutableStateOf(false) }
     var tileError by remember { mutableStateOf(false) }
     var tileRetry by remember { mutableIntStateOf(0) }
     var showViews by remember { mutableStateOf(false) }
@@ -93,7 +96,6 @@ fun MapScreen(
         viewModel.memoMapManager.open()
         onDispose { viewModel.memoMapManager.close() }
     }
-    BackHandler(place != null && !searchExpanded) { place = null }
     MemosScaffold(
         viewModel = viewModel,
         memos = map.memos,
@@ -104,6 +106,7 @@ fun MapScreen(
         listPane = { onMemoClick ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(bottom = bottom).testTag("memo_map")) {
                 val desktop = maxWidth >= 600.dp
+                val sheetWidth = if (desktop) 380.dp else maxWidth
                 val sheetMaxHeight = maxHeight * 0.7f
                 Box(Modifier.fillMaxSize()) {
                     key(map.scope) {
@@ -113,7 +116,8 @@ fun MapScreen(
                             labelColor = mapPinLabelColor(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary),
                             initialFitReady = !map.isLoading && (map.complete || map.isOffline || map.loadFailed),
                             selection = place?.location,
-                            panelBounds = if (place != null && !searchExpanded) panelBounds?.translate(-mapBounds.left, -mapBounds.top) else null,
+                            panelBounds = if (place != null && !searchExpanded && ui.detailPane.selectedMemo == null)
+                                panelBounds?.translate(-mapBounds.left, -mapBounds.top) else null,
                             onPlace = { place = it }, onTileError = { tileError = it })
                     }
                     Box(Modifier.fillMaxSize().padding(top = controlsBottom)) {
@@ -140,38 +144,44 @@ fun MapScreen(
                             MapNotice(stringResource(if (map.memos.isNotEmpty() || map.savedView != null)
                                 R.string.map_no_results else R.string.map_empty), modifier = Modifier.align(Alignment.Center).padding(24.dp))
                         }
-                        place?.takeIf { !searchExpanded }?.let { selection ->
+                        place?.takeIf { !searchExpanded && ui.detailPane.selectedMemo == null }?.let { selection ->
                             val point = selection.location
-                            BottomSheetScaffold(modifier = Modifier
-                                .align(if (desktop) Alignment.CenterEnd else Alignment.BottomCenter)
-                                .then(if (desktop) Modifier.padding(12.dp).widthIn(max = 380.dp) else Modifier)
-                                .fillMaxSize(),
-                                containerColor = Color.Transparent,
-                                sheetPeekHeight = 280.dp,
-                                sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                                sheetShadowElevation = 6.dp,
-                                sheetContent = {
+                            ModalBottomSheet(
+                                onDismissRequest = { place = null },
+                                sheetState = rememberModalBottomSheetState(),
+                                sheetMaxWidth = sheetWidth,
+                                dragHandle = { BottomSheetDefaults.DragHandle(Modifier.testTag("map_place_drag_handle")) },
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            ) {
                                 Column(Modifier.fillMaxWidth()
                                     .heightIn(max = sheetMaxHeight)
                                     .onGloballyPositioned { panelBounds = it.boundsInWindow() }
                                     .testTag("map_place_panel").padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(sharedMapLabel(selected).takeIf { selection.memoLocations.distinct().size == 1 }
-                                            ?: "${point.latitude}, ${point.longitude}",
-                                            modifier = Modifier.weight(1f), maxLines = 2, style = MaterialTheme.typography.titleMedium)
-                                        IconButton(onClick = { place = null }) { Icon(Icons.Outlined.Close, stringResource(R.string.map_close)) }
-                                    }
+                                    Text(sharedMapLabel(selected).takeIf { selection.memoLocations.distinct().size == 1 }
+                                        ?: "${point.latitude}, ${point.longitude}",
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        maxLines = 2, style = MaterialTheme.typography.titleMedium)
                                     Text(stringResource(R.string.map_place_count, selected.size),
                                         style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 12.dp))
                                     if (ui.session.currUser != null) {
                                         FilledTonalButton(onClick = {
                                             ui.accounts.firstOrNull { it.isActive }?.let { account ->
-                                                openEditor(EditorRequest(account.id, titleRes = R.string.map_draft_here,
-                                                    location = ownMapLocation(point, selected, ui.session.currUser?.name),
-                                                    visibility = ui.session.userSettings?.memoVisibility ?: org.example.memosm.model.Visibility.PRIVATE))
+                                                isDrafting = true
+                                                scope.launch {
+                                                    try {
+                                                        val location = resolveLocationName(context,
+                                                            ownMapLocation(point, selected, ui.session.currUser?.name))
+                                                        openEditor(EditorRequest(account.id, titleRes = R.string.map_draft_here,
+                                                            location = location,
+                                                            visibility = ui.session.userSettings?.memoVisibility ?: org.example.memosm.model.Visibility.PRIVATE))
+                                                    } finally {
+                                                        isDrafting = false
+                                                    }
+                                                }
                                             }
-                                        }, shape = RoundedCornerShape(50), modifier = Modifier.testTag("map_new_here")) {
-                                            Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        }, enabled = !isDrafting, shape = RoundedCornerShape(50), modifier = Modifier.testTag("map_new_here")) {
+                                            if (isDrafting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                            else Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(Modifier.width(8.dp))
                                             Text(stringResource(R.string.map_draft_here))
                                         }
@@ -189,7 +199,7 @@ fun MapScreen(
                                         }
                                     }
                                 }
-                            }) {}
+                            }
                         }
                     }
                     Column(Modifier.align(Alignment.TopCenter)

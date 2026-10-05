@@ -11,7 +11,6 @@
     <string name="map_fit_all">すべての位置を表示</string>
     <string name="map_no_results">条件に一致する位置がありません。</string>
     <string name="map_empty">位置情報付きのメモはまだありません。地図をタップしてメモを書けます。</string>
-    <string name="map_close">閉じる</string>
     <string name="map_all">すべて</string>
     <string name="map_show_results">地図に表示</string>
     <string name="map_draft_here">ここで下書きを作成</string>

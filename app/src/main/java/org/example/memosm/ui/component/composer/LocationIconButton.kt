@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Geocoder
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
@@ -36,13 +35,14 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.example.memosm.R
+import org.example.memosm.data.resolveLocationName
 import org.example.memosm.model.Location
-import java.util.Locale
 import kotlin.coroutines.resume
 
 @Composable
@@ -126,73 +126,6 @@ fun LocationIconButton(
  */
 @SuppressLint("MissingPermission")
 suspend fun fetchCurrentLocation(context: Context): Location? = withContext(Dispatchers.IO) {
-    val locationPlaceHolder = context.getString(R.string.memo_composer_location_default_placeholder)
-
-    // Helper to perform reverse geocoding
-    suspend fun getGeocodedLocation(androidLoc: android.location.Location): Location {
-        var placeholder = locationPlaceHolder
-        if (Geocoder.isPresent()) {
-            try {
-                val geocoder = Geocoder(context, Locale.getDefault())
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    suspendCancellableCoroutine<Unit> { cont ->
-                        geocoder.getFromLocation(
-                            androidLoc.latitude,
-                            androidLoc.longitude,
-                            1,
-                            object : Geocoder.GeocodeListener {
-                                override fun onGeocode(addresses: MutableList<android.location.Address>) {
-                                    if (addresses.isNotEmpty()) {
-                                        val address = addresses[0]
-                                        val parts = listOfNotNull(
-                                            address.locality,
-                                            address.subAdminArea,
-                                            address.adminArea
-                                        )
-                                        if (parts.isNotEmpty()) {
-                                            placeholder = parts.joinToString(", ")
-                                        }
-                                    }
-                                    cont.resume(Unit)
-                                }
-
-                                override fun onError(errorMessage: String?) {
-                                    cont.resume(Unit)
-                                }
-                            }
-                        )
-                    }
-                } else {
-                    @Suppress("DEPRECATION")
-                    val addresses = geocoder.getFromLocation(
-                        androidLoc.latitude,
-                        androidLoc.longitude,
-                        1
-                    )
-                    if (!addresses.isNullOrEmpty()) {
-                        val address = addresses[0]
-                        val parts = listOfNotNull(
-                            address.locality,
-                            address.subAdminArea,
-                            address.adminArea
-                        )
-                        if (parts.isNotEmpty()) {
-                            placeholder = parts.joinToString(", ")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("LocationHelper", "Geocoding failed", e)
-            }
-        }
-
-        return Location(
-            latitude = androidLoc.latitude,
-            longitude = androidLoc.longitude,
-            placeholder = placeholder
-        )
-    }
-
     try {
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
         val cancellationTokenSource = CancellationTokenSource()
@@ -210,7 +143,7 @@ suspend fun fetchCurrentLocation(context: Context): Location? = withContext(Disp
         }
 
         if (fusedLocation != null) {
-            return@withContext getGeocodedLocation(fusedLocation)
+            return@withContext resolveLocationName(context, Location(latitude = fusedLocation.latitude, longitude = fusedLocation.longitude))
         }
 
         // Fallback to LocationManager
@@ -251,10 +184,12 @@ suspend fun fetchCurrentLocation(context: Context): Location? = withContext(Disp
             }
 
             if (androidLoc != null) {
-                return@withContext getGeocodedLocation(androidLoc)
+                return@withContext resolveLocationName(context, Location(latitude = androidLoc.latitude, longitude = androidLoc.longitude))
             }
         }
 
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Log.e("LocationHelper", "Location fetch failed", e)
     }
