@@ -118,26 +118,25 @@ fun VideoPlayer(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
-                    useController = true
+                    useController = isFullScreen
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                     if (isFullScreen) {
                         setFullscreenButtonClickListener { /* disabled */ }
                         controllerShowTimeoutMs = 3000
-                    } else {
-                        setFullscreenButtonClickListener { isFullscreen = true }
                     }
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
                     )
 
-                    if (!isFullScreen && onClick != null) {
-                        setOnClickListener { onClick() }
+                    if (!isFullScreen) {
+                        setOnClickListener { onClick?.invoke() ?: run { isFullscreen = true } }
                     }
                 }
             }, update = { view ->
                 view.player = if (isFullscreen) null else exoPlayer
+                view.useController = isFullScreen
             }, modifier = Modifier
                 .fillMaxSize()
                 .alpha(if (isReady) 1f else 0f)

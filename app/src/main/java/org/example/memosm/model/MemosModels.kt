@@ -5,6 +5,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
+internal fun isAudioAttachmentType(type: String): Boolean = type.contains("audio", ignoreCase = true)
+
 data class ListMemosResponse(
     val memos: List<Memo>?, val nextPageToken: String?
 )
@@ -78,6 +80,10 @@ data class Attachment(
     val clientId: String? = null,
     val localPath: String? = null
 ) {
+    /** Stable identity for thumbnails, row keys, and transitions, including local-only attachments. */
+    val identityKey: String
+        get() = name ?: clientId ?: "$filename:$type:$createTime:$externalLink:$localPath"
+
     val displayType: String
         get() = mimeType ?: type
 }

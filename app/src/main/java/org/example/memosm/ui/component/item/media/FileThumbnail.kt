@@ -123,7 +123,8 @@ fun FileThumbnail(
     filename: String,
     mode: FileThumbnailMode,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    details: String? = null
 ) {
     // Better identification by looking at both the type and the name
     val fileType = remember(displayType, filename) {
@@ -161,24 +162,28 @@ fun FileThumbnail(
                 modifier = modifier
                     .fillMaxSize()
                     .clickable { onClick() }
-                    .padding(16.dp),
+                    .padding(if (details != null) 8.dp else 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Icon(
                     imageVector = fileType.icon,
                     contentDescription = null,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(if (details != null) 24.dp else 32.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
                 if (mode == FileThumbnailMode.NORMAL) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(if (details != null) 4.dp else 8.dp))
                     Text(
                         text = filename,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = if (details != null) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
                     )
+                }
+                details?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                 }
             }
         }

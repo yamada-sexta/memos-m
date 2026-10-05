@@ -6,6 +6,8 @@ import android.util.Base64
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -33,20 +34,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.example.memosm.R
 import org.example.memosm.model.Attachment
+import org.example.memosm.model.isAudioAttachmentType
 import org.example.memosm.ui.component.item.media.AttachmentOrigin
 import org.example.memosm.ui.component.item.media.AudioPlayer
 import org.example.memosm.ui.component.item.media.AudioPlayerMode
+import org.example.memosm.ui.component.item.media.AudioMetadataContent
 import org.example.memosm.ui.component.item.media.FileThumbnail
 import org.example.memosm.ui.component.item.media.FileThumbnailMode
 import org.example.memosm.ui.component.item.media.FullScreenImageViewer
 import org.example.memosm.ui.component.item.media.MemoImage
+import org.example.memosm.ui.component.item.media.LocalViewerGesturesBlocked
 import org.example.memosm.ui.component.item.media.VideoPlayer
 import org.example.memosm.viewmodel.manager.AttachmentManager
 import java.io.File
@@ -71,13 +80,17 @@ fun AttachmentCard(
     isFullScreen: Boolean = false,
     onClick: (() -> Unit)? = null,
     onRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> },
-    mediaModifier: Modifier = Modifier
+    mediaModifier: Modifier = Modifier,
+    gallery: Boolean = false
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
     val origin = remember { AttachmentOrigin() }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showGalleryActions by remember(attachment, accountIdentity) { mutableStateOf(false) }
+    val gesturesBlocked = LocalViewerGesturesBlocked.current
+    val moreLabel = stringResource(R.string.memo_action_more)
     var showFullScreenImage by remember { mutableStateOf(false) }
     var isAudioPlaying by remember { mutableStateOf(false) }
 
@@ -92,10 +105,14 @@ fun AttachmentCard(
         )
     }
     val isAudio = remember(displayType) {
-        displayType.startsWith("audio/", ignoreCase = true) || displayType.contains(
-            "audio", ignoreCase = true
-        )
+        isAudioAttachmentType(displayType)
     }
+    val galleryClickModifier = if (gallery) Modifier.combinedClickable(
+        enabled = !gesturesBlocked,
+        onClick = { onClick?.invoke() ?: run { showInfoDialog = true } },
+        onLongClickLabel = moreLabel,
+        onLongClick = if (showActions) ({ showGalleryActions = true }) else null
+    ) else Modifier
     val isVideo = remember(displayType) {
         displayType.startsWith("video/", ignoreCase = true) || displayType.contains(
             "video", ignoreCase = true
@@ -148,7 +165,7 @@ fun AttachmentCard(
 
 
     // Default ratios before loading
-    var intrinsicRatio by remember {
+    var intrinsicRatio by remember(attachment, uri, accountIdentity) {
         mutableFloatStateOf(
             when {
                 isVideo -> 1.777f // 16:9 as a better default for videos
@@ -156,7 +173,7 @@ fun AttachmentCard(
             }
         )
     }
-    var isIntrinsicExact by remember { mutableStateOf(false) }
+    var isIntrinsicExact by remember(attachment, uri, accountIdentity) { mutableStateOf(false) }
 
     val backgroundColor by animateColorAsState(
         targetValue = if (isAudioPlaying) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
@@ -165,12 +182,12 @@ fun AttachmentCard(
     )
 
     Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = modifier.then(if (gallery && isAudio) galleryClickModifier else Modifier),
+        shape = if (gallery) RoundedCornerShape(2.dp) else MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = if (gallery) 0.dp else 2.dp)
     ) {
         @Suppress("COMPOSE_APPLIER_CALL_MISMATCH") BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val isCompact = when (compactMode) {
+            val isCompact = gallery || when (compactMode) {
                 AttachmentCompactMode.Always -> true
                 AttachmentCompactMode.Never -> false
                 AttachmentCompactMode.Width -> maxWidth < 160.dp
@@ -182,11 +199,12 @@ fun AttachmentCard(
             }
             val isWide = !isCompact && maxWidth > 240.dp
             val showFooter =
-                showInfo && !isCompact && (showFilename || showSize || attachment?.createTime != null)
+                !gallery && showInfo && !isCompact && (showFilename || showSize || attachment?.createTime != null)
 
             // Report total ratio to parent
             LaunchedEffect(
                 intrinsicRatio,
+                isIntrinsicExact,
                 maxWidth,
                 isCompact,
                 isWide,
@@ -237,6 +255,10 @@ fun AttachmentCard(
                         .then(mediaModifier),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Only the gallery overlay exposes actions to accessibility services.
+                    val mediaContentModifier = Modifier.fillMaxSize().then(
+                        if (gallery && !isAudio) Modifier.clearAndSetSemantics {} else Modifier
+                    )
                     if (isImage) {
                         MemoImage(
                             attachment = attachment,
@@ -244,7 +266,7 @@ fun AttachmentCard(
                             hostUrl = hostUrl,
                             uri = uri,
                             filename = filename,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = mediaContentModifier,
                             onRatioAvailable = {
                                 intrinsicRatio = it
                                 isIntrinsicExact = true
@@ -270,7 +292,7 @@ fun AttachmentCard(
                             VideoPlayer(
                                 url = videoUrl,
                                 token = token,
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = mediaContentModifier,
                                 isFullScreen = isFullScreen,
                                 onClick = if (isFullScreen) null else onClick,
                                 onRatioAvailable = {
@@ -284,15 +306,20 @@ fun AttachmentCard(
                             filename = filename,
                             token = token,
                             mode = when {
-                                    isFullScreen -> AudioPlayerMode.NORMAL
+                                gallery -> AudioPlayerMode.GALLERY
+                                isFullScreen -> AudioPlayerMode.NORMAL
                                 isWide -> AudioPlayerMode.WIDE
                                 isCompact -> AudioPlayerMode.COMPACT
                                 else -> AudioPlayerMode.NORMAL
                             },
                             showContainer = false,
+                            fileType = displayType,
+                            fileSize = info.size,
                             onPlayingStateChanged = { isAudioPlaying = it },
-                            modifier = Modifier.fillMaxSize()
+                            modifier = mediaContentModifier
                         )
+                    } else if (gallery && isAudio) {
+                        AudioMetadataContent(filename, fileType = displayType, fileSize = info.size, modifier = mediaContentModifier)
                     } else {
                         // Check if it's a profile picture/avatar
                         val isProfilePicture = remember(displayType) {
@@ -309,7 +336,7 @@ fun AttachmentCard(
                                 uri = uri,
                                 filename = filename,
                                 isRound = true,
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = mediaContentModifier,
                                 onClick = if (isFullScreen) null else { onClick ?: { showFullScreenImage = true } },
                                 isFullScreen = isFullScreen
                             )
@@ -317,20 +344,22 @@ fun AttachmentCard(
                             FileThumbnail(
                                 displayType = displayType,
                                 filename = filename,
+                                details = if (gallery) listOfNotNull(info.size, displayType.takeIf { it.isNotBlank() }).joinToString(" • ") else null,
                                 mode = when {
+                                    gallery -> FileThumbnailMode.NORMAL
                                     isFullScreen -> FileThumbnailMode.NORMAL
                                     isWide -> FileThumbnailMode.WIDE
                                     isCompact -> FileThumbnailMode.COMPACT
                                     else -> FileThumbnailMode.NORMAL
                                 },
                                 onClick = if (isFullScreen) { {} } else { onClick ?: { showInfoDialog = true } },
-                                modifier = Modifier.fillMaxSize()
+                                modifier = mediaContentModifier
                             )
                         }
                     }
 
                     // Floating menu button
-                    if (showInfo && showActions) {
+                    if (!gallery && showInfo && showActions) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -342,6 +371,10 @@ fun AttachmentCard(
                                 filename = filename, onShowInfo = { showInfoDialog = true }
                             )
                         }
+                    }
+                    if (gallery && !isAudio) {
+                        // Thumbnail controls live in the viewer; the overlay owns gallery actions.
+                        Box(Modifier.fillMaxSize().semantics { contentDescription = filename }.then(galleryClickModifier))
                     }
                 }
 
@@ -389,6 +422,13 @@ fun AttachmentCard(
         }
     }
 
+    if (gallery && showActions) {
+        AttachmentActionsMenu(
+            attachment, token, hostUrl, filename, onShowInfo = { showInfoDialog = true },
+            visible = showGalleryActions, onDismiss = { showGalleryActions = false }
+        )
+    }
+
     if (showInfoDialog) {
         AttachmentInfoSheet(info = info, onDismiss = { showInfoDialog = false })
     }
@@ -430,6 +470,3 @@ fun AttachmentCard(
         }
     }
 }
-
-@Composable
-fun mutableLongPositionOf() = remember { mutableLongStateOf(0L) }

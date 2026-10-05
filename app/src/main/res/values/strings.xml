@@ -465,4 +465,5 @@
     <string name="login_sso_no_browser">No browser is available. Install or enable a browser and try again.</string>
     <string name="login_sso_failed">SSO sign-in failed. Please try again. Your administrator may need to register the app callback URI.</string>
     <string name="login_sso_token_failed">Signed in, but could not create an app access token. Please try again.</string>
+    <string name="attachments_unknown_date">Unknown date</string>
 </resources>

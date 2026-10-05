@@ -6,6 +6,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
@@ -18,12 +20,16 @@ import org.junit.Test
 class AttachmentActionsSheetTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun showCard(attachment: Attachment? = null, showActions: Boolean = true) {
+    private fun showCard(
+        attachment: Attachment? = null, showActions: Boolean = true,
+        gallery: Boolean = false, onClick: (() -> Unit)? = null
+    ) {
         compose.setContent {
             MemosMTheme {
                 AttachmentCard(
                     attachment = attachment, token = null, hostUrl = "https://example.com",
-                    modifier = Modifier.size(240.dp), showActions = showActions
+                    modifier = Modifier.size(240.dp), showActions = showActions,
+                    gallery = gallery, onClick = onClick
                 )
             }
         }
@@ -69,4 +75,24 @@ class AttachmentActionsSheetTest {
         showCard(showActions = false)
         compose.onNodeWithContentDescription("More").assertDoesNotExist()
     }
+
+    @Test
+    fun galleryTapOpensAttachmentAndLongPressReusesTheActionsSheet() {
+        var opened = 0
+        showCard(
+            Attachment(name = "attachments/test", filename = "test.pdf", type = "application/pdf"),
+            gallery = true, onClick = { opened++ }
+        )
+        compose.onNodeWithContentDescription("test.pdf").performClick()
+        compose.runOnIdle { org.junit.Assert.assertEquals(1, opened) }
+        compose.onNodeWithContentDescription("test.pdf").performTouchInput { longClick() }
+        compose.runOnIdle { org.junit.Assert.assertEquals(1, opened) }
+        compose.onNodeWithText("Attachment Info").performClick()
+        compose.onNodeWithText("Filename").assertIsDisplayed()
+        pressBack()
+        compose.onNodeWithContentDescription("test.pdf").performTouchInput { longClick() }
+        compose.onNodeWithText("Download").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+    }
+
 }

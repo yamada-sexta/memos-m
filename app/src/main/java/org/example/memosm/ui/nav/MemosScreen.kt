@@ -100,7 +100,7 @@ fun MemosScreen(
     }
     var isSearchExpanded by remember(activeFeed) { mutableStateOf(false) }
     val density = LocalDensity.current
-    var feedHeaderHeight by remember { mutableStateOf(48.dp) }
+    var feedHeaderHeight by remember { mutableStateOf(64.dp) }
     val context = LocalContext.current
     val openEditor = rememberMemoEditorLauncher(viewModel)
     val draftsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -168,9 +168,15 @@ fun MemosScreen(
                 enter = slideInVertically { -it } + expandVertically() + fadeIn(),
                 exit = slideOutVertically { -it } + shrinkVertically() + fadeOut()
             ) {
-                MemoFeedTabs(pagerState, Modifier.testTag("memo_feed_tabs").onSizeChanged {
-                    feedHeaderHeight = with(density) { it.height.toDp() }
-                })
+                MemoFeedTabs(
+                    pagerState,
+                    Modifier
+                        .testTag("memo_feed_tabs")
+                        .onSizeChanged {
+                            feedHeaderHeight = with(density) { it.height.toDp() }
+                        }
+                        .padding(bottom = 16.dp)
+                )
             }
         },
         listPane = { onMemoClick ->

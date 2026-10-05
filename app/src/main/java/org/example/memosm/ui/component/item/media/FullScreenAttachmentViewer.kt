@@ -26,7 +26,8 @@ fun FullScreenAttachmentViewer(
     hostUrl: String,
     onDismiss: () -> Unit,
     onPageChanged: ((Int) -> Unit)? = null,
-    originBounds: ((Attachment) -> Rect?)? = null
+    originBounds: ((Attachment) -> Rect?)? = null,
+    attachmentKeys: List<String>? = null
 ) {
     if (attachments.isEmpty() || initialIndex !in attachments.indices) return
 
@@ -49,7 +50,11 @@ fun FullScreenAttachmentViewer(
             AttachmentActionsButton(attachment, token, hostUrl, attachment.filename, showInfo)
         }
     ) {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), userScrollEnabled = !LocalViewerGesturesBlocked.current) { page ->
+        HorizontalPager(
+            state = pagerState, modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = !LocalViewerGesturesBlocked.current,
+            key = { page -> attachmentKeys?.get(page) ?: page }
+        ) { page ->
             AttachmentCard(
                 attachment = attachments[page], token = token, hostUrl = hostUrl,
                 modifier = Modifier.fillMaxSize(), showInfo = false, showActions = false,

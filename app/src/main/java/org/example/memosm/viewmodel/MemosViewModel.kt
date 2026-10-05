@@ -298,7 +298,7 @@ class MemosViewModel(
     )
 
     private val _attachmentAspectRatios =
-        MutableStateFlow<Map<Float, Map<String, Float>>>(emptyMap())
+        MutableStateFlow<Map<String, Float>>(emptyMap())
 
     // Sync engine: replays queued offline writes when connectivity returns.
     private val syncManager = SyncManager(
@@ -1161,13 +1161,13 @@ class MemosViewModel(
         }
     }
 
-    fun updateAttachmentAspectRatio(scale: Float, key: String, ratio: Float) {
-        // Atomic CAS: two images finishing in the same frame must not drop
-        // each other's ratio update.
+    fun updateAttachmentAspectRatio(accountId: String?, generation: Long, key: String, ratio: Float) {
+        val account = accountSession.current ?: return
+        if (account.account.id != accountId || _uiState.value.accountGeneration != generation || !ratio.isFinite() || ratio <= 0f) return
+        // Atomic CAS keeps simultaneous thumbnail loads from dropping each other's dimensions.
         _attachmentAspectRatios.update { current ->
-            val scaleMap = current[scale]?.toMutableMap() ?: mutableMapOf()
-            scaleMap[key] = ratio
-            current + (scale to scaleMap)
+            if (!accountSession.isCurrent(account) || current[key] == ratio) current
+            else current + (key to ratio)
         }
     }
     override fun onCleared() {

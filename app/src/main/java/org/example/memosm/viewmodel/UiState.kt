@@ -56,7 +56,7 @@ data class MemoListState(
 data class AttachmentListState(
     val list: PaginatedListState<Attachment> = PaginatedListState(),
     val cellWidth: Float = 240f,
-    val aspectRatios: Map<Float, Map<String, Float>> = emptyMap()
+    val aspectRatios: Map<String, Float> = emptyMap()
 )
 
 // --- Draft State ---

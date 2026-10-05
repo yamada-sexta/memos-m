@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Card
@@ -46,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -53,11 +56,59 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.example.memosm.ui.component.item.mutableLongPositionOf
 import java.util.Locale
 
 enum class AudioPlayerMode {
-    WIDE, NORMAL, COMPACT
+    WIDE, NORMAL, COMPACT, GALLERY
+}
+
+internal data class AudioTrackMetadata(
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val durationMs: Long? = null
+)
+
+internal data class AudioMetadataText(val title: String, val subtitle: String?, val details: String?)
+
+internal fun audioMetadataText(
+    filename: String, metadata: AudioTrackMetadata, fileType: String?, fileSize: String?
+): AudioMetadataText {
+    fun String?.nonBlank() = this?.trim()?.takeIf { it.isNotEmpty() }
+    val tags = listOfNotNull(
+        metadata.title.nonBlank()?.takeIf { it != filename }, metadata.artist.nonBlank(), metadata.album.nonBlank()
+    )
+    val subtitle = tags.joinToString(" • ").takeIf { it.isNotEmpty() }
+    val details = listOfNotNull(
+        metadata.durationMs?.takeIf { it > 0 }?.let(::formatAudioTime),
+        fileType.nonBlank(), fileSize.nonBlank()
+    ).joinToString(" • ").takeIf { it.isNotEmpty() }
+    return AudioMetadataText(filename, subtitle, details)
+}
+
+@Composable
+internal fun AudioMetadataContent(
+    filename: String,
+    metadata: AudioTrackMetadata = AudioTrackMetadata(),
+    fileType: String? = null,
+    fileSize: String? = null,
+    modifier: Modifier = Modifier
+) {
+    val text = audioMetadataText(filename, metadata, fileType, fileSize)
+    Column(
+        modifier = modifier.padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(Icons.Outlined.AudioFile, contentDescription = null, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(text.title, style = MaterialTheme.typography.bodySmall, maxLines = 2,
+            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        text.details?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        }
+    }
 }
 
 @OptIn(UnstableApi::class)
@@ -69,6 +120,8 @@ fun AudioPlayer(
     modifier: Modifier = Modifier,
     mode: AudioPlayerMode = AudioPlayerMode.NORMAL,
     showContainer: Boolean = true,
+    fileType: String? = null,
+    fileSize: String? = null,
     onPlayingStateChanged: (Boolean) -> Unit = {}
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
@@ -80,21 +133,30 @@ fun AudioPlayer(
             DefaultMediaSourceFactory(dataSourceFactory)
         ).build()
     }
-    var isPlaying by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
-    var duration by remember { mutableLongStateOf(0L) }
-    var currentPosition by mutableLongPositionOf()
-    var isPrepared by remember { mutableStateOf(false) }
+    var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
+    var progress by remember(exoPlayer) { mutableFloatStateOf(0f) }
+    var duration by remember(exoPlayer) { mutableLongStateOf(0L) }
+    var currentPosition by remember(exoPlayer) { mutableLongStateOf(0L) }
+    var isPrepared by remember(exoPlayer) { mutableStateOf(false) }
+
+    var trackMetadata by remember(exoPlayer) { mutableStateOf(AudioTrackMetadata()) }
 
     DisposableEffect(exoPlayer) {
-        val mediaItem = MediaItem.fromUri(url)
-        exoPlayer.setMediaItem(mediaItem)
-        exoPlayer.prepare()
         val listener = object : Player.Listener {
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                trackMetadata = AudioTrackMetadata(
+                    title = mediaMetadata.title?.toString(),
+                    artist = mediaMetadata.artist?.toString(),
+                    album = mediaMetadata.albumTitle?.toString(),
+                    durationMs = duration
+                )
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     isPrepared = true
                     duration = exoPlayer.duration
+                    trackMetadata = trackMetadata.copy(durationMs = duration)
                 } else if (playbackState == Player.STATE_ENDED) {
                     progress = 0f
                     currentPosition = 0
@@ -110,6 +172,8 @@ fun AudioPlayer(
             }
         }
         exoPlayer.addListener(listener)
+        exoPlayer.setMediaItem(MediaItem.fromUri(url))
+        exoPlayer.prepare()
         onDispose {
             exoPlayer.removeListener(listener)
             exoPlayer.release()
@@ -124,8 +188,37 @@ fun AudioPlayer(
         }
     }
 
+    val togglePlayback = {
+        if (isPrepared) {
+            if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+        }
+    }
     val content = @Composable {
         when (mode) {
+            AudioPlayerMode.GALLERY -> BoxWithConstraints(Modifier.fillMaxSize()) {
+                val text = audioMetadataText(filename, trackMetadata, fileType, fileSize)
+                val showTags = maxHeight >= 160.dp
+                Column(
+                    Modifier.fillMaxSize().padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    PlayPauseButton(
+                        isPlaying = isPlaying, isPrepared = isPrepared, onToggle = togglePlayback,
+                        modifier = Modifier.size(48.dp), iconSize = 28.dp
+                    )
+                    Text(text.title, style = MaterialTheme.typography.bodySmall, maxLines = if (showTags) 2 else 1,
+                        overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    if (showTags) text.subtitle?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    }
+                    text.details?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    }
+                }
+            }
             AudioPlayerMode.WIDE -> Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -143,12 +236,7 @@ fun AudioPlayer(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     PlayPauseButton(
-                        isPlaying = isPlaying, isPrepared = isPrepared, onToggle = {
-                            if (isPrepared) {
-                                if (isPlaying) exoPlayer.pause()
-                                else exoPlayer.play()
-                            }
-                        })
+                        isPlaying = isPlaying, isPrepared = isPrepared, onToggle = togglePlayback)
                     Column(modifier = Modifier.weight(1f)) {
                         val sliderState = remember { SliderState(value = progress) }
                         LaunchedEffect(progress) { sliderState.value = progress }
@@ -162,11 +250,11 @@ fun AudioPlayer(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = formatTime(currentPosition),
+                                text = formatAudioTime(currentPosition),
                                 style = MaterialTheme.typography.labelSmall
                             )
                             Text(
-                                text = formatTime(duration),
+                                text = formatAudioTime(duration),
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -189,12 +277,7 @@ fun AudioPlayer(
                             .fillMaxWidth()
                     ) {
                         PlayPauseButton(
-                            isPlaying = isPlaying, isPrepared = isPrepared, onToggle = {
-                                if (isPrepared) {
-                                    if (isPlaying) exoPlayer.pause()
-                                    else exoPlayer.play()
-                                }
-                            }, modifier = Modifier.size(48.dp)
+                            isPlaying = isPlaying, isPrepared = isPrepared, onToggle = togglePlayback, modifier = Modifier.size(48.dp)
                         )
                     }
 
@@ -215,7 +298,7 @@ fun AudioPlayer(
 
     if (showContainer) {
         Card(
-            modifier = modifier.then(if (mode != AudioPlayerMode.WIDE) Modifier.height(100.dp) else Modifier),
+            modifier = modifier.then(if (mode != AudioPlayerMode.WIDE && mode != AudioPlayerMode.GALLERY) Modifier.height(100.dp) else Modifier),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = MaterialTheme.shapes.medium
         ) { content() }
@@ -287,8 +370,8 @@ fun PlayPauseButton(
     }
 }
 
-private fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
+internal fun formatAudioTime(ms: Long): String {
+    val totalSeconds = ms.coerceAtLeast(0L) / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return String.format(Locale.US, "%02d:%02d", minutes, seconds)

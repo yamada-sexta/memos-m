@@ -49,13 +49,7 @@ internal fun AttachmentActionsButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val context = LocalContext.current
     var showMenu by remember(attachment, filename) { mutableStateOf(false) }
-    var showDownloadDialog by remember(attachment, filename) { mutableStateOf(false) }
-    val openWebUrl = remember(attachment, hostUrl) {
-        AttachmentManager.getAttachmentUrl(hostUrl, attachment)
-    }
-    val errorOpenLinkString = stringResource(R.string.attachments_error_open_link)
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
@@ -67,11 +61,33 @@ internal fun AttachmentActionsButton(
         }
     }
 
-    if (showMenu) {
-        ActionSheet(onDismissRequest = { showMenu = false }) {
+    AttachmentActionsMenu(
+        attachment, token, hostUrl, filename, onShowInfo,
+        visible = showMenu, onDismiss = { showMenu = false }
+    )
+}
+
+@Composable
+internal fun AttachmentActionsMenu(
+    attachment: Attachment?,
+    token: String?,
+    hostUrl: String,
+    filename: String,
+    onShowInfo: () -> Unit,
+    visible: Boolean,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var showDownloadDialog by remember(attachment, filename) { mutableStateOf(false) }
+    val openWebUrl = remember(attachment, hostUrl) {
+        AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+    }
+    val errorOpenLinkString = stringResource(R.string.attachments_error_open_link)
+    if (visible) {
+        ActionSheet(onDismissRequest = { onDismiss() }) {
             ActionSheetItem(
                 text = { Text(stringResource(R.string.attachments_info_title)) },
-                onClick = { showMenu = false; onShowInfo() },
+                onClick = { onDismiss(); onShowInfo() },
                 leadingIcon = {
                     Icon(
                         Icons.Outlined.Info, contentDescription = null
@@ -80,7 +96,7 @@ internal fun AttachmentActionsButton(
             ActionSheetItem(
                 text = { Text(stringResource(R.string.attachments_download_button)) },
                 onClick = {
-                    showMenu = false; showDownloadDialog = true
+                    onDismiss(); showDownloadDialog = true
                 },
                 leadingIcon = {
                     Icon(
@@ -92,7 +108,7 @@ internal fun AttachmentActionsButton(
                 ActionSheetItem(
                     text = { Text(stringResource(R.string.memo_action_open_web)) },
                     onClick = {
-                        showMenu = false
+                        onDismiss()
                         try {
                             val intent = Intent(
                                 Intent.ACTION_VIEW, openWebUrl.toUri()
@@ -121,7 +137,7 @@ internal fun AttachmentActionsButton(
                 ActionSheetItem(
                     text = { Text(stringResource(R.string.common_share)) },
                     onClick = {
-                        showMenu = false
+                        onDismiss()
                         try {
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND

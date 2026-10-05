@@ -29,14 +29,11 @@ internal class AttachmentOrigin {
 
 internal class AttachmentOrigins {
     private val origins = mutableMapOf<String, AttachmentOrigin>()
-    private fun key(attachment: Attachment) = attachment.name ?: attachment.clientId
-        ?: "${attachment.filename}:${attachment.type}:${attachment.createTime}"
+    fun boundsFor(attachment: Attachment): Rect? = origins[attachment.identityKey]?.boundsOnScreen()
 
-    fun boundsFor(attachment: Attachment): Rect? = origins[key(attachment)]?.boundsOnScreen()
-
-    fun register(attachment: Attachment, origin: AttachmentOrigin) { origins[key(attachment)] = origin }
+    fun register(attachment: Attachment, origin: AttachmentOrigin) { origins[attachment.identityKey] = origin }
     fun unregister(attachment: Attachment, origin: AttachmentOrigin) {
-        if (origins[key(attachment)] === origin) origins.remove(key(attachment))
+        if (origins[attachment.identityKey] === origin) origins.remove(attachment.identityKey)
     }
 }
 
