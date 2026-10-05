@@ -479,6 +479,8 @@ fun NativeMarkdownNodeRecursive(node: ASTNode, allowPreview: Boolean = false) {
             val borderColor = MaterialTheme.colorScheme.outlineVariant
             // Draw the border at the measured height instead of asking for the
             // full intrinsic height, which can exceed Compose's packed limits.
+            // Intrinsic queries also crash quoted images: AttachmentCard uses
+            // BoxWithConstraints, which does not support intrinsic measurement.
             Column(
                 modifier = Modifier
                     .padding(vertical = 4.dp)

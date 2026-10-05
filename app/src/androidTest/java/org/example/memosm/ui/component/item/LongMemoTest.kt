@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -27,6 +29,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import org.example.memosm.model.Memo
@@ -90,18 +93,7 @@ class LongMemoTest {
         val word = "W".repeat(8_000)
         val content = "| **Table start** |\n| --- |\n| $word |"
         compose.setContent {
-            MemosMTheme(dynamicColor = false) {
-                LazyColumn(Modifier.width(240.dp)) {
-                    item {
-                        MemoItem(
-                            memo = Memo(content = content),
-                            token = "",
-                            headerScale = 1f,
-                            isDetailView = true
-                        )
-                    }
-                }
-            }
+            MemoTestTimeline(content, isDetailView = true)
         }
         awaitRenderedStart("Table start")
         val cell = tableCell(word)
@@ -189,35 +181,46 @@ class LongMemoTest {
 
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides density) {
-                MemosMTheme(dynamicColor = false) {
-                    LazyColumn(Modifier.width(240.dp).testTag("timeline")) {
-                        item {
-                            MemoItem(
-                                modifier = Modifier.testTag("long_memo"),
-                                memo = Memo(content = content),
-                                token = "",
-                                headerScale = 1f,
-                                maxHeight = 400.dp
-                            )
-                        }
-                        items((1..30).toList()) { index ->
-                            Text(
-                                text = "Neighbor $index",
-                                modifier = Modifier.height(64.dp).testTag("neighbor_$index")
-                            )
-                        }
-                    }
-                }
+                MemoTestTimeline(content)
             }
         }
 
-        repeat(3) {
-            compose.onNodeWithTag("timeline").performScrollToIndex(0)
+        compose.checkMemoWhileScrolling {
             awaitRenderedStart(renderedStart)
-            val start = tableCell(renderedStart)
-            start.assertIsDisplayed()
-            compose.onNodeWithTag("timeline").performScrollToIndex(30)
-            compose.onNodeWithTag("neighbor_30").assertIsDisplayed()
+            tableCell(renderedStart).assertIsDisplayed()
         }
+    }
+}
+
+@Composable
+internal fun MemoTestTimeline(content: String, isDetailView: Boolean = false) {
+    MemosMTheme(dynamicColor = false) {
+        LazyColumn(Modifier.width(240.dp).testTag("timeline")) {
+            item {
+                MemoItem(
+                    modifier = Modifier.testTag("long_memo"),
+                    memo = Memo(content = content),
+                    token = "",
+                    headerScale = 1f,
+                    maxHeight = if (isDetailView) Dp.Unspecified else 400.dp,
+                    isDetailView = isDetailView
+                )
+            }
+            items((1..30).toList()) { index ->
+                Text(
+                    text = "Neighbor $index",
+                    modifier = Modifier.height(64.dp).testTag("neighbor_$index")
+                )
+            }
+        }
+    }
+}
+
+internal fun ComposeTestRule.checkMemoWhileScrolling(assertRendered: () -> Unit) {
+    repeat(3) {
+        onNodeWithTag("timeline").performScrollToIndex(0)
+        assertRendered()
+        onNodeWithTag("timeline").performScrollToIndex(30)
+        onNodeWithTag("neighbor_30").assertIsDisplayed()
     }
 }
