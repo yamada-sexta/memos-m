@@ -90,7 +90,7 @@ internal fun FullScreenMediaDialog(
     infoContent: (@Composable () -> Unit)? = null,
     actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null,
     gestureKey: Any? = null,
-    content: @Composable BoxScope.(dismiss: () -> Unit) -> Unit
+    content: @Composable BoxScope.() -> Unit
 ) {
     val density = LocalDensity.current
     val threshold = with(density) { 120.dp.toPx() }
@@ -328,7 +328,7 @@ internal fun FullScreenMediaDialog(
                                         translationY = if (backingDetails) scroll.value * backProgress.value else 0f
                                     }
                             ) {
-                                Box(Modifier.fillMaxWidth().height(viewportHeight)) { content(dismiss) }
+                                Box(Modifier.fillMaxWidth().height(viewportHeight)) { content() }
                                 if (infoContent != null) {
                                     Column(Modifier.fillMaxWidth()) {
                                         Spacer(Modifier.height(with(density) { detailsTop.toDp() }))

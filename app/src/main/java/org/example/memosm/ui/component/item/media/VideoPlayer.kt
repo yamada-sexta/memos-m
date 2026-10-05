@@ -51,7 +51,6 @@ fun VideoPlayer(
     modifier: Modifier = Modifier,
     isFullScreen: Boolean = false,
     onClick: (() -> Unit)? = null,
-    onDismiss: (() -> Unit)? = null,
     onRatioAvailable: (Float) -> Unit = {}
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current

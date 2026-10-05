@@ -68,6 +68,34 @@ class ViewerZoomTransformTest {
         assertOffsetEquals(Offset.Zero, viewerPanBounds(IntSize.Zero, IntSize.Zero, 2f))
     }
 
+    @Test
+    fun doubleTapCyclesCoverOriginalAndFitLikeImmich() {
+        val viewport = IntSize(400, 800)
+        val media = IntSize(1600, 1200)
+        val cover = viewerDoubleTapTarget(ViewerZoomStep.Fit, viewport, media)
+        val original = viewerDoubleTapTarget(cover.step, viewport, media)
+        val fit = viewerDoubleTapTarget(original.step, viewport, media)
+
+        assertEquals(ViewerZoomStep.Cover, cover.step)
+        assertEquals(8f / 3f, cover.scale, 0.001f)
+        assertEquals(ViewerZoomStep.Original, original.step)
+        assertEquals(4f, original.scale, 0f)
+        assertEquals(ViewerZoomTarget(ViewerZoomStep.Fit, 1f), fit)
+    }
+
+    @Test
+    fun doubleTapSkipsRedundantSizesAndResetsManualZoom() {
+        val viewport = IntSize(400, 800)
+        val media = IntSize(1600, 3200)
+        val target = viewerDoubleTapTarget(ViewerZoomStep.Fit, viewport, media)
+
+        assertEquals(ViewerZoomTarget(ViewerZoomStep.Original, 4f), target)
+        assertEquals(ViewerZoomTarget(ViewerZoomStep.Fit, 1f), viewerDoubleTapTarget(ViewerZoomStep.Manual, viewport, media))
+        val squareMedia = IntSize(800, 800)
+        val cover = viewerDoubleTapTarget(ViewerZoomStep.Fit, viewport, squareMedia)
+        assertEquals(ViewerZoomTarget(ViewerZoomStep.Fit, 1f), viewerDoubleTapTarget(cover.step, viewport, squareMedia))
+    }
+
     private fun assertOffsetEquals(expected: Offset, actual: Offset) {
         assertEquals(expected.x, actual.x, 0.001f)
         assertEquals(expected.y, actual.y, 0.001f)

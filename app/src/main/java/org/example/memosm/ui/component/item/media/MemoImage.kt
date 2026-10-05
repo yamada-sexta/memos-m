@@ -53,8 +53,7 @@ fun MemoImage(
     placeholderIcon: ImageVector? = null,
     onRatioAvailable: (Float) -> Unit = {},
     onClick: (() -> Unit)? = null,
-    isFullScreen: Boolean = false,
-    onDismiss: (() -> Unit)? = null
+    isFullScreen: Boolean = false
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id

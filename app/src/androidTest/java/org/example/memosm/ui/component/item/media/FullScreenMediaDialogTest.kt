@@ -52,7 +52,7 @@ class FullScreenMediaDialogTest {
                     ) {
                         val owner = LocalOnBackPressedDispatcherOwner.current!!
                         SideEffect { dispatcher = owner.onBackPressedDispatcher }
-                        Box(Modifier.fillMaxSize().testTag("media").zoomable(zoomable, doubleTapZoom = true)) {
+                        Box(Modifier.fillMaxSize().testTag("media").zoomable(zoomable)) {
                             Text("Viewer content")
                         }
                     }
@@ -202,6 +202,31 @@ class FullScreenMediaDialogTest {
         } finally {
             compose.mainClock.autoAdvance = true
         }
+    }
+
+    @Test
+    fun galleryImagesSupportDoubleTapZoomAndReturnToFit() {
+        compose.setContent {
+            MemosMTheme {
+                FullScreenAttachmentViewer(
+                    attachments = listOf(Attachment(
+                        filename = "tiny.png", type = "image/png",
+                        content = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jCz8AAAAASUVORK5CYII="
+                    )),
+                    initialIndex = 0, token = null, hostUrl = "",
+                    onDismiss = { dismissals++ }
+                )
+            }
+        }
+        val image = compose.onNodeWithContentDescription("tiny.png")
+        image.performTouchInput { doubleClick() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("attachment_viewer").performTouchInput { swipeDown() }
+        compose.runOnIdle { assertEquals(0, dismissals) }
+        image.performTouchInput { doubleClick() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("attachment_viewer").performTouchInput { swipeDown() }
+        compose.runOnIdle { assertEquals(1, dismissals) }
     }
 
     @Test

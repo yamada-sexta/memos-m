@@ -70,7 +70,6 @@ fun AttachmentCard(
     compactMode: AttachmentCompactMode = AttachmentCompactMode.Area,
     isFullScreen: Boolean = false,
     onClick: (() -> Unit)? = null,
-    onDismiss: (() -> Unit)? = null,
     onRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> },
     mediaModifier: Modifier = Modifier
 ) {
@@ -251,8 +250,7 @@ fun AttachmentCard(
                                 isIntrinsicExact = true
                             },
                             onClick = if (isFullScreen) null else { onClick ?: { showFullScreenImage = true } },
-                            isFullScreen = isFullScreen,
-                            onDismiss = onDismiss
+                            isFullScreen = isFullScreen
                         )
                     } else if (isVideo) {
                         val videoUrl = produceState<String?>(
@@ -275,7 +273,6 @@ fun AttachmentCard(
                                 modifier = Modifier.fillMaxSize(),
                                 isFullScreen = isFullScreen,
                                 onClick = if (isFullScreen) null else onClick,
-                                onDismiss = onDismiss,
                                 onRatioAvailable = {
                                     intrinsicRatio = it
                                     isIntrinsicExact = true
@@ -314,8 +311,7 @@ fun AttachmentCard(
                                 isRound = true,
                                 modifier = Modifier.fillMaxSize(),
                                 onClick = if (isFullScreen) null else { onClick ?: { showFullScreenImage = true } },
-                                isFullScreen = isFullScreen,
-                                onDismiss = onDismiss
+                                isFullScreen = isFullScreen
                             )
                         } else {
                             FileThumbnail(

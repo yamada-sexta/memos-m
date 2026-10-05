@@ -32,11 +32,12 @@ import kotlinx.coroutines.launch
 fun Modifier.zoomable(
     enabled: Boolean,
     imageSize: IntSize = IntSize.Zero,
-    doubleTapZoom: Boolean = false
+    doubleTapZoom: Boolean = true
 ): Modifier = composed {
     if (!enabled) return@composed this
 
     var scale by remember { mutableFloatStateOf(1f) }
+    var zoomStep by remember { mutableStateOf(ViewerZoomStep.Fit) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
     var settleJob by remember { mutableStateOf<Job?>(null) }
@@ -75,15 +76,21 @@ fun Modifier.zoomable(
         .onSizeChanged { viewSize = it }
         .pointerInput(doubleTapZoom, gesturesBlocked, zoomState) {
             if (!doubleTapZoom || gesturesBlocked) return@pointerInput
-            detectTapGestures(onDoubleTap = {
+            detectTapGestures(onDoubleTap = { position ->
                 settleJob?.cancel()
+                val target = viewerDoubleTapTarget(zoomStep, viewSize, currentImageSize)
+                zoomStep = target.step
+                val startScale = scale
+                val startOffset = offset
+                val tap = position - Offset(viewSize.width / 2f, viewSize.height / 2f)
+                val targetOffset = boundedOffset(
+                    viewerZoomTransform(startScale, startOffset, tap, Offset.Zero, target.scale / startScale).offset,
+                    target.scale
+                )
                 settleJob = scope.launch {
-                    val startScale = scale
-                    val startOffset = offset
-                    val target = if (scale > 1.5f) 1f else 2.5f
                     Animatable(0f).animateTo(1f) {
-                        scale = startScale + (target - startScale) * value
-                        offset = boundedOffset(startOffset * (1f - value), scale)
+                        scale = startScale + (target.scale - startScale) * value
+                        offset = boundedOffset(startOffset + (targetOffset - startOffset) * value, scale)
                         reportZoom()
                     }
                 }
@@ -116,6 +123,7 @@ fun Modifier.zoomable(
                         (ownsGesture && accumulatedPan.getDistance() > viewConfiguration.touchSlop)
                     if (transforming) {
                         val zoom = event.calculateZoom()
+                        if (zoom != 1f) zoomStep = ViewerZoomStep.Manual
                         val centroid = event.calculateCentroid(useCurrent = false)
                         val relativeCentroid = if (centroid.isValid()) {
                             centroid - Offset(viewSize.width / 2f, viewSize.height / 2f)
@@ -132,6 +140,7 @@ fun Modifier.zoomable(
                     // Transfer the release pose to the dialog's thumbnail transition in one frame.
                     pinchDismiss(ViewerZoomTransform(scale, offset))
                     scale = 1f
+                    zoomStep = ViewerZoomStep.Fit
                     offset = Offset.Zero
                     reportZoom()
                 } else if (transforming && scale < 1f) {
@@ -142,6 +151,7 @@ fun Modifier.zoomable(
                             offset = boundedOffset(offset, scale)
                             reportZoom()
                         }
+                        zoomStep = ViewerZoomStep.Fit
                     }
                 } else if (transforming && scale > 1f && !pinched) {
                     val velocity = tracker.calculateVelocity()

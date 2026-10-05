@@ -48,13 +48,13 @@ fun FullScreenAttachmentViewer(
             val attachment = attachments[pagerState.currentPage.coerceIn(attachments.indices)]
             AttachmentActionsButton(attachment, token, hostUrl, attachment.filename, showInfo)
         }
-    ) { dismiss ->
+    ) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), userScrollEnabled = !LocalViewerGesturesBlocked.current) { page ->
             AttachmentCard(
                 attachment = attachments[page], token = token, hostUrl = hostUrl,
                 modifier = Modifier.fillMaxSize(), showInfo = false, showActions = false,
                 showSize = false, showFilename = false, compactMode = AttachmentCompactMode.Never,
-                isFullScreen = true, onDismiss = dismiss,
+                isFullScreen = true,
                 onRatioAvailable = { ratio, exact ->
                     val type = attachments[page].displayType
                     if (page == pagerState.currentPage && exact &&
