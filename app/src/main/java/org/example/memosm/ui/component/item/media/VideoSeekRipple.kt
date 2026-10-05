@@ -12,9 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -34,7 +34,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.coroutineScope
@@ -50,17 +49,24 @@ internal fun VideoSeekRipple(feedback: VideoSeekFeedback, modifier: Modifier = M
     val source = remember { MutableInteractionSource() }
     val highlight = remember { Animatable(0f) }
     val phase = remember { Animatable(0f) }
-    val inset = with(LocalDensity.current) { 12.dp.toPx() }
+    val shape = remember(forward) {
+        AbsoluteRoundedCornerShape(
+            topLeft = CornerSize(if (forward) 50 else 0),
+            bottomLeft = CornerSize(if (forward) 50 else 0),
+            topRight = CornerSize(if (forward) 0 else 50),
+            bottomRight = CornerSize(if (forward) 0 else 50)
+        )
+    }
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
     var regionSize by remember { mutableStateOf(IntSize.Zero) }
 
-    LaunchedEffect(feedback, inset) {
+    LaunchedEffect(feedback) {
         // Let the indication attach before emitting the synthetic seek press.
         withFrameNanos { }
         val position = feedback.position?.let {
             Offset(
-                (it.x - (if (forward) viewportSize.width * 0.6f else 0f) - inset).coerceIn(0f, regionSize.width.toFloat()),
-                (it.y - inset).coerceIn(0f, regionSize.height.toFloat())
+                (it.x - (if (forward) viewportSize.width * 0.6f else 0f)).coerceIn(0f, regionSize.width.toFloat()),
+                it.y.coerceIn(0f, regionSize.height.toFloat())
             )
         } ?: Offset(regionSize.width / 2f, regionSize.height / 2f)
         val press = PressInteraction.Press(position)
@@ -89,10 +95,10 @@ internal fun VideoSeekRipple(feedback: VideoSeekFeedback, modifier: Modifier = M
     Box(modifier.fillMaxSize().onSizeChanged { viewportSize = it },
         contentAlignment = if (forward) Alignment.CenterEnd else Alignment.CenterStart) {
         Box(
-            Modifier.fillMaxHeight().fillMaxWidth(0.4f).padding(12.dp).onSizeChanged { regionSize = it },
+            Modifier.fillMaxHeight().fillMaxWidth(0.4f).onSizeChanged { regionSize = it },
             contentAlignment = Alignment.Center
         ) {
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp)).background(Color.White.copy(alpha = highlight.value))
+            Box(Modifier.fillMaxSize().clip(shape).background(Color.White.copy(alpha = highlight.value))
                 .indication(source, ripple(color = Color.White)))
             Row(Modifier.rotate(if (forward) 0f else 180f), verticalAlignment = Alignment.CenterVertically) {
                 repeat(3) { index ->

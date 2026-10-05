@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -45,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -139,13 +140,14 @@ internal fun VideoPlaybackControls(
             // Background taps pass through to the video; only the actual controls consume input.
             Box(
                 Modifier.fillMaxSize()
+                    .background(Brush.verticalGradient(listOf(
+                        Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.7f)
+                    )))
                     .windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)
             ) {
-                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                CompositionLocalProvider(LocalContentColor provides Color.White) {
                     Row(
-                        Modifier.align(Alignment.Center)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), RoundedCornerShape(50))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        Modifier.align(Alignment.Center),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
@@ -156,15 +158,13 @@ internal fun VideoPlaybackControls(
                             isPlaying = state.playWhenReady && state.playbackState != Player.STATE_ENDED,
                             isPrepared = state.canPlayPause && visible, onToggle = { interact(onTogglePlayback) },
                             modifier = Modifier.size(64.dp), iconSize = 48.dp,
-                            tint = MaterialTheme.colorScheme.onSurface, filledIcons = true
+                            tint = Color.White, filledIcons = true
                         )
                         IconButton(onClick = { interact { seek(VideoTapAction.Forward, null) } }, enabled = canSeek && visible) {
                             Icon(Icons.Filled.Forward10, stringResource(R.string.video_forward_10), Modifier.size(32.dp))
                         }
                     }
-                    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), MaterialTheme.shapes.extraLarge)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
                         val progress = playbackProgress(displayedPosition, state.duration)
                         val sliderState = remember { SliderState(value = progress) }
                         LaunchedEffect(progress) { sliderState.value = progress }
