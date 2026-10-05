@@ -36,24 +36,37 @@ fun SetupScreen(
 ) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+            val wideLayout = maxWidth >= 600.dp
+            val useLargeText = wideLayout && maxHeight >= 480.dp
+            val horizontalPadding = if (wideLayout) 48.dp else 24.dp
             Column(
                 Modifier.align(Alignment.TopStart)
-                    .widthIn(max = 480.dp).fillMaxWidth()
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .heightIn(min = maxHeight)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = horizontalPadding)
                     .padding(top = maxHeight * 0.25f, bottom = 24.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.padding(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.setup_get_started), style = MaterialTheme.typography.headlineLarge)
-                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium)
+                    Text(
+                        stringResource(R.string.setup_get_started),
+                        style = if (useLargeText) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineLarge
+                    )
+                    Text(
+                        stringResource(R.string.app_name),
+                        style = if (useLargeText) MaterialTheme.typography.displayLarge else MaterialTheme.typography.displayMedium
+                    )
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                Column(
+                    modifier = Modifier.align(Alignment.End).widthIn(max = 432.dp).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val buttonModifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    Button(onClick = onLogin, modifier = buttonModifier) {
                         Text(stringResource(R.string.login_button))
                     }
-                    FilledTonalButton(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                    FilledTonalButton(onClick = onImport, modifier = buttonModifier) {
                         Text(stringResource(R.string.recovery_import))
                     }
                 }
