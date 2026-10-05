@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -56,8 +58,55 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private class TimelineScrollContext {
-    var entries: List<AttachmentTimelineEntry> = emptyList()
+private data class TimelineLayout(
+    val days: List<AttachmentDay>,
+    val ratios: Map<String, Float>,
+    val width: Float,
+    val targetHeight: Float
+) {
+    fun entries() = attachmentTimelineEntries(days, ratios, width, targetHeight)
+}
+
+@Composable
+private fun rememberTimelineEntries(
+    listState: LazyListState,
+    days: List<AttachmentDay>,
+    ratios: Map<String, Float>,
+    width: Float,
+    targetHeight: Float
+): List<AttachmentTimelineEntry> {
+    val requestedLayout by rememberUpdatedState(TimelineLayout(days, ratios, width, targetHeight))
+    val initialLayout = remember(listState) { requestedLayout }
+    var entries by remember(listState) { mutableStateOf(initialLayout.entries()) }
+
+    LaunchedEffect(listState) {
+        var displayedLayout = initialLayout
+        snapshotFlow { requestedLayout to listState.isScrollInProgress }.collect { (requested, scrolling) ->
+            // Thumbnail dimensions arrive independently. Keep the current proportions during
+            // dragging/flinging, while still allowing fetched pages to extend the list.
+            val nextLayout = if (scrolling) requested.copy(ratios = displayedLayout.ratios) else requested
+            if (nextLayout == displayedLayout) return@collect
+            val nextEntries = nextLayout.entries()
+            val visibleKey = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == listState.firstVisibleItemIndex }?.key
+            val anchor = entries.firstOrNull { it.key == visibleKey }
+
+            // LazyColumn preserves surviving keys itself. Only restore an attachment anchor
+            // when idle regrouping removes its row key; requestScrollToItem cancels scrolling.
+            if (!scrolling && anchor != null && nextEntries.none { it.key == anchor.key }) {
+                val newIndex = when (anchor) {
+                    is AttachmentTimelineEntry.Row -> timelineRowIndex(nextEntries, anchor.attachments.first().key)
+                    else -> null
+                }
+                if (newIndex != null) {
+                    listState.requestScrollToItem(newIndex, listState.firstVisibleItemScrollOffset)
+                }
+            }
+            entries = nextEntries
+            displayedLayout = nextLayout
+        }
+    }
+    return entries
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -162,27 +211,10 @@ fun AttachmentsScreen(
                     }
                 }) {
             val viewportWidth = maxWidth.value
-            val entries = remember(days, uiState.attachmentList.aspectRatios, viewportWidth, uiState.attachmentList.cellWidth) {
-                attachmentTimelineEntries(days, uiState.attachmentList.aspectRatios, viewportWidth, uiState.attachmentList.cellWidth)
-            }
-            val scrollContext = remember(accountIdentity) { TimelineScrollContext() }
-            LaunchedEffect(entries) {
-                // Row keys can change after dimensions arrive, zoom changes, or another page is merged.
-                // Carry the first visible attachment into the new row structure.
-                val firstVisible = listState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { it.index == listState.firstVisibleItemIndex }
-                val oldEntry = scrollContext.entries.firstOrNull { it.key == firstVisible?.key }
-                val newIndex = when (oldEntry) {
-                    is AttachmentTimelineEntry.Row -> timelineRowIndex(entries, oldEntry.attachments.first().key)
-                    null -> null
-                    else -> entries.indexOfFirst { it.key == oldEntry.key }.takeIf { it >= 0 }
-                }
-                val offset = listState.firstVisibleItemScrollOffset
-                scrollContext.entries = entries
-                if (newIndex != null && listState.firstVisibleItemIndex > 0) {
-                    listState.requestScrollToItem(newIndex, offset)
-                }
-            }
+            val entries = rememberTimelineEntries(
+                listState, days, uiState.attachmentList.aspectRatios,
+                viewportWidth, uiState.attachmentList.cellWidth
+            )
             val shouldLoadMore by remember(entries, uiState.attachmentList.list) {
                 derivedStateOf {
                     val lastAttachment = listState.layoutInfo.visibleItemsInfo.mapNotNull { visible ->
