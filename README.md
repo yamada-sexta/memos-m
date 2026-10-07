@@ -115,6 +115,9 @@ On Android 17 and later, connecting to a local Memos server may require the **Ne
     - [x] View reactions
     - [x] Add/Remove reactions
     - [x] Respect server emoji list
+  - Map
+    - [x] Location
+    - [x] Map view
 - Notifications
   - [x] View notifications
   - [ ] ~~Fetch notifications in the background~~ (bad for battery + no demand)
