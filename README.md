@@ -1,3 +1,5 @@
+
+
 <div align="center">
   <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="128" alt="MemosM App Icon" />
 
@@ -100,7 +102,7 @@ On Android 17 and later, connecting to a local Memos server may require the **Ne
     - [x] Comment on Memos
     - [x] Search Memos
   - Markdown
-    - [x] Baisc rendering
+    - [x] Basic rendering
     - [x] Checkboxes
     - [x] Codeblocks with syntax highlighting
     - [x] Table
