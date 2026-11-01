@@ -91,6 +91,27 @@ class UnversionedApiTest {
     }
 
     @Test
+    fun `time filter epochs use timestamp literals only on unversioned servers`() = runBlocking {
+        val legacy = MemosApiFactory.create("https://memos.example/notes/", client { request ->
+            assertEquals("/notes/api/v1/instance/profile", request.url.encodedPath)
+            200 to """{"version":"0.30.0"}"""
+        })
+        assertEquals("1700000000", legacy.celTimestamp(1700000000))
+
+        val unversioned = unversioned { _ -> error("No request expected") }
+        assertEquals("timestamp(1700000000)", unversioned.celTimestamp(1700000000))
+    }
+
+    @Test
+    fun `activities degrade to an empty page on servers without the activity service`() = runBlocking {
+        val api = unversioned { _ -> error("No request expected") }
+        val response = api.listActivities(pageSize = 1000)
+        assertTrue(response.activities != null)
+        assertEquals(0, response.activities!!.size)
+        assertEquals(null, response.nextPageToken)
+    }
+
+    @Test
     fun `streaming uploads use the discovered API root and preserve the attachment id`() = runBlocking {
         val file = files.newFile("upload.txt")
         for (apiPath in listOf("api", "api/v1")) {

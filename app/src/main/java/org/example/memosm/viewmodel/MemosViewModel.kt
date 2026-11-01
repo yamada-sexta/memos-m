@@ -100,6 +100,13 @@ class MemosViewModel(
 
     private val api: MemosApi? get() = accountSession.current?.takeIf { it.networkReady }?.api
 
+    /**
+     * Formats an epoch-seconds value for a CEL time-field comparison,
+     * following the syntax required by the connected Memos server.
+     */
+    fun celTimestamp(epochSeconds: Long): String =
+        api?.celTimestamp(epochSeconds) ?: epochSeconds.toString()
+
     private fun activeAccountId(): String? = accountSession.current?.account?.id
 
     val memoMapManager = org.example.memosm.viewmodel.manager.MemoMapManager(

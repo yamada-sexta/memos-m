@@ -221,12 +221,12 @@ fun MemoSearchBar(
             }
 
             if (startDateMillis != null) {
-                filters.add("created_ts >= ${startDateMillis!! / 1000}")
+                filters.add("created_ts >= ${viewModel.celTimestamp(startDateMillis!! / 1000)}")
             }
 
             if (endDateMillis != null) {
                 // End date inclusive: add one day minus one second
-                filters.add("created_ts < ${(endDateMillis!! + 86400000L) / 1000}")
+                filters.add("created_ts < ${viewModel.celTimestamp((endDateMillis!! + 86400000L) / 1000)}")
             }
 
             val filterString = if (filters.isEmpty()) null else filters.joinToString(" && ")
