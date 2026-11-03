@@ -39,6 +39,7 @@ class MemosApiIntegrationTest(private val dockerImageName: String) {
                 arrayOf("neosmemo/memos:26.10.0"),
                 arrayOf("neosmemo/memos:stable"),
                 arrayOf("neosmemo/memos:0.30.0"),
+                arrayOf("neosmemo/memos:0.29.0"),
                 arrayOf("neosmemo/memos:0.28.0"),
                 arrayOf("neosmemo/memos:0.27.1"),
                 arrayOf("neosmemo/memos:0.27.0"),
@@ -185,6 +186,66 @@ class MemosApiIntegrationTest(private val dockerImageName: String) {
         val memos3 = listResponse3.memos ?: emptyList()
         assertTrue("Memo 2 should be deleted", memos3.none { it.name == memo2.name })
         assertTrue("Memo 1 should still exist", memos3.any { it.name == memo1.name })
+    }
+
+    @Test
+    fun testMemoSearchFilters() = runBlocking {
+        val api = getAuthenticatedApi()
+        val matching = api.createMemo(org.example.memosm.model.Memo(content = "Search needle #search #second"))
+        val missingTag = api.createMemo(org.example.memosm.model.Memo(content = "Another needle #search"))
+        val differentText = api.createMemo(org.example.memosm.model.Memo(content = "Other content #search #second"))
+        val literal = api.createMemo(org.example.memosm.model.Memo(content = "Literal \"quoted\" C:\\notes\nsecond line #literal"))
+
+        suspend fun assertSearch(query: String, tags: Set<String>, expected: Set<String?>) {
+            val filter = api.buildMemoSearchFilter(MemoSearchFilter(query = query, tags = tags))
+            val result = api.listMemos(filter = filter).memos.orEmpty().map { it.name }.toSet()
+            assertEquals("Search on $dockerImageName using $filter", expected, result)
+        }
+
+        assertSearch("needle", emptySet(), setOf(matching.name, missingTag.name))
+        assertSearch("", setOf("search", "second"), setOf(matching.name, differentText.name))
+        assertSearch("needle", setOf("search", "second"), setOf(matching.name))
+        assertSearch("absent", setOf("search"), emptySet())
+        assertSearch("\"quoted\" C:\\notes", setOf("literal"), setOf(literal.name))
+        assertSearch("notes\nsecond", emptySet(), setOf(literal.name))
+
+        val filter = api.buildMemoSearchFilter(MemoSearchFilter(query = "needle", tags = setOf("search")))
+        val firstPage = api.listMemos(pageSize = 1, filter = filter,
+            orderBy = api.resolveMemoOrderBy(MemoOrderBy.NEWEST))
+        assertEquals(1, firstPage.memos.orEmpty().size)
+        assertTrue("Expected another search page on $dockerImageName", !firstPage.nextPageToken.isNullOrBlank())
+        val secondPage = api.listMemos(pageSize = 1, pageToken = firstPage.nextPageToken, filter = filter,
+            orderBy = api.resolveMemoOrderBy(MemoOrderBy.NEWEST))
+        assertEquals(1, secondPage.memos.orEmpty().size)
+        assertEquals("Search pagination on $dockerImageName",
+            setOf(matching.name, missingTag.name),
+            (firstPage.memos.orEmpty() + secondPage.memos.orEmpty()).map { it.name }.toSet())
+    }
+
+    @Test
+    fun testMemoSearchDateRanges() = runBlocking {
+        val api = getAuthenticatedApi()
+        val memo = api.createMemo(org.example.memosm.model.Memo(content = "Date needle #search"))
+        val created = requireNotNull(memo.createTime).toEpochMilliseconds() / 1000 * 1000
+        val dayMillis = 86_400_000L
+        val dayStart = created / dayMillis * dayMillis
+
+        suspend fun assertRange(start: Long?, end: Long?, matches: Boolean) {
+            val filter = api.buildMemoSearchFilter(MemoSearchFilter(
+                query = "needle", tags = setOf("search"), startDateMillis = start, endDateMillis = end
+            ))
+            val names = api.listMemos(filter = filter).memos.orEmpty().map { it.name }.toSet()
+            assertEquals("Date search on $dockerImageName using $filter",
+                if (matches) setOf(memo.name) else emptySet<String?>(), names)
+        }
+
+        assertRange(dayStart, dayStart, true)
+        assertRange(created, null, true) // Inclusive lower bound.
+        assertRange(created + 1000, null, false)
+        assertRange(null, dayStart, true) // Includes the rest of the selected day.
+        assertRange(null, created - dayMillis, false) // Exclusive upper bound.
+        assertRange(dayStart + dayMillis, dayStart + dayMillis, false)
+        assertRange(dayStart - dayMillis, dayStart - dayMillis, false)
     }
 
     @Test

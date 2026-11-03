@@ -96,6 +96,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.example.memosm.R
 import org.example.memosm.api.MemoOrderBy
+import org.example.memosm.api.MemoSearchFilter
 import org.example.memosm.model.Memo
 import org.example.memosm.model.Visibility
 import org.example.memosm.ui.component.item.MemoItem
@@ -210,28 +211,11 @@ fun MemoSearchBar(
             delay(300)
             viewModel.userDelegate.refreshUserStats()
 
-            val filters = mutableListOf<String>()
-
-            if (query.isNotBlank()) {
-                filters.add("content.contains(\"$query\")")
-            }
-
-            searchSelectedTags.forEach { tag ->
-                filters.add("tag in [\"$tag\"]")
-            }
-
-            if (startDateMillis != null) {
-                filters.add("created_ts >= ${viewModel.celTimestamp(startDateMillis!! / 1000)}")
-            }
-
-            if (endDateMillis != null) {
-                // End date inclusive: add one day minus one second
-                filters.add("created_ts < ${viewModel.celTimestamp((endDateMillis!! + 86400000L) / 1000)}")
-            }
-
-            val filterString = if (filters.isEmpty()) null else filters.joinToString(" && ")
+            val filter = MemoSearchFilter(
+                query, searchSelectedTags, startDateMillis, endDateMillis
+            )
             viewModel.searchMemos(
-                isExplore, filterString, orderBy,
+                filter, orderBy,
                 LocalSearchFilter(
                     query = query,
                     tags = searchSelectedTags.toList(),

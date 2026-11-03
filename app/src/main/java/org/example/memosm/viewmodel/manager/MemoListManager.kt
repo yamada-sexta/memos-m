@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.example.memosm.api.MemosApi
 import org.example.memosm.api.MemoOrderBy
+import org.example.memosm.api.MemoSearchFilter
+import org.example.memosm.api.buildMemoSearchFilter
 import org.example.memosm.api.resolveMemoOrderBy
 import org.example.memosm.model.Memo
 import org.example.memosm.model.User
@@ -186,7 +188,7 @@ class ArchivedMemoListManager(
 }
 
 /**
- * Structured local-search parameters (built alongside the server filter string
+ * Structured local-search parameters (built alongside the server search criteria
  * by the search UI) used to query the offline cache.
  */
 data class LocalSearchFilter(
@@ -216,7 +218,7 @@ class SearchMemoListManager(
 
     var hasActiveQuery: Boolean = false
         private set
-    private var currentFilter: String? = null
+    private var currentFilter: MemoSearchFilter? = null
     private var currentOrderBy: MemoOrderBy? = null
     private var currentLocalFilter: LocalSearchFilter = LocalSearchFilter()
 
@@ -228,7 +230,7 @@ class SearchMemoListManager(
         currentLocalFilter = LocalSearchFilter()
     }
 
-    fun updateFilter(filter: String?, orderBy: MemoOrderBy?) {
+    fun updateFilter(filter: MemoSearchFilter, orderBy: MemoOrderBy?) {
         hasActiveQuery = true
         currentFilter = filter
         currentOrderBy = orderBy
@@ -272,25 +274,26 @@ class SearchMemoListManager(
 
     override suspend fun fetchFromApi(pageToken: String?): Pair<List<Memo>, String?> {
         val api = apiProvider() ?: return Pair(emptyList(), null)
-        if (currentFilter == null) return Pair(emptyList(), null)
+        val criteria = currentFilter ?: return Pair(emptyList(), null)
+        val filter = api.buildMemoSearchFilter(criteria) ?: return Pair(emptyList(), null)
 
         val pageSize = pageSizeProvider()
-        Log.d(TAG, "SearchMemoListManager fetch: filter=$currentFilter")
+        Log.d(TAG, "SearchMemoListManager fetch: filter=$filter")
 
         try {
             val response = api.listMemos(
                 pageSize = pageSize,
                 pageToken = pageToken,
-                filter = currentFilter,
+                filter = filter,
                 orderBy = api.resolveMemoOrderBy(currentOrderBy)
             )
             return Pair(response.memos ?: emptyList(), response.nextPageToken)
         } catch (e: HttpException) {
             val errorBody = e.response()?.errorBody()?.string()
-            Log.e(TAG, "SearchMemoListManager failed: filter=$currentFilter, error=$errorBody", e)
+            Log.e(TAG, "SearchMemoListManager failed: filter=$filter, error=$errorBody", e)
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "SearchMemoListManager failed: filter=$currentFilter", e)
+            Log.e(TAG, "SearchMemoListManager failed: filter=$filter", e)
             throw e
         }
     }

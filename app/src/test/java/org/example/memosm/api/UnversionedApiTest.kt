@@ -2,6 +2,9 @@ package org.example.memosm.api
 
 import com.google.gson.JsonParser
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -12,6 +15,8 @@ import org.example.memosm.model.SSOCredentials
 import org.example.memosm.model.SignInRequest
 import org.example.memosm.model.PersonalAccessToken
 import org.example.memosm.model.RefreshTokenResponse
+import org.example.memosm.model.ListMemosResponse
+import org.example.memosm.viewmodel.manager.SearchMemoListManager
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Rule
@@ -91,15 +96,100 @@ class UnversionedApiTest {
     }
 
     @Test
-    fun `time filter epochs use timestamp literals only on unversioned servers`() = runBlocking {
-        val legacy = MemosApiFactory.create("https://memos.example/notes/", client { request ->
-            assertEquals("/notes/api/v1/instance/profile", request.url.encodedPath)
-            200 to """{"version":"0.30.0"}"""
-        })
-        assertEquals("1700000000", legacy.celTimestamp(1700000000))
+    fun `time filter syntax follows the detected API generation`() = runBlocking {
+        for ((version, timestampLiterals) in listOf(
+            "0.26.0" to false,
+            "0.27.0" to false,
+            "0.28.0" to false,
+            "0.29.0" to false,
+            "0.30.0" to true,
+            "0.35.3" to true
+        )) {
+            val api = versioned(version)
+            assertEquals(version, timestampLiterals, api.constants.celTimestampLiterals)
+            assertEquals(version, if (timestampLiterals) "timestamp(1700000000)" else "1700000000",
+                api.celTimestamp(1700000000))
+        }
 
         val unversioned = unversioned { _ -> error("No request expected") }
+        assertTrue(unversioned.constants.celTimestampLiterals)
         assertEquals("timestamp(1700000000)", unversioned.celTimestamp(1700000000))
+    }
+
+    @Test
+    fun `time filter formatting uses overridden constants on delegated adapters`() = runBlocking {
+        val api = unversioned { _ -> error("No request expected") }
+        val legacy = object : MemosApi by api {
+            override val constants = api.constants.copy(celTimestampLiterals = false)
+        }
+        assertEquals("1700000000", legacy.celTimestamp(1700000000))
+    }
+
+    @Test
+    fun `search filters omit blank queries and escape text and tags`() = runBlocking {
+        val api = versioned("0.30.0")
+        assertNull(api.buildMemoSearchFilter())
+        assertNull(api.buildMemoSearchFilter(MemoSearchFilter(query = " \t\n")))
+        assertEquals("tag in [\"trip\"]", api.buildMemoSearchFilter(MemoSearchFilter(query = " ", tags = setOf("trip"))))
+        assertEquals(
+            """content.contains("say \"hello\"\\path\nnext") && tag in ["a\"b\\c"] && tag in ["second"]""",
+            api.buildMemoSearchFilter(MemoSearchFilter(query = "say \"hello\"\\path\nnext", tags = linkedSetOf("a\"b\\c", "second")))
+        )
+    }
+
+    @Test
+    fun `search date bounds support epoch zero and include the whole selected end day`() = runBlocking {
+        for ((api, start, end) in listOf(
+            Triple(versioned("0.29.0"), "0", "86400"),
+            Triple(versioned("0.30.0"), "timestamp(0)", "timestamp(86400)"),
+            Triple(unversioned { error("No request expected") }, "timestamp(0)", "timestamp(86400)")
+        )) {
+            assertEquals("created_ts >= $start", api.buildMemoSearchFilter(MemoSearchFilter(startDateMillis = 0)))
+            assertEquals("created_ts < $end", api.buildMemoSearchFilter(MemoSearchFilter(endDateMillis = 0)))
+            assertEquals("content.contains(\"coffee\") && tag in [\"trip\"] && created_ts >= $start && created_ts < $end",
+                api.buildMemoSearchFilter(MemoSearchFilter(query = "coffee", tags = setOf("trip"), startDateMillis = 0, endDateMillis = 0)))
+        }
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun `search refresh uses the active API even when criteria were entered offline`() = runTest {
+        val requests = mutableListOf<String?>()
+        fun recording(api: MemosApi): MemosApi = object : MemosApi by api {
+            override suspend fun listMemos(
+                pageSize: Int?, pageToken: String?, state: String?, orderBy: String?,
+                filter: String?, showDeleted: Boolean?
+            ): ListMemosResponse {
+                requests += filter
+                return ListMemosResponse(memos = emptyList(), nextPageToken = null)
+            }
+        }
+        var activeApi: MemosApi? = null
+        val manager = SearchMemoListManager(backgroundScope, { activeApi }, { 10 })
+        manager.updateFilter(MemoSearchFilter(query = "coffee", startDateMillis = 0, endDateMillis = 0), MemoOrderBy.NEWEST)
+        manager.fetch(refresh = true)
+        runCurrent()
+        assertTrue(requests.isEmpty())
+
+        activeApi = recording(versioned("0.29.0"))
+        manager.fetch(refresh = true)
+        runCurrent()
+        activeApi = recording(versioned("0.30.0"))
+        manager.fetch(refresh = true)
+        runCurrent()
+        activeApi = recording(unversioned { error("No request expected") })
+        manager.fetch(refresh = true)
+        runCurrent()
+        assertEquals(listOf(
+            "content.contains(\"coffee\") && created_ts >= 0 && created_ts < 86400",
+            "content.contains(\"coffee\") && created_ts >= timestamp(0) && created_ts < timestamp(86400)",
+            "content.contains(\"coffee\") && created_ts >= timestamp(0) && created_ts < timestamp(86400)"
+        ), requests)
+
+        manager.reset()
+        manager.fetch(refresh = true)
+        runCurrent()
+        assertEquals(3, requests.size)
     }
 
     @Test
@@ -152,6 +242,12 @@ class UnversionedApiTest {
             assertEquals(timestamp, response.expiresAt)
         }
     }
+
+    private suspend fun versioned(version: String): MemosApi =
+        MemosApiFactory.create("https://memos.example/notes/", client { request ->
+            assertEquals("/notes/api/v1/instance/profile", request.url.encodedPath)
+            200 to """{"version":"$version"}"""
+        })
 
     private suspend fun unversioned(respond: (Request) -> String): MemosApi =
         MemosApiFactory.create("https://memos.example/notes/", client { request ->

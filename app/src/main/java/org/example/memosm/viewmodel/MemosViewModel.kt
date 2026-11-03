@@ -22,6 +22,7 @@ import org.example.memosm.api.AuthInterceptor
 import org.example.memosm.api.MemosApi
 import org.example.memosm.api.MemosApiFactory
 import org.example.memosm.api.MemoOrderBy
+import org.example.memosm.api.MemoSearchFilter
 import org.example.memosm.data.DataStoreManager
 import org.example.memosm.data.DraftManager
 import org.example.memosm.data.linkpreview.LinkPreviewRepository
@@ -99,13 +100,6 @@ class MemosViewModel(
     private val accountSession = AccountSession(viewModelScope)
 
     private val api: MemosApi? get() = accountSession.current?.takeIf { it.networkReady }?.api
-
-    /**
-     * Formats an epoch-seconds value for a CEL time-field comparison,
-     * following the syntax required by the connected Memos server.
-     */
-    fun celTimestamp(epochSeconds: Long): String =
-        api?.celTimestamp(epochSeconds) ?: epochSeconds.toString()
 
     private fun activeAccountId(): String? = accountSession.current?.account?.id
 
@@ -857,8 +851,7 @@ class MemosViewModel(
     fun loadMoreSearchMemos() = searchMemoManager.loadMore()
 
     fun searchMemos(
-        isExplore: Boolean,
-        filter: String?,
+        filter: MemoSearchFilter,
         orderBy: MemoOrderBy? = null,
         localFilter: LocalSearchFilter = LocalSearchFilter()
     ) {

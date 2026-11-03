@@ -8,6 +8,8 @@ class MemosApiV0300Impl(
     private val apiV0300: MemosApiV0300,
     private val legacyApi: MemosApi = MemosApiV0280Impl(apiV0300)
 ) : MemosApi by legacyApi {
+    override val constants = legacyApi.constants.copy(celTimestampLiterals = true)
+
     @Volatile
     private var memoViewsAvailable = true
 

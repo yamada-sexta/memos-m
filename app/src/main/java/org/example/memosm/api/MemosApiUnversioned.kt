@@ -34,16 +34,7 @@ class MemosApiUnversionedImpl(
     private val api: MemosApiUnversioned,
     private val delegate: MemosApi = MemosApiV0300Impl(api)
 ) : MemosApi by delegate {
-    override val constants = delegate.constants.copy(
-        apiPath = "api",
-        celTimestampLiterals = true
-    )
-
-    // Class delegation forwards interface default methods to the delegate,
-    // whose constants predate the timestamp literal requirement. Invoke the
-    // default implementation against the constants of this class instead.
-    override fun celTimestamp(epochSeconds: Long): String =
-        super<MemosApi>.celTimestamp(epochSeconds)
+    override val constants = delegate.constants.copy(apiPath = "api")
 
     // Memos 26.10 removed the activity service together with the /api/v1
     // marker. Answer with an empty page instead of a 404 so existing callers
