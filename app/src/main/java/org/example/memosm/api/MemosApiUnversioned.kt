@@ -1,5 +1,6 @@
 package org.example.memosm.api
 
+import org.example.memosm.model.ListActivitiesResponse
 import org.example.memosm.model.ListAllUserStatsResponse
 import org.example.memosm.model.PasswordCredentials
 import org.example.memosm.model.SignInRequest
@@ -33,7 +34,27 @@ class MemosApiUnversionedImpl(
     private val api: MemosApiUnversioned,
     private val delegate: MemosApi = MemosApiV0300Impl(api)
 ) : MemosApi by delegate {
-    override val constants = delegate.constants.copy(apiPath = "api")
+    override val constants = delegate.constants.copy(
+        apiPath = "api",
+        celTimestampLiterals = true
+    )
+
+    // Class delegation forwards interface default methods to the delegate,
+    // whose constants predate the timestamp literal requirement. Invoke the
+    // default implementation against the constants of this class instead.
+    override fun celTimestamp(epochSeconds: Long): String =
+        super<MemosApi>.celTimestamp(epochSeconds)
+
+    // Memos 26.10 removed the activity service together with the /api/v1
+    // marker. Answer with an empty page instead of a 404 so existing callers
+    // keep working against servers without the service.
+    override suspend fun listActivities(
+        pageSize: Int?,
+        pageToken: String?
+    ): ListActivitiesResponse = ListActivitiesResponse(
+        activities = emptyList(),
+        nextPageToken = null
+    )
 
     override suspend fun signIn(request: SignInRequest): SignInResponse =
         api.signInUnversioned(SignInRequestUnversioned(

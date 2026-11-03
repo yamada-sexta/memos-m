@@ -61,7 +61,15 @@ data class ApiConstants(
 
     val shortcutMaskTitle: String,
     val shortcutMaskFilter: String,
-    val apiPath: String = "api/v1"
+    val apiPath: String = "api/v1",
+    /**
+     * Whether CEL filters must wrap epoch values in timestamp() literals when
+     * comparing time fields such as created_ts. Memos 26.10 removed the
+     * implicit int-to-timestamp coercion, so `created_ts >= 1700000000` fails
+     * with a compile error on those servers and must be sent as
+     * `created_ts >= timestamp(1700000000)` instead.
+     */
+    val celTimestampLiterals: Boolean = false
 )
 
 enum class MemoCreatorFilterStyle {
@@ -89,6 +97,14 @@ interface MemosApi {
     suspend fun getLinkMetadata(url: String): LinkMetadata
 
     val constants: ApiConstants
+
+    /**
+     * Formats an epoch-seconds value for a CEL time-field comparison,
+     * wrapping it in timestamp() on servers that require timestamp
+     * literals (Memos 26.10+).
+     */
+    fun celTimestamp(epochSeconds: Long): String =
+        if (constants.celTimestampLiterals) "timestamp($epochSeconds)" else epochSeconds.toString()
 
     fun getUserResourceName(user: User?): String?
 
