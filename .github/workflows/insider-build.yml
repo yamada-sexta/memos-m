@@ -48,7 +48,7 @@ jobs:
           echo "${{ secrets.KEYSTORE }}" | base64 --decode > app/release.keystore
 
       - name: Build Insider APK
-        run: ./gradlew assembleInsider
+        run: ./gradlew assembleInsider -PabiSplits=true
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/app/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
@@ -57,10 +57,42 @@ jobs:
 
       - name: Prepare APK for Upload
         run: |
-          APK_FILE=$(find app/build/outputs/apk/insider -name "*.apk" ! -name "*-unsigned.apk" | head -n 1)
-          if [ -z "$APK_FILE" ]; then echo "No signed APK found!"; exit 1; fi
-          cp "$APK_FILE" "memos-insider.apk"
-          echo "APK_PATH=memos-insider.apk" >> $GITHUB_ENV
+          APK_DIR=app/build/outputs/apk/insider
+          ARM64=$(find "$APK_DIR" -name "*arm64-v8a*.apk" ! -name "*-unsigned.apk" | head -n 1)
+          V7A=$(find "$APK_DIR" -name "*armeabi-v7a*.apk" ! -name "*-unsigned.apk" | head -n 1)
+          X86=$(find "$APK_DIR" -name "*-x86-*.apk" ! -name "*-unsigned.apk" | head -n 1)
+          X86_64=$(find "$APK_DIR" -name "*-x86_64-*.apk" ! -name "*-unsigned.apk" | head -n 1)
+          UNIVERSAL=$(find "$APK_DIR" -name "*universal*.apk" ! -name "*-unsigned.apk" | head -n 1)
+          if [ -z "$ARM64" ] || [ -z "$V7A" ] || [ -z "$X86" ] || [ -z "$X86_64" ] || [ -z "$UNIVERSAL" ]; then
+            echo "Missing ABI APK; contents:"
+            find "$APK_DIR" -name "*.apk"
+            exit 1
+          fi
+          cp "$ARM64" "memos-insider-arm64-v8a.apk"
+          cp "$V7A" "memos-insider-armeabi-v7a.apk"
+          cp "$X86" "memos-insider-x86.apk"
+          cp "$X86_64" "memos-insider-x86_64.apk"
+          cp "$UNIVERSAL" "memos-insider-universal.apk"
+          echo "APK_ARM64=memos-insider-arm64-v8a.apk" >> $GITHUB_ENV
+          echo "APK_V7A=memos-insider-armeabi-v7a.apk" >> $GITHUB_ENV
+          echo "APK_X86=memos-insider-x86.apk" >> $GITHUB_ENV
+          echo "APK_X86_64=memos-insider-x86_64.apk" >> $GITHUB_ENV
+          echo "APK_UNIVERSAL=memos-insider-universal.apk" >> $GITHUB_ENV
+
+      - name: Prepare mapping for Upload
+        run: |
+          MAPPING=$(find app/build/outputs/mapping -path '*/insider/mapping.txt' | head -n 1)
+          if [ -z "$MAPPING" ] || [ ! -s "$MAPPING" ]; then echo "Missing mapping.txt"; exit 1; fi
+          gzip -9 -c "$MAPPING" > memos-insider-mapping.txt.gz
+          echo "MAPPING=memos-insider-mapping.txt.gz" >> $GITHUB_ENV
+
+      - name: Remove legacy single-APK asset
+        run: |
+          gh release view "${{ github.ref_name }}" --json assets --jq '.assets[].name' 2>/dev/null \
+            | grep -Fx 'memos-insider.apk' \
+            | while read -r asset; do gh release delete-asset "${{ github.ref_name }}" "$asset" --yes; done || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create/Update Release
         uses: softprops/action-gh-release@v2
@@ -70,7 +102,17 @@ jobs:
             **Insider Build**
             Version: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
-          files: ${{ env.APK_PATH }}
+
+            Download the APK for your device ABI: `arm64-v8a` (most phones), `armeabi-v7a` (older 32-bit devices), `x86` (32-bit emulators), `x86_64` (64-bit emulators), or `universal` (any ABI, larger download).
+
+            The `mapping.txt.gz` asset can be used to retrace obfuscated crash reports.
+          files: |
+            ${{ env.APK_ARM64 }}
+            ${{ env.APK_V7A }}
+            ${{ env.APK_X86 }}
+            ${{ env.APK_X86_64 }}
+            ${{ env.APK_UNIVERSAL }}
+            ${{ env.MAPPING }}
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
