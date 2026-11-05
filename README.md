@@ -100,7 +100,7 @@ On Android 17 and later, connecting to a local Memos server may require the **Ne
     - [x] Comment on Memos
     - [x] Search Memos
   - Markdown
-    - [x] Baisc rendering
+    - [x] Rendering
     - [x] Checkboxes
     - [x] Codeblocks with syntax highlighting
     - [x] Table
