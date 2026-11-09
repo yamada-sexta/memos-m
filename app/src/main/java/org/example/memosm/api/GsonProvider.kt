@@ -12,6 +12,7 @@ import com.google.gson.stream.JsonWriter
 import kotlin.time.Instant
 import org.example.memosm.model.Visibility
 import org.example.memosm.model.Memo
+import org.example.memosm.serialization.InstantTypeAdapter
 
 /**
  * Shared Gson instance configured with type adapters for custom types
@@ -47,34 +48,6 @@ private class MemoTypeAdapterFactory : TypeAdapterFactory {
         }
     }
 }
-
-/**
- * Gson TypeAdapter that serializes/deserializes [kotlin.time.Instant]
- * to/from ISO 8601 strings (e.g. "2026-02-02T21:50:22Z").
- */
-class InstantTypeAdapter : TypeAdapter<Instant?>() {
-    override fun write(out: JsonWriter, value: Instant?) {
-        if (value == null) {
-            out.nullValue()
-        } else {
-            out.value(value.toString())
-        }
-    }
-
-    override fun read(`in`: JsonReader): Instant? {
-        if (`in`.peek() == JsonToken.NULL) {
-            `in`.nextNull()
-            return null
-        }
-        val str = `in`.nextString()
-        return try {
-            Instant.parse(str)
-        } catch (_: Exception) {
-            null
-        }
-    }
-}
-
 
 class VisibilityTypeAdapter : TypeAdapter<Visibility?>() {
     override fun write(out: JsonWriter, value: Visibility?) {
