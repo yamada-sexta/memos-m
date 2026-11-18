@@ -5,8 +5,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.work.*
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -159,74 +159,82 @@ suspend fun downloadMemoHistory(
     var truncated = false
     val fetchedNames = mutableSetOf<String>()
     try {
-    for ((type, filter, state) in lists) {
-        val key = defaultQueryKey(type) + ":history"
-        val startedAt = System.currentTimeMillis()
-        val previous = cache.getQuery(accountId, key)
-        var incremental = !needsFullSnapshot(previous, startedAt)
-        var generation = cache.beginRefresh(accountId, key, type, incremental = incremental)
-        var token: String? = null
-        val tokens = mutableSetOf<String>()
-        var page = 1
-        do {
-            if (!isCurrent()) throw CancellationException("Account storage changed")
-            onPage(page)
-            val effectiveFilter =
-                if (incremental) {
-                    "$filter && update_time >= \"${Instant.ofEpochMilli(
-                        previous!!.incrementalCursor,
-                    )}\""
-                } else {
-                    filter
-                }
-            val response =
-                try {
-                    api.listMemos(pageSize = 100, pageToken = token, filter = effectiveFilter, state = state)
-                } catch (error: retrofit2.HttpException) {
-                    if (!incremental || error.code() !in setOf(400, 422)) throw error
-                    incremental = false
-                    token = null
-                    page = 1
-                    tokens.clear()
-                    generation = cache.beginRefresh(accountId, key, type)
-                    api.listMemos(pageSize = 100, filter = filter, state = state)
-                }
-            val memos = response.memos ?: throw IOException("Server omitted the memo collection")
-            val next = response.nextPageToken?.takeIf { it.isNotBlank() }
-            next?.let { check(tokens.add(it)) { "Server repeated a pagination token" } }
-            BackupCoordinator.withStorageLock {
+        for ((type, filter, state) in lists) {
+            val key = defaultQueryKey(type) + ":history"
+            val startedAt = System.currentTimeMillis()
+            val previous = cache.getQuery(accountId, key)
+            var incremental = !needsFullSnapshot(previous, startedAt)
+            var generation = cache.beginRefresh(accountId, key, type, incremental = incremental)
+            var token: String? = null
+            val tokens = mutableSetOf<String>()
+            var page = 1
+            do {
                 if (!isCurrent()) throw CancellationException("Account storage changed")
-                cache.ingestPage(
-                    accountId,
-                    key,
-                    type,
-                    memos,
-                    nextPageToken = next,
-                    refresh = page == 1 && !incremental,
-                    incremental = incremental,
-                    checkpointAt = startedAt,
-                    expectedGeneration = generation,
-                    expectedPageToken = token,
-                )
-            }
-            total += memos.size
-            if (maxBytes != Long.MAX_VALUE) {
-                val newNames = memos.mapNotNull { it.name }.filter { fetchedNames.add(it) }
-                fetchedBytes +=
-                    BackupCoordinator.withStorageLock {
-                        if (!isCurrent()) throw CancellationException("Account storage changed")
-                        cache.trimToBytes(accountId, maxBytes, newNames)
+                onPage(page)
+                val effectiveFilter =
+                    if (incremental) {
+                        "$filter && update_time >= \"${Instant.ofEpochMilli(
+                            previous!!.incrementalCursor,
+                        )}\""
+                    } else {
+                        filter
                     }
-            }
-            token = next
-            page++
-        } while (token != null && fetchedBytes < maxBytes)
-        if (fetchedBytes >= maxBytes) break
-    }
+                val response =
+                    try {
+                        api.listMemos(pageSize = 100, pageToken = token, filter = effectiveFilter, state = state)
+                    } catch (error: retrofit2.HttpException) {
+                        if (!incremental || error.code() !in setOf(400, 422)) throw error
+                        incremental = false
+                        token = null
+                        page = 1
+                        tokens.clear()
+                        generation = cache.beginRefresh(accountId, key, type)
+                        api.listMemos(pageSize = 100, filter = filter, state = state)
+                    }
+                val memos = response.memos ?: throw IOException("Server omitted the memo collection")
+                val next = response.nextPageToken?.takeIf { it.isNotBlank() }
+                next?.let { check(tokens.add(it)) { "Server repeated a pagination token" } }
+                BackupCoordinator.withStorageLock {
+                    if (!isCurrent()) throw CancellationException("Account storage changed")
+                    cache.ingestPage(
+                        accountId,
+                        key,
+                        type,
+                        memos,
+                        nextPageToken = next,
+                        refresh = page == 1 && !incremental,
+                        incremental = incremental,
+                        checkpointAt = startedAt,
+                        expectedGeneration = generation,
+                        expectedPageToken = token,
+                    )
+                }
+                total += memos.size
+                if (maxBytes != Long.MAX_VALUE) {
+                    val newNames = memos.mapNotNull { it.name }.filter { fetchedNames.add(it) }
+                    val (bytes, evicted) =
+                        BackupCoordinator.withStorageLock {
+                            if (!isCurrent()) throw CancellationException("Account storage changed")
+                            cache.trimToBytes(accountId, maxBytes, newNames)
+                        }
+                    fetchedBytes += bytes
+                    truncated = truncated || evicted
+                }
+                token = next
+                page++
+            } while (token != null && fetchedBytes < maxBytes)
+            if (fetchedBytes >= maxBytes) break
+        }
     } finally {
-        if (truncated || fetchedBytes >= maxBytes) withContext(NonCancellable) {
-            BackupCoordinator.withStorageLock {
-                if (BackupCoordinator.generation == storageGeneration && !BackupCoordinator.restoring.value) cache.invalidateHistory(accountId)
+        if (truncated || fetchedBytes >= maxBytes) {
+            withContext(NonCancellable) {
+                BackupCoordinator.withStorageLock {
+                    if (BackupCoordinator.generation == storageGeneration &&
+                        !BackupCoordinator.restoring.value
+                    ) {
+                        cache.invalidateHistory(accountId)
+                    }
+                }
             }
         }
     }

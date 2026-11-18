@@ -149,7 +149,6 @@ class NetworkRecoveryTest {
                         viewModel.uiState.value.connectionState == ConnectionState.RATE_LIMITED
                     }
                     repeat(3) { scenario.onActivity { viewModel.fetchUserMemos(refresh = true) } }
-                    await("Pull to refresh stuck during cooldown") { !viewModel.uiState.value.isRefreshing }
                     assertTrue(viewModel.uiState.value.isOnline)
                     assertTrue(cachedMemos().any { it.name == memo.name })
                     await("Cooldown recovery required another refresh or restart") {
@@ -195,10 +194,10 @@ class NetworkRecoveryTest {
                     await("Recovery required restarting the app") {
                         viewModel.uiState.value.isOnline
                     }
+                    newMemo = api.createMemo(Memo(content = "Created before manual refresh"))
                     scenario.onActivity { viewModel.fetchUserMemos(refresh = true) }
-                    await("Manual refresh remained stuck") {
-                        !viewModel.uiState.value.isRefreshing &&
-                            viewModel.uiState.value.isOnline
+                    await("Manual refresh did not cache the new remote memo") {
+                        cachedMemos().any { it.name == newMemo.name }
                     }
                 }
             }

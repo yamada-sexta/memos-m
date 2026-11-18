@@ -162,5 +162,6 @@ class MemoCacheRepository(
         maxBytes: Long,
         fetchedNames: List<String>,
     ): Pair<Long, Boolean> = BackupCoordinator.withStorageLock { memoDao.trimToBytes(accountId, maxBytes, fetchedNames) }
+
     suspend fun invalidateHistory(accountId: String) = BackupCoordinator.withStorageLock { memoDao.invalidateCacheBaselines(accountId) }
 }

@@ -143,17 +143,18 @@ class PreDownloadReconciliationTest {
             }
         }
 
-    @Test fun `a complete pull below a finite budget keeps incremental refresh checkpoints`() = runBlocking {
-        Fixture().use { fixture ->
-            fixture.fetch = { _, _ -> ListMemosResponse(listOf(Memo(name = "memos/small", content = "fits")), null) }
-            downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 100_000)
-            assertTrue(fixture.cache.getQuery("A", "USER:history")!!.complete)
-            assertTrue(fixture.cache.getQuery("A", "USER:history")!!.incrementalCursor > 0)
-            fixture.filters.clear()
-            downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 100_000)
-            assertTrue(fixture.filters.all { "update_time >=" in it })
+    @Test fun `a complete pull below a finite budget keeps incremental refresh checkpoints`() =
+        runBlocking {
+            Fixture().use { fixture ->
+                fixture.fetch = { _, _ -> ListMemosResponse(listOf(Memo(name = "memos/small", content = "fits")), null) }
+                downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 100_000)
+                assertTrue(fixture.cache.getQuery("A", "USER:history")!!.complete)
+                assertTrue(fixture.cache.getQuery("A", "USER:history")!!.incrementalCursor > 0)
+                fixture.filters.clear()
+                downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 100_000)
+                assertTrue(fixture.filters.all { "update_time >=" in it })
+            }
         }
-    }
 
     @Test fun `partial full pull preserves old history and checkpoint`() =
         runBlocking {
