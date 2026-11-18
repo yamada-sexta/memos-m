@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.work.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -148,6 +149,7 @@ suspend fun downloadMemoHistory(
     isCurrent: suspend () -> Boolean = { true },
     onPage: suspend (Int) -> Unit = {},
 ): Int {
+    val storageGeneration = BackupCoordinator.generation
     val creator = requireNotNull(api.buildMemoCreatorFilter(user)?.takeIf { it.isNotBlank() }) { "Missing account identity" }
     val lists =
         listOf(Triple(CacheListType.USER, creator, null), Triple(CacheListType.ARCHIVED, creator, "ARCHIVED")) +
@@ -156,6 +158,7 @@ suspend fun downloadMemoHistory(
     var fetchedBytes = 0L
     var truncated = false
     val fetchedNames = mutableSetOf<String>()
+    try {
     for ((type, filter, state) in lists) {
         val key = defaultQueryKey(type) + ":history"
         val startedAt = System.currentTimeMillis()
@@ -220,9 +223,12 @@ suspend fun downloadMemoHistory(
         } while (token != null && fetchedBytes < maxBytes)
         if (fetchedBytes >= maxBytes) break
     }
-    if (truncated || fetchedBytes >= maxBytes) BackupCoordinator.withStorageLock {
-        if (!isCurrent()) throw CancellationException("Account storage changed")
-        cache.invalidateHistory(accountId)
+    } finally {
+        if (truncated || fetchedBytes >= maxBytes) withContext(NonCancellable) {
+            BackupCoordinator.withStorageLock {
+                if (BackupCoordinator.generation == storageGeneration && !BackupCoordinator.restoring.value) cache.invalidateHistory(accountId)
+            }
+        }
     }
     return total
 }

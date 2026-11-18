@@ -387,6 +387,7 @@ interface MemoDao {
                 remaining -= bytes
             } else {
                 deleteMemoByName(accountId, name)
+                evicted = true
             }
         }
         if (evicted) invalidateCacheBaselines(accountId)
