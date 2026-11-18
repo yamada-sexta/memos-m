@@ -19,6 +19,10 @@ plugins {
     alias(libs.plugins.aboutlibraries)
 }
 
+tasks.withType<Test>().configureEach {
+    systemProperty("java.io.tmpdir", temporaryDir.absolutePath)
+}
+
 android {
     namespace = "org.example.memosm"
     compileSdk = 37
@@ -37,6 +41,7 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = true
     }
 
     signingConfigs {
@@ -106,9 +111,12 @@ android {
     }
 
     sourceSets {
-        named("main") {
+        named("test") {
+            resources.directories.add("schemas")
+            kotlin.directories.add("src/sharedTest/java")
         }
         named("androidTest") {
+            kotlin.directories.add("src/sharedTest/java")
             assets.directories.add("$projectDir/schemas")
         }
         named("canary") {
@@ -155,6 +163,7 @@ dependencies {
     // ----------------------------
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.browser)
@@ -209,7 +218,11 @@ dependencies {
 
     // Tests
     testImplementation(libs.junit)
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.androidx.core)
+    implementation(libs.kotlinx.coroutines.android)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -234,27 +247,12 @@ dependencies {
     // See Add the KSP plugin to your project
     ksp(libs.androidx.room.compiler)
 
-    // If this project only uses Java source, use the Java annotationProcessor
-    // No additional plugins are necessary
-    annotationProcessor(libs.androidx.room.compiler)
-
-    // optional - Kotlin Extensions and Coroutines support for Room
     implementation(libs.androidx.room.ktx)
-
-    // optional - RxJava2 support for Room
-    implementation(libs.androidx.room.rxjava2)
-
-    // optional - RxJava3 support for Room
-    implementation(libs.androidx.room.rxjava3)
-
-    // optional - Guava support for Room, including Optional and ListenableFuture
-    implementation(libs.androidx.room.guava)
-
-    // optional - Test helpers
     testImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.room.testing)
-
-    // optional - Paging 3 Integration
     implementation(libs.androidx.room.paging)
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
+    testImplementation(libs.androidx.paging.testing)
 
 }

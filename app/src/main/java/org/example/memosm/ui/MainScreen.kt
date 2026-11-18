@@ -1,8 +1,5 @@
 package org.example.memosm.ui
 
-
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -27,13 +24,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.Attachment
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Attachment
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.filled.Map
-import org.example.memosm.model.MapCapability
-import org.example.memosm.ui.nav.MapScreen
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -45,18 +40,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.key
-import org.example.memosm.ui.component.item.media.AccountMediaIdentity
-import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -64,35 +60,41 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.launch
 import org.example.memosm.R
+import org.example.memosm.api.resolveResourceUrl
 import org.example.memosm.model.Attachment
+import org.example.memosm.model.MapCapability
 import org.example.memosm.model.ShareIntentData
 import org.example.memosm.model.Visibility
 import org.example.memosm.ui.component.ConflictDialog
-import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.LocalNetworkPermission
+import org.example.memosm.ui.component.LoginDialog
 import org.example.memosm.ui.component.composer.EditorRequest
 import org.example.memosm.ui.component.composer.rememberMemoEditorLauncher
-import org.example.memosm.ui.component.item.media.MemoImage
-import org.example.memosm.ui.component.item.markdown.LocalLinkPreviews
 import org.example.memosm.ui.component.item.markdown.LinkPreviewEnvironment
-import org.example.memosm.ui.component.resolveResourceUrl
+import org.example.memosm.ui.component.item.markdown.LocalLinkPreviews
+import org.example.memosm.ui.component.item.media.AccountMediaIdentity
+import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
+import org.example.memosm.ui.component.item.media.MemoImage
 import org.example.memosm.ui.nav.AttachmentsScreen
+import org.example.memosm.ui.nav.MapScreen
 import org.example.memosm.ui.nav.MemoFeed
 import org.example.memosm.ui.nav.MemosScreen
 import org.example.memosm.ui.nav.ProfileScreen
-import org.example.memosm.viewmodel.MemosViewModel
 import org.example.memosm.viewmodel.MemosUiState
-import androidx.compose.runtime.MutableState
+import org.example.memosm.viewmodel.MemosViewModel
+import org.koin.androidx.compose.koinViewModel
 
 enum class MainDestination(
-    val labelRes: Int
+    val labelRes: Int,
 ) {
-    MEMOS(R.string.nav_memos), MAP(R.string.nav_map), ATTACHMENTS(R.string.nav_attachments), PROFILE(
-        R.string.nav_profile
-    )
+    MEMOS(R.string.nav_memos),
+    MAP(R.string.nav_map),
+    ATTACHMENTS(R.string.nav_attachments),
+    PROFILE(
+        R.string.nav_profile,
+    ),
 }
 
 @Composable
@@ -102,26 +104,38 @@ fun MainScreen(
     shareIntentData: ShareIntentData? = null,
     onShareIntentConsumed: () -> Unit = {},
     shouldOpenComposer: Boolean = false,
-    onComposerOpened: () -> Unit = {}
+    onComposerOpened: () -> Unit = {},
 ) {
     val destination = rememberSaveable { mutableStateOf(MainDestination.MEMOS) }
     val viewModel: MemosViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val previewRepository by viewModel.linkPreviews.collectAsState()
-    val linkPreviews = remember(previewRepository, uiState.appSettings.linkPreviewEnabled, uiState.isOnline) {
-        previewRepository?.takeIf { uiState.appSettings.linkPreviewEnabled }
-            ?.let { LinkPreviewEnvironment(it, uiState.isOnline) }
-    }
-    val mediaIdentity = uiState.accounts.firstOrNull { it.isActive }?.let {
-        AccountMediaIdentity(it.id, uiState.accountGeneration)
-    }
+    val linkPreviews =
+        remember(previewRepository, uiState.appSettings.linkPreviewEnabled, uiState.isOnline) {
+            previewRepository
+                ?.takeIf { uiState.appSettings.linkPreviewEnabled }
+                ?.let { LinkPreviewEnvironment(it, uiState.isOnline) }
+        }
+    val mediaIdentity =
+        uiState.accounts.firstOrNull { it.isActive }?.let {
+            AccountMediaIdentity(it.id, uiState.accountGeneration)
+        }
     CompositionLocalProvider(
         LocalAccountMediaIdentity provides mediaIdentity,
-        LocalLinkPreviews provides linkPreviews
+        LocalLinkPreviews provides linkPreviews,
     ) {
         key(uiState.accountGeneration) {
-            MainScreenContent(viewModel, uiState, destination, onLogout, modifier,
-                shareIntentData, onShareIntentConsumed, shouldOpenComposer, onComposerOpened)
+            MainScreenContent(
+                viewModel,
+                uiState,
+                destination,
+                onLogout,
+                modifier,
+                shareIntentData,
+                onShareIntentConsumed,
+                shouldOpenComposer,
+                onComposerOpened,
+            )
         }
     }
 }
@@ -136,7 +150,7 @@ private fun MainScreenContent(
     shareIntentData: ShareIntentData?,
     onShareIntentConsumed: () -> Unit,
     shouldOpenComposer: Boolean,
-    onComposerOpened: () -> Unit
+    onComposerOpened: () -> Unit,
 ) {
     var currentDestination by destination
     val mapSupported = uiState.memoMap.capability == MapCapability.SUPPORTED
@@ -184,9 +198,15 @@ private fun MainScreenContent(
         // 2. We haven't already processed this exact share data
         if (shareIntentData != null && !shareIntentData.isEmpty && processedShareData != shareIntentData) {
             val account = uiState.accounts.firstOrNull { it.isActive } ?: return@LaunchedEffect
-            openEditor(EditorRequest(account.id, titleRes = R.string.memo_composer_fab_new_memo,
-                content = shareIntentData.text.orEmpty(), uris = shareIntentData.uris.map { it.toString() },
-                visibility = uiState.session.userSettings?.memoVisibility ?: Visibility.PRIVATE))
+            openEditor(
+                EditorRequest(
+                    account.id,
+                    titleRes = R.string.memo_composer_fab_new_memo,
+                    content = shareIntentData.text.orEmpty(),
+                    uris = shareIntentData.uris.map { it.toString() },
+                    visibility = uiState.session.userSettings?.memoVisibility ?: Visibility.PRIVATE,
+                ),
+            )
             processedShareData = shareIntentData
             onShareIntentConsumed()
         }
@@ -200,13 +220,16 @@ private fun MainScreenContent(
     val configuration = LocalConfiguration.current
     val isMobile = configuration.screenWidthDp < 600
 
-    val adaptiveInfo = androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2()
+    val adaptiveInfo =
+        androidx.compose.material3.adaptive
+            .currentWindowAdaptiveInfoV2()
 
-
-    val toggleNavBar: ((Boolean) -> Unit)? = if (isMobile) {
-        { isNavBarVisible = it }
-    } else null
-
+    val toggleNavBar: ((Boolean) -> Unit)? =
+        if (isMobile) {
+            { isNavBarVisible = it }
+        } else {
+            null
+        }
 
     if (isAddingAccount) {
         LoginDialog(onLoginSuccess = { newBaseUrl, newToken ->
@@ -217,28 +240,36 @@ private fun MainScreenContent(
         }, onDismiss = { isAddingAccount = false })
     }
 
-
     @Composable
     fun NavigationIcon(
-        destination: MainDestination, isSelected: Boolean, modifier: Modifier = Modifier.size(24.dp)
+        destination: MainDestination,
+        isSelected: Boolean,
+        modifier: Modifier = Modifier.size(24.dp),
     ) {
         when (destination) {
-            MainDestination.MAP -> Icon(
-                if (isSelected) Icons.Filled.Map else Icons.Outlined.Map,
-                contentDescription = null,
-                modifier = modifier
-            )
-            MainDestination.MEMOS -> Icon(
-                if (isSelected) Icons.AutoMirrored.Filled.LibraryBooks else Icons.AutoMirrored.Outlined.LibraryBooks,
-                contentDescription = null,
-                modifier = modifier
-            )
+            MainDestination.MAP -> {
+                Icon(
+                    if (isSelected) Icons.Filled.Map else Icons.Outlined.Map,
+                    contentDescription = null,
+                    modifier = modifier,
+                )
+            }
 
-            MainDestination.ATTACHMENTS -> Icon(
-                if (isSelected) Icons.Default.Attachment else Icons.Outlined.Attachment,
-                contentDescription = null,
-                modifier = modifier
-            )
+            MainDestination.MEMOS -> {
+                Icon(
+                    if (isSelected) Icons.AutoMirrored.Filled.LibraryBooks else Icons.AutoMirrored.Outlined.LibraryBooks,
+                    contentDescription = null,
+                    modifier = modifier,
+                )
+            }
+
+            MainDestination.ATTACHMENTS -> {
+                Icon(
+                    if (isSelected) Icons.Default.Attachment else Icons.Outlined.Attachment,
+                    contentDescription = null,
+                    modifier = modifier,
+                )
+            }
 
             MainDestination.PROFILE -> {
                 val user = uiState.session.currUser
@@ -246,10 +277,14 @@ private fun MainScreenContent(
                 val rawAvatarUrl = user?.avatarUrl ?: account?.avatarUrl
                 val hostUrl = uiState.session.hostUrl
 
-                val avatarUri = remember(rawAvatarUrl, hostUrl) {
-                    if (rawAvatarUrl.isNullOrBlank()) Uri.EMPTY
-                    else (resolveResourceUrl(hostUrl, rawAvatarUrl) ?: "").toUri()
-                }
+                val avatarUri =
+                    remember(rawAvatarUrl, hostUrl) {
+                        if (rawAvatarUrl.isNullOrBlank()) {
+                            Uri.EMPTY
+                        } else {
+                            (resolveResourceUrl(hostUrl, rawAvatarUrl) ?: "").toUri()
+                        }
+                    }
 
                 MemoImage(
                     attachment = null,
@@ -259,13 +294,19 @@ private fun MainScreenContent(
                     contentDescription = null,
                     isRound = true,
                     placeholderIcon = if (isSelected) Icons.Default.Person else Icons.Outlined.Person,
-                    modifier = modifier
-                        .then(
-                            if (isSelected) Modifier.border(
-                                2.dp, MaterialTheme.colorScheme.primary, CircleShape
-                            ) else Modifier
-                        )
-                        .padding(if (isSelected) 1.dp else 0.dp)
+                    modifier =
+                        modifier
+                            .then(
+                                if (isSelected) {
+                                    Modifier.border(
+                                        2.dp,
+                                        MaterialTheme.colorScheme.primary,
+                                        CircleShape,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ).padding(if (isSelected) 1.dp else 0.dp),
                 )
             }
         }
@@ -276,12 +317,21 @@ private fun MainScreenContent(
         val currentTime = System.currentTimeMillis()
         if (currentDestination == destination && currentTime - lastTapTime < 500) {
             when (destination) {
-                MainDestination.MEMOS -> when (MemoFeed.entries[feedPagerState.currentPage]) {
-                    MemoFeed.MEMOS -> viewModel.fetchUserMemos(refresh = true)
-                    MemoFeed.EXPLORE -> viewModel.fetchExploreMemos(refresh = true)
+                MainDestination.MEMOS -> {
+                    when (MemoFeed.entries[feedPagerState.currentPage]) {
+                        MemoFeed.MEMOS -> viewModel.fetchUserMemos(refresh = true)
+                        MemoFeed.EXPLORE -> viewModel.fetchExploreMemos(refresh = true)
+                    }
                 }
-                MainDestination.ATTACHMENTS -> viewModel.fetchAttachments(refresh = true)
-                MainDestination.MAP -> viewModel.memoMapManager.load()
+
+                MainDestination.ATTACHMENTS -> {
+                    viewModel.fetchAttachments(refresh = true)
+                }
+
+                MainDestination.MAP -> {
+                    viewModel.memoMapManager.load()
+                }
+
                 else -> {}
             }
         }
@@ -290,7 +340,8 @@ private fun MainScreenContent(
     }
 
     Surface(
-        modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
     ) {
         Box(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize()) {
@@ -298,7 +349,7 @@ private fun MainScreenContent(
                 if (!isMobile) {
                     NavigationRail(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = contentColorFor(MaterialTheme.colorScheme.surfaceContainer)
+                        contentColor = contentColorFor(MaterialTheme.colorScheme.surfaceContainer),
                     ) {
                         Spacer(Modifier.height(12.dp))
                         // Items
@@ -311,10 +362,12 @@ private fun MainScreenContent(
                                 onClick = { handleDestinationClick(destination) },
                                 icon = {
                                     NavigationIcon(
-                                        destination, currentDestination == destination
+                                        destination,
+                                        currentDestination == destination,
                                     )
                                 },
-                                label = { Text(stringResource(destination.labelRes)) })
+                                label = { Text(stringResource(destination.labelRes)) },
+                            )
                         }
                     }
                 }
@@ -322,51 +375,64 @@ private fun MainScreenContent(
                 Box(
                     Modifier
                         .weight(1f)
-                        .fillMaxHeight()
+                        .fillMaxHeight(),
                 ) {
                     // Content
                     AnimatedContent(
                         targetState = currentDestination,
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(220)) togetherWith fadeOut(
-                                animationSpec = tween(220)
-                            )
+                            fadeIn(animationSpec = tween(220)) togetherWith
+                                fadeOut(
+                                    animationSpec = tween(220),
+                                )
                         },
                         label = "MainScreenDestinationTransition",
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
                     ) { targetDestination ->
-                        val destinationKey = if (targetDestination == MainDestination.MAP) {
-                            "map:${uiState.accounts.firstOrNull { it.isActive }?.id}:${uiState.session.hostUrl}"
-                        } else targetDestination
+                        val destinationKey =
+                            if (targetDestination == MainDestination.MAP) {
+                                "map:${uiState.accounts.firstOrNull { it.isActive }?.id}:${uiState.session.hostUrl}"
+                            } else {
+                                targetDestination
+                            }
                         saveableStateHolder.SaveableStateProvider(destinationKey) {
                             when (targetDestination) {
-                                MainDestination.MAP -> if (mapSupported) {
-                                    key(uiState.accountGeneration) {
-                                        MapScreen(viewModel, isNavBarVisible = isNavBarVisible, onToggleNavBar = toggleNavBar)
+                                MainDestination.MAP -> {
+                                    if (mapSupported) {
+                                        key(uiState.accountGeneration) {
+                                            MapScreen(viewModel, isNavBarVisible = isNavBarVisible, onToggleNavBar = toggleNavBar)
+                                        }
                                     }
                                 }
-                                MainDestination.MEMOS -> MemosScreen(
-                                    viewModel = viewModel,
-                                    pagerState = feedPagerState,
-                                    onToggleNavBar = toggleNavBar,
-                                    isNavBarVisible = isNavBarVisible,
-                                    openComposer = shouldOpenComposer,
-                                    onComposerOpened = onComposerOpened
-                                )
 
-                                MainDestination.ATTACHMENTS -> AttachmentsScreen(
-                                    viewModel = viewModel,
-                                    onToggleNavBar = toggleNavBar,
-                                    isNavBarVisible = isNavBarVisible
-                                )
+                                MainDestination.MEMOS -> {
+                                    MemosScreen(
+                                        viewModel = viewModel,
+                                        pagerState = feedPagerState,
+                                        onToggleNavBar = toggleNavBar,
+                                        isNavBarVisible = isNavBarVisible,
+                                        openComposer = shouldOpenComposer,
+                                        onComposerOpened = onComposerOpened,
+                                    )
+                                }
 
-                                MainDestination.PROFILE -> ProfileScreen(
-                                    viewModel = viewModel,
-                                    onLogout = onLogout,
-                                    onAddAccount = { isAddingAccount = true },
-                                    onToggleNavBar = toggleNavBar,
-                                    isNavBarVisible = isNavBarVisible
-                                )
+                                MainDestination.ATTACHMENTS -> {
+                                    AttachmentsScreen(
+                                        viewModel = viewModel,
+                                        onToggleNavBar = toggleNavBar,
+                                        isNavBarVisible = isNavBarVisible,
+                                    )
+                                }
+
+                                MainDestination.PROFILE -> {
+                                    ProfileScreen(
+                                        viewModel = viewModel,
+                                        onLogout = onLogout,
+                                        onAddAccount = { isAddingAccount = true },
+                                        onToggleNavBar = toggleNavBar,
+                                        isNavBarVisible = isNavBarVisible,
+                                    )
+                                }
                             }
                         }
                     }
@@ -379,11 +445,11 @@ private fun MainScreenContent(
                     AnimatedVisibility(
                         visible = isNavBarVisible,
                         enter = slideInVertically(initialOffsetY = { it }),
-                        exit = slideOutVertically(targetOffsetY = { it })
+                        exit = slideOutVertically(targetOffsetY = { it }),
                     ) {
                         NavigationBar(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            contentColor = contentColorFor(MaterialTheme.colorScheme.surfaceContainer)
+                            contentColor = contentColorFor(MaterialTheme.colorScheme.surfaceContainer),
                         ) {
                             visibleDestinations.forEach { destination ->
                                 NavigationBarItem(
@@ -391,10 +457,12 @@ private fun MainScreenContent(
                                     onClick = { handleDestinationClick(destination) },
                                     icon = {
                                         NavigationIcon(
-                                            destination, currentDestination == destination
+                                            destination,
+                                            currentDestination == destination,
                                         )
                                     },
-                                    label = { Text(stringResource(destination.labelRes)) })
+                                    label = { Text(stringResource(destination.labelRes)) },
+                                )
                             }
                         }
                     }
@@ -410,8 +478,7 @@ private fun MainScreenContent(
             onResolve = { resolution, mergedContent ->
                 viewModel.resolveConflict(resolution, mergedContent)
             },
-            onDismiss = { viewModel.dismissConflict() }
+            onDismiss = { viewModel.dismissConflict() },
         )
     }
-
 }

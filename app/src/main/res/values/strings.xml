@@ -479,4 +479,7 @@
     <string name="login_sso_token_failed">Signed in, but could not create an app access token. Please try again.</string>
     <string name="attachments_unknown_date">Unknown date</string>
     <string name="attachments_video">Video</string>
+    <string name="offline_unavailable">Not available offline. Connect to load this content.</string>
+    <string name="offline_filter_unavailable">This saved filter needs a connection. Previously loaded results appear when available.</string>
+    <string name="sync_queue_review_conflict">Review conflict</string>
 </resources>

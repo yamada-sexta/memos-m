@@ -38,9 +38,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.example.memosm.R
+import org.example.memosm.api.resolveResourceUrl
 import org.example.memosm.model.Account
 import org.example.memosm.ui.component.ProfileBackButton
-import org.example.memosm.ui.component.resolveResourceUrl
 
 data class UserProfileUpdate(
     val username: String? = null,
@@ -48,7 +48,7 @@ data class UserProfileUpdate(
     val displayName: String? = null,
     val avatarUrl: String? = null,
     val description: String? = null,
-    val password: String? = null
+    val password: String? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,7 +59,7 @@ fun EditProfileScreen(
     onSave: (UserProfileUpdate) -> Unit,
     isSaving: Boolean = false,
     canSave: Boolean = true,
-    errorMessage: String? = null
+    errorMessage: String? = null,
 ) {
     var username by rememberSaveable(account.id) { mutableStateOf(account.name ?: "") }
     var email by rememberSaveable(account.id) { mutableStateOf(account.email ?: "") }
@@ -90,42 +90,43 @@ fun EditProfileScreen(
                                     displayName = displayName.takeIf { it != (account.displayName ?: "") },
                                     avatarUrl = avatarUrl.takeIf { it != (account.avatarUrl ?: "") },
                                     description = description.takeIf { it != (account.description ?: "") },
-                                    password = password.takeIf { it.isNotBlank() }
-                                )
+                                    password = password.takeIf { it.isNotBlank() },
+                                ),
                             )
                         },
-                        enabled = !isSaving && canSave
+                        enabled = !isSaving && canSave,
                     ) {
                         if (isSaving) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
+                                strokeWidth = 2.dp,
                             )
                         } else {
                             Text(stringResource(R.string.common_save))
                         }
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         Box(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentAlignment = Alignment.TopCenter
+            contentAlignment = Alignment.TopCenter,
         ) {
             Column(
-                modifier = Modifier
-                    .widthIn(max = 600.dp)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier =
+                    Modifier
+                        .widthIn(max = 600.dp)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (errorMessage != null) {
                     Text(
                         text = errorMessage,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     )
                 }
 
@@ -133,10 +134,11 @@ fun EditProfileScreen(
                 AsyncImage(
                     model = resolveResourceUrl(account.hostUrl, avatarUrl.ifBlank { account.avatarUrl }),
                     contentDescription = null,
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                    modifier =
+                        Modifier
+                            .size(64.dp)
+                            .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -144,7 +146,7 @@ fun EditProfileScreen(
                 Text(
                     text = "@$username",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -155,7 +157,7 @@ fun EditProfileScreen(
                     label = { Text(stringResource(R.string.profile_username)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
+                    enabled = !isSaving,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -166,7 +168,7 @@ fun EditProfileScreen(
                     label = { Text(stringResource(R.string.profile_display_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
+                    enabled = !isSaving,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -177,7 +179,7 @@ fun EditProfileScreen(
                     label = { Text(stringResource(R.string.profile_email)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
+                    enabled = !isSaving,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -188,7 +190,7 @@ fun EditProfileScreen(
                     label = { Text(stringResource(R.string.profile_avatar_url)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
+                    enabled = !isSaving,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -200,7 +202,7 @@ fun EditProfileScreen(
                     minLines = 2,
                     maxLines = 4,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
+                    enabled = !isSaving,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -212,7 +214,7 @@ fun EditProfileScreen(
                     enabled = !isSaving,
                     supportingText = {
                         Text(stringResource(R.string.profile_password_hint))
-                    }
+                    },
                 )
             }
         }

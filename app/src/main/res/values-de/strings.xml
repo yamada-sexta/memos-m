@@ -465,4 +465,7 @@
     <string name="viewer_back">Zurück</string>
     <string name="video_playback_speed">Videowiedergabegeschwindigkeit</string>
     <string name="video_playback_error">Dieses Video kann nicht abgespielt werden.</string>
+    <string name="offline_unavailable">Offline nicht verfügbar. Stelle eine Verbindung her, um diesen Inhalt zu laden.</string>
+    <string name="offline_filter_unavailable">Für diesen gespeicherten Filter ist eine Verbindung erforderlich. Bereits geladene Ergebnisse werden angezeigt, sofern verfügbar.</string>
+    <string name="sync_queue_review_conflict">Konflikt prüfen</string>
 </resources>

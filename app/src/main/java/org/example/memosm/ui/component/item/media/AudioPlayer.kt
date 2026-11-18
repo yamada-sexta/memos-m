@@ -1,6 +1,5 @@
 package org.example.memosm.ui.component.item.media
 
-import org.example.memosm.ui.theme.flatCardElevation
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
@@ -26,18 +25,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Forward30
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Forward30
 import androidx.compose.material.icons.outlined.Replay30
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
@@ -70,9 +69,13 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.example.memosm.R
+import org.example.memosm.ui.theme.flatCardElevation
 
 enum class AudioPlayerMode {
-    WIDE, NORMAL, COMPACT, FULL_SCREEN
+    WIDE,
+    NORMAL,
+    COMPACT,
+    FULL_SCREEN,
 }
 
 @OptIn(UnstableApi::class)
@@ -81,20 +84,24 @@ fun AudioPlayer(
     url: String,
     filename: String,
     token: String?,
+    hostUrl: String,
     modifier: Modifier = Modifier,
     mode: AudioPlayerMode = AudioPlayerMode.NORMAL,
     showContainer: Boolean = true,
-    onPlayingStateChanged: (Boolean) -> Unit = {}
+    onPlayingStateChanged: (Boolean) -> Unit = {},
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
-    val exoPlayer = remember(url, token, accountIdentity) {
-        val dataSourceFactory = MediaCache.createDataSourceFactory(context, token, accountId)
-        ExoPlayer.Builder(context).setMediaSourceFactory(
-            DefaultMediaSourceFactory(dataSourceFactory)
-        ).build()
-    }
+    val exoPlayer =
+        remember(url, token, accountIdentity, hostUrl) {
+            val dataSourceFactory = MediaCache.createDataSourceFactory(context, token, accountId, hostUrl)
+            ExoPlayer
+                .Builder(context)
+                .setMediaSourceFactory(
+                    DefaultMediaSourceFactory(dataSourceFactory),
+                ).build()
+        }
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
     var playWhenReady by remember(exoPlayer) { mutableStateOf(false) }
     var duration by remember(exoPlayer) { mutableLongStateOf(0L) }
@@ -110,21 +117,25 @@ fun AudioPlayer(
     val canSeek = isPrepared && isSeekable && duration > 0 && controlsEnabled
 
     DisposableEffect(exoPlayer) {
-        val listener = object : Player.Listener {
-            override fun onEvents(player: Player, events: Player.Events) {
-                duration = player.duration.coerceAtLeast(0L)
-                currentPosition = player.currentPosition.coerceAtLeast(0L)
-                isPrepared = player.playbackState != Player.STATE_IDLE
-                playWhenReady = player.playWhenReady && player.playbackState != Player.STATE_ENDED
-                isSeekable = player.isCurrentMediaItemSeekable
-                isBuffering = player.playbackState == Player.STATE_BUFFERING
-            }
+        val listener =
+            object : Player.Listener {
+                override fun onEvents(
+                    player: Player,
+                    events: Player.Events,
+                ) {
+                    duration = player.duration.coerceAtLeast(0L)
+                    currentPosition = player.currentPosition.coerceAtLeast(0L)
+                    isPrepared = player.playbackState != Player.STATE_IDLE
+                    playWhenReady = player.playWhenReady && player.playbackState != Player.STATE_ENDED
+                    isSeekable = player.isCurrentMediaItemSeekable
+                    isBuffering = player.playbackState == Player.STATE_BUFFERING
+                }
 
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
-                onPlayingChanged(playing)
+                override fun onIsPlayingChanged(playing: Boolean) {
+                    isPlaying = playing
+                    onPlayingChanged(playing)
+                }
             }
-        }
         exoPlayer.addListener(listener)
         exoPlayer.setMediaItem(MediaItem.fromUri(url))
         exoPlayer.prepare()
@@ -164,113 +175,141 @@ fun AudioPlayer(
                 scrubPosition?.let(seekTo)
                 scrubPosition = null
             },
-            modifier = sliderModifier.semantics {
-                contentDescription = seekLabel
-                stateDescription = seekDescription
-            }
+            modifier =
+                sliderModifier.semantics {
+                    contentDescription = seekLabel
+                    stateDescription = seekDescription
+                },
         )
     }
 
     val content = @Composable {
         when (mode) {
-            AudioPlayerMode.FULL_SCREEN -> Box(
-                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth()
-                        .verticalScroll(rememberScrollState()).padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            AudioPlayerMode.FULL_SCREEN -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = filename, style = MaterialTheme.typography.titleLarge,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier =
+                            Modifier
+                                .widthIn(max = 480.dp)
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                                .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Text(formatMediaTime(displayedPosition), style = MaterialTheme.typography.labelMedium)
-                        seekSlider(Modifier.weight(1f))
-                        Text(formatMediaTime(duration), style = MaterialTheme.typography.labelMedium)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val skipColors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        Text(
+                            text = filename,
+                            style = MaterialTheme.typography.titleLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
                         )
-                        FilledTonalIconButton(
-                            onClick = { seekTo(currentPosition - 30_000L) }, enabled = canSeek,
-                            modifier = Modifier.weight(1f).height(80.dp),
-                            shape = MaterialTheme.shapes.extraLarge, colors = skipColors
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Icon(Icons.Outlined.Replay30, stringResource(R.string.audio_rewind_30))
+                            Text(formatMediaTime(displayedPosition), style = MaterialTheme.typography.labelMedium)
+                            seekSlider(Modifier.weight(1f))
+                            Text(formatMediaTime(duration), style = MaterialTheme.typography.labelMedium)
                         }
-                        FilledIconButton(
-                            onClick = togglePlayback, enabled = isPrepared && controlsEnabled,
-                            modifier = Modifier.weight(1.3f).height(96.dp)
-                                .semantics { contentDescription = playbackLabel },
-                            shape = MaterialTheme.shapes.extraLarge
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (isBuffering) CircularProgressIndicator(
-                                modifier = Modifier.size(32.dp),
-                                color = MaterialTheme.colorScheme.onPrimary
-                            ) else Icon(
-                                if (playWhenReady) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-                        FilledTonalIconButton(
-                            onClick = { seekTo(currentPosition + 30_000L) }, enabled = canSeek,
-                            modifier = Modifier.weight(1f).height(80.dp),
-                            shape = MaterialTheme.shapes.extraLarge, colors = skipColors
-                        ) {
-                            Icon(Icons.Outlined.Forward30, stringResource(R.string.audio_forward_30))
+                            val skipColors =
+                                IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            FilledTonalIconButton(
+                                onClick = { seekTo(currentPosition - 30_000L) },
+                                enabled = canSeek,
+                                modifier = Modifier.weight(1f).height(80.dp),
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = skipColors,
+                            ) {
+                                Icon(Icons.Outlined.Replay30, stringResource(R.string.audio_rewind_30))
+                            }
+                            FilledIconButton(
+                                onClick = togglePlayback,
+                                enabled = isPrepared && controlsEnabled,
+                                modifier =
+                                    Modifier
+                                        .weight(1.3f)
+                                        .height(96.dp)
+                                        .semantics { contentDescription = playbackLabel },
+                                shape = MaterialTheme.shapes.extraLarge,
+                            ) {
+                                if (isBuffering) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(32.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                } else {
+                                    Icon(
+                                        if (playWhenReady) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp),
+                                    )
+                                }
+                            }
+                            FilledTonalIconButton(
+                                onClick = { seekTo(currentPosition + 30_000L) },
+                                enabled = canSeek,
+                                modifier = Modifier.weight(1f).height(80.dp),
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = skipColors,
+                            ) {
+                                Icon(Icons.Outlined.Forward30, stringResource(R.string.audio_forward_30))
+                            }
                         }
                     }
                 }
             }
 
-            AudioPlayerMode.WIDE -> Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = filename,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+            AudioPlayerMode.WIDE -> {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    PlayPauseButton(
-                        isPlaying = playWhenReady, isPrepared = isPrepared && controlsEnabled,
-                        onToggle = togglePlayback)
-                    Column(modifier = Modifier.weight(1f)) {
-                        seekSlider(Modifier.height(24.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = formatMediaTime(displayedPosition),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            Text(
-                                text = formatMediaTime(duration),
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                    Text(
+                        text = filename,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        PlayPauseButton(
+                            isPlaying = playWhenReady,
+                            isPrepared = isPrepared && controlsEnabled,
+                            onToggle = togglePlayback,
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            seekSlider(Modifier.height(24.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = formatMediaTime(displayedPosition),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Text(
+                                    text = formatMediaTime(duration),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
                         }
                     }
                 }
@@ -278,21 +317,25 @@ fun AudioPlayer(
 
             else -> {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                     ) {
                         PlayPauseButton(
-                            isPlaying = playWhenReady, isPrepared = isPrepared && controlsEnabled,
-                            onToggle = togglePlayback, modifier = Modifier.size(48.dp)
+                            isPlaying = playWhenReady,
+                            isPrepared = isPrepared && controlsEnabled,
+                            onToggle = togglePlayback,
+                            modifier = Modifier.size(48.dp),
                         )
                     }
 
@@ -303,7 +346,7 @@ fun AudioPlayer(
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
@@ -314,9 +357,18 @@ fun AudioPlayer(
     if (showContainer && mode != AudioPlayerMode.FULL_SCREEN) {
         Card(
             elevation = flatCardElevation(),
-            modifier = modifier.then(if (mode == AudioPlayerMode.NORMAL || mode == AudioPlayerMode.COMPACT) Modifier.height(100.dp) else Modifier),
+            modifier =
+                modifier.then(
+                    if (mode == AudioPlayerMode.NORMAL ||
+                        mode == AudioPlayerMode.COMPACT
+                    ) {
+                        Modifier.height(100.dp)
+                    } else {
+                        Modifier
+                    },
+                ),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = MaterialTheme.shapes.medium
+            shape = MaterialTheme.shapes.medium,
         ) { content() }
     } else {
         Box(modifier = modifier) { content() }
@@ -331,7 +383,7 @@ fun PlayPauseButton(
     modifier: Modifier = Modifier,
     iconSize: androidx.compose.ui.unit.Dp = 32.dp,
     tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
-    filledIcons: Boolean = false
+    filledIcons: Boolean = false,
 ) {
     val rotation = remember { Animatable(0f) }
     val scale = remember { Animatable(1f) }
@@ -346,46 +398,58 @@ fun PlayPauseButton(
 
         launch {
             rotation.animateTo(
-                targetValue = rotation.targetValue + 180f, animationSpec = spring(
-                    stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioMediumBouncy
-                )
+                targetValue = rotation.targetValue + 180f,
+                animationSpec =
+                    spring(
+                        stiffness = Spring.StiffnessLow,
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                    ),
             )
         }
 
         launch {
             scale.animateTo(
                 targetValue = if (isPlaying) 1.2f else 1f,
-                animationSpec = spring(stiffness = Spring.StiffnessLow)
+                animationSpec = spring(stiffness = Spring.StiffnessLow),
             )
         }
     }
 
     IconButton(onClick = onToggle, enabled = isPrepared, modifier = modifier) {
         Box(
-            modifier = Modifier.graphicsLayer {
-                rotationZ = rotation.value
-                scaleX = scale.value
-                scaleY = scale.value
-            }, contentAlignment = Alignment.Center
+            modifier =
+                Modifier.graphicsLayer {
+                    rotationZ = rotation.value
+                    scaleX = scale.value
+                    scaleY = scale.value
+                },
+            contentAlignment = Alignment.Center,
         ) {
             AnimatedContent(
-                targetState = isPlaying, transitionSpec = {
+                targetState = isPlaying,
+                transitionSpec = {
                     fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                }, label = "IconSwap"
+                },
+                label = "IconSwap",
             ) { playing ->
                 Icon(
-                    imageVector = when {
-                        filledIcons && playing -> Icons.Filled.Pause
-                        filledIcons -> Icons.Filled.PlayArrow
-                        playing -> Icons.Outlined.Pause
-                        else -> Icons.Outlined.PlayArrow
-                    },
-                    contentDescription = androidx.compose.ui.res.stringResource(
-                        if (playing) org.example.memosm.R.string.memo_action_pause
-                        else org.example.memosm.R.string.memo_action_play
-                    ),
+                    imageVector =
+                        when {
+                            filledIcons && playing -> Icons.Filled.Pause
+                            filledIcons -> Icons.Filled.PlayArrow
+                            playing -> Icons.Outlined.Pause
+                            else -> Icons.Outlined.PlayArrow
+                        },
+                    contentDescription =
+                        androidx.compose.ui.res.stringResource(
+                            if (playing) {
+                                org.example.memosm.R.string.memo_action_pause
+                            } else {
+                                org.example.memosm.R.string.memo_action_play
+                            },
+                        ),
                     modifier = Modifier.size(iconSize),
-                    tint = tint
+                    tint = tint,
                 )
             }
         }

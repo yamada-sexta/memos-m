@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -36,16 +37,14 @@ import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
-import org.example.memosm.data.DataStoreManager
 import org.example.memosm.R
-import androidx.compose.ui.res.stringResource
+import org.example.memosm.api.resolveResourceUrl
+import org.example.memosm.data.DataStoreManager
 import org.example.memosm.model.Account
-import org.example.memosm.ui.component.resolveResourceUrl
 import org.example.memosm.ui.theme.SavedMemosMTheme
 import org.koin.android.ext.android.inject
 
 class UserStatsWidgetConfigActivity : ComponentActivity() {
-
     private val dataStoreManager: DataStoreManager by inject()
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
@@ -57,9 +56,11 @@ class UserStatsWidgetConfigActivity : ComponentActivity() {
         val intent = intent
         val extras = intent.extras
         if (extras != null) {
-            appWidgetId = extras.getInt(
-                AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID
-            )
+            appWidgetId =
+                extras.getInt(
+                    AppWidgetManager.EXTRA_APPWIDGET_ID,
+                    AppWidgetManager.INVALID_APPWIDGET_ID,
+                )
         }
 
         // If this activity was started with an intent without an app widget ID, finish with an error.
@@ -70,18 +71,19 @@ class UserStatsWidgetConfigActivity : ComponentActivity() {
 
         setContent {
             SavedMemosMTheme(dataStoreManager) {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(title = { Text(stringResource(R.string.widget_stats_select_account)) })
-                    }) { padding ->
-                    val accounts = produceState<List<Account>>(initialValue = emptyList()) {
-                        value = dataStoreManager.getAccounts()
-                    }
+                Scaffold(topBar = {
+                    TopAppBar(title = { Text(stringResource(R.string.widget_stats_select_account)) })
+                }) { padding ->
+                    val accounts =
+                        produceState<List<Account>>(initialValue = emptyList()) {
+                            value = dataStoreManager.getAccounts()
+                        }
 
                     LazyColumn(
-                        modifier = Modifier
-                            .padding(padding)
-                            .fillMaxSize()
+                        modifier =
+                            Modifier
+                                .padding(padding)
+                                .fillMaxSize(),
                     ) {
                         items(accounts.value) { account ->
                             AccountItem(account = account, onClick = {
@@ -117,13 +119,17 @@ class UserStatsWidgetConfigActivity : ComponentActivity() {
 }
 
 @Composable
-fun AccountItem(account: Account, onClick: () -> Unit) {
+fun AccountItem(
+    account: Account,
+    onClick: () -> Unit,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         val avatarUrl =
             resolveResourceUrl(account.hostUrl, account.avatarUrl ?: account.user?.avatarUrl)
@@ -131,10 +137,11 @@ fun AccountItem(account: Account, onClick: () -> Unit) {
         AsyncImage(
             model = avatarUrl,
             contentDescription = null,
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape),
-            contentScale = ContentScale.Crop
+            modifier =
+                Modifier
+                    .size(40.dp)
+                    .clip(CircleShape),
+            contentScale = ContentScale.Crop,
         )
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -142,12 +149,12 @@ fun AccountItem(account: Account, onClick: () -> Unit) {
         Column {
             Text(
                 text = account.displayName ?: account.name ?: stringResource(R.string.memo_unknown_user),
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge,
             )
             Text(
                 text = account.hostUrl,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

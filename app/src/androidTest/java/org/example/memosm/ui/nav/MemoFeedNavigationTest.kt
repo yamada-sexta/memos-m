@@ -16,6 +16,7 @@ import org.example.memosm.data.DraftManager
 import org.example.memosm.data.backup.BackupCoordinator
 import org.example.memosm.data.cache.CacheListType
 import org.example.memosm.data.cache.MemoCacheRepository
+import org.example.memosm.data.cache.seedMemos
 import org.example.memosm.model.Account
 import org.example.memosm.model.Draft
 import org.example.memosm.model.Memo
@@ -23,8 +24,8 @@ import org.example.memosm.model.MemoState
 import org.example.memosm.model.UserSnapshot
 import org.example.memosm.model.Visibility
 import org.example.memosm.widget.DraftWidget
-import org.junit.Before
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.GlobalContext
@@ -36,31 +37,59 @@ class MemoFeedNavigationTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     private val accountId = "memo-feed-navigation-test"
+
     private fun label(id: Int) = context.getString(id)
 
     @Before
-    fun seedCachedFeeds(): Unit = runBlocking {
-        BackupCoordinator.awaitStartupRecovery()
-        val koin = GlobalContext.get()
-        koin.get<DraftManager>().clearDrafts(accountId)
-        val cache = koin.get<MemoCacheRepository>()
-        cache.cacheMemos(accountId, CacheListType.USER, List(24) { index ->
-            Memo(name = "memos/mine-$index", creator = "users/1", content = "My memo $index",
-                state = MemoState.NORMAL, visibility = Visibility.PRIVATE)
-        })
-        cache.cacheMemos(accountId, CacheListType.EXPLORE, List(24) { index ->
-            Memo(name = "memos/explore-$index", creator = "users/2", content = "Explore memo $index",
-                state = MemoState.NORMAL, visibility = Visibility.PUBLIC)
-        })
-        koin.get<DataStoreManager>().apply {
-            completeSetup()
-            saveAccounts(listOf(Account(
-                id = accountId, hostUrl = "https://example.invalid", accessToken = "test-token",
-                name = "feed-test", displayName = "Feed test", isActive = true,
-                user = UserSnapshot(name = "users/1", username = "feed-test", displayName = "Feed test")
-            )))
+    fun seedCachedFeeds(): Unit =
+        runBlocking {
+            BackupCoordinator.awaitStartupRecovery()
+            val koin = GlobalContext.get()
+            koin.get<DraftManager>().clearDrafts(accountId)
+            val cache = koin.get<MemoCacheRepository>()
+            cache.seedMemos(
+                accountId,
+                CacheListType.USER,
+                List(24) { index ->
+                    Memo(
+                        name = "memos/mine-$index",
+                        creator = "users/1",
+                        content = "My memo $index",
+                        state = MemoState.NORMAL,
+                        visibility = Visibility.PRIVATE,
+                    )
+                },
+            )
+            cache.seedMemos(
+                accountId,
+                CacheListType.EXPLORE,
+                List(24) { index ->
+                    Memo(
+                        name = "memos/explore-$index",
+                        creator = "users/2",
+                        content = "Explore memo $index",
+                        state = MemoState.NORMAL,
+                        visibility = Visibility.PUBLIC,
+                    )
+                },
+            )
+            koin.get<DataStoreManager>().apply {
+                completeSetup()
+                saveAccounts(
+                    listOf(
+                        Account(
+                            id = accountId,
+                            hostUrl = "https://example.invalid",
+                            accessToken = "test-token",
+                            name = "feed-test",
+                            displayName = "Feed test",
+                            isActive = true,
+                            user = UserSnapshot(name = "users/1", username = "feed-test", displayName = "Feed test"),
+                        ),
+                    ),
+                )
+            }
         }
-    }
 
     @Test
     fun tapAndSwipeSwitchFeedsAndComposerIsAvailableOnBoth() {
@@ -204,9 +233,12 @@ class MemoFeedNavigationTest {
             compose.waitForIdle()
             scenario.onActivity { activity ->
                 val launchIntent = activity.intent
-                instrumentation.callActivityOnNewIntent(activity, android.content.Intent(context, MainActivity::class.java).apply {
-                    action = DraftWidget.ACTION_OPEN_COMPOSER
-                })
+                instrumentation.callActivityOnNewIntent(
+                    activity,
+                    android.content.Intent(context, MainActivity::class.java).apply {
+                        action = DraftWidget.ACTION_OPEN_COMPOSER
+                    },
+                )
                 // ActivityScenario matches lifecycle events against its original launch intent.
                 activity.intent = launchIntent
             }
@@ -218,26 +250,38 @@ class MemoFeedNavigationTest {
         }
     }
 
-    private fun tab(feed: MemoFeed) = compose.onNode(
-        hasText(label(feed.labelRes)) and
-            SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab) and
-            hasAnyAncestor(hasTestTag("memo_feed_tabs"))
-    )
+    private fun tab(feed: MemoFeed) =
+        compose.onNode(
+            hasText(label(feed.labelRes)) and
+                SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab) and
+                hasAnyAncestor(hasTestTag("memo_feed_tabs")),
+        )
 
-    private fun list(feed: MemoFeed) = compose.onNode(
-        hasScrollToIndexAction() and hasAnyAncestor(hasTestTag("memo_feed_${feed.name.lowercase()}"))
-    )
+    private fun list(feed: MemoFeed) =
+        compose.onNode(
+            hasScrollToIndexAction() and hasAnyAncestor(hasTestTag("memo_feed_${feed.name.lowercase()}")),
+        )
 
     private fun awaitFeed(feed: MemoFeed) {
         compose.waitUntil(30_000) {
             // A native activity transition can briefly leave no registered Compose roots.
-            runCatching { compose.onAllNodes(hasText(label(feed.labelRes)) and
-                SemanticsMatcher.expectValue(SemanticsProperties.Selected, true) and
-                hasAnyAncestor(hasTestTag("memo_feed_tabs"))).fetchSemanticsNodes().isNotEmpty() &&
-                compose.onAllNodes(hasText(
-                    if (feed == MemoFeed.MEMOS) "My memo " else "Explore memo ", substring = true
-                ) and hasAnyAncestor(hasTestTag("memo_feed_${feed.name.lowercase()}")))
-                    .fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            runCatching {
+                compose
+                    .onAllNodes(
+                        hasText(label(feed.labelRes)) and
+                            SemanticsMatcher.expectValue(SemanticsProperties.Selected, true) and
+                            hasAnyAncestor(hasTestTag("memo_feed_tabs")),
+                    ).fetchSemanticsNodes()
+                    .isNotEmpty() &&
+                    compose
+                        .onAllNodes(
+                            hasText(
+                                if (feed == MemoFeed.MEMOS) "My memo " else "Explore memo ",
+                                substring = true,
+                            ) and hasAnyAncestor(hasTestTag("memo_feed_${feed.name.lowercase()}")),
+                        ).fetchSemanticsNodes()
+                        .isNotEmpty()
+            }.getOrDefault(false)
         }
         compose.waitForIdle()
     }

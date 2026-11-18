@@ -1,5 +1,7 @@
 package org.example.memosm.ui.component.item.media
 
+import org.example.memosm.api.resourceAuthorization
+
 import android.net.Uri
 import android.util.Base64
 import androidx.compose.foundation.combinedClickable
@@ -27,8 +29,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
@@ -54,45 +56,56 @@ fun MemoImage(
     onRatioAvailable: (Float) -> Unit = {},
     onClick: (() -> Unit)? = null,
     isFullScreen: Boolean = false,
-    onLongClick: (() -> Unit)? = null
+    onLongClick: (() -> Unit)? = null,
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
     val attachmentCacheManager = org.example.memosm.MemosApplication.instance.attachmentCacheManager
-    val imageModels = produceState<Pair<Any?, Any?>>(Pair(null, null), uri, attachment, hostUrl, accountIdentity) {
-        value = withContext(Dispatchers.IO) {
-            when {
-                uri != Uri.EMPTY -> Pair(uri, uri)
-                attachment != null -> {
-                    // Prefer the account-scoped offline file. A remote attachment
-                    // still keeps upstream's thumbnail preview and original fallback.
-                    val original = attachmentCacheManager.getLocalFileForAccount(accountId, attachment.name)
-                        ?: AttachmentManager.getAttachmentUrl(hostUrl, attachment)
-                        ?: when {
-                            !attachment.content.isNullOrBlank() -> {
-                                try {
-                                    Base64.decode(attachment.content, Base64.NO_WRAP)
-                                } catch (_: Exception) {
-                                    null
-                                }
-                            }
-
-                            else -> null
+    val imageModels =
+        produceState<Pair<Any?, Any?>>(Pair(null, null), uri, attachment, hostUrl, accountIdentity) {
+            value =
+                withContext(Dispatchers.IO) {
+                    when {
+                        uri != Uri.EMPTY -> {
+                            Pair(uri, uri)
                         }
 
-                    val preview = if (original is String) {
-                        AttachmentManager.getAttachmentThumbnailUrl(hostUrl, attachment) ?: original
-                    } else {
-                        original
-                    }
-                    Pair(preview, original)
-                }
+                        attachment != null -> {
+                            // Prefer the account-scoped offline file. A remote attachment
+                            // still keeps upstream's thumbnail preview and original fallback.
+                            val original =
+                                attachmentCacheManager.getLocalFileForAccount(accountId, attachment.name)
+                                    ?: AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+                                    ?: when {
+                                        !attachment.content.isNullOrBlank() -> {
+                                            try {
+                                                Base64.decode(attachment.content, Base64.NO_WRAP)
+                                            } catch (_: Exception) {
+                                                null
+                                            }
+                                        }
 
-                else -> Pair(null, null)
-            }
+                                        else -> {
+                                            null
+                                        }
+                                    }
+
+                            val preview =
+                                if (original is String) {
+                                    AttachmentManager.getAttachmentThumbnailUrl(hostUrl, attachment) ?: original
+                                } else {
+                                    original
+                                }
+                            Pair(preview, original)
+                        }
+
+                        else -> {
+                            Pair(null, null)
+                        }
+                    }
+                }
         }
-    }
     val previewModel = imageModels.value.first
     val originalModel = imageModels.value.second
     var useOriginal by remember(previewModel, originalModel, isFullScreen) {
@@ -100,13 +113,14 @@ fun MemoImage(
     }
     val model = if (useOriginal) originalModel else previewModel
 
-    val cacheKey = remember(uri, attachment, hostUrl, accountIdentity) {
-        when {
-            uri != Uri.EMPTY -> uri.toString()
-            attachment?.name != null -> accountMediaCacheKey(accountId, "${hostUrl}_${attachment.name}")
-            else -> model?.toString()
+    val cacheKey =
+        remember(uri, attachment, hostUrl, accountIdentity) {
+            when {
+                uri != Uri.EMPTY -> uri.toString()
+                attachment?.name != null -> accountMediaCacheKey(accountId, "${hostUrl}_${attachment.name}")
+                else -> model?.toString()
+            }
         }
-    }
 
     // Use cached ratio if available
     val cachedRatio = cacheKey?.let { MediaCache.getAspectRatio(it) }
@@ -114,40 +128,60 @@ fun MemoImage(
         onRatioAvailable(cachedRatio)
     }
 
-    val headers = remember(token) {
-        val builder = NetworkHeaders.Builder()
-        if (token != null) builder.set("Authorization", "Bearer $token")
-        builder.build()
-    }
+    val headers =
+        remember(token, hostUrl, model) {
+            val builder = NetworkHeaders.Builder()
+            resourceAuthorization(hostUrl, model, token)
+                ?.let { builder.set("Authorization", it) }
+            builder.build()
+        }
 
-    val imageRequest = remember(model, headers, accountIdentity) {
-        ImageRequest.Builder(context).data(model).httpHeaders(headers)
-            .memoryCacheKey(accountMediaCacheKey(accountId, model.toString()))
-            .diskCacheKey(accountMediaCacheKey(accountId, model.toString()))
-            .diskCachePolicy(CachePolicy.ENABLED).memoryCachePolicy(CachePolicy.ENABLED).build()
-    }
+    val imageRequest =
+        remember(model, headers, accountIdentity) {
+            ImageRequest
+                .Builder(context)
+                .data(model)
+                .httpHeaders(headers)
+                .memoryCacheKey(accountMediaCacheKey(accountId, model.toString()))
+                .diskCacheKey(accountMediaCacheKey(accountId, model.toString()))
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .build()
+        }
 
     var isLoading by remember { mutableStateOf(model != null) }
     var isError by remember { mutableStateOf(false) }
     var imageSize by remember(model) { mutableStateOf(IntSize.Zero) }
 
     Box(
-        modifier = modifier, contentAlignment = Alignment.Center
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
     ) {
         if (model != null) {
-            val imgModifier = Modifier
-                .fillMaxSize()
-                .then(if (isRound) Modifier.clip(CircleShape) else Modifier)
-                .then(if (onClick != null && !isFullScreen) Modifier.combinedClickable(
-                    onClick = onClick, onLongClick = onLongClick
-                ) else Modifier)
+            val imgModifier =
+                Modifier
+                    .fillMaxSize()
+                    .then(if (isRound) Modifier.clip(CircleShape) else Modifier)
+                    .then(
+                        if (onClick != null && !isFullScreen) {
+                            Modifier.combinedClickable(
+                                onClick = onClick,
+                                onLongClick = onLongClick,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
 
             AsyncImage(
                 model = imageRequest,
                 contentDescription = contentDescription,
                 modifier = imgModifier.zoomable(isFullScreen, imageSize),
                 contentScale = if (isFullScreen) ContentScale.Fit else ContentScale.Crop,
-                onLoading = { isLoading = true; isError = false },
+                onLoading = {
+                    isLoading = true
+                    isError = false
+                },
                 onSuccess = { state ->
                     isLoading = false
                     isError = false
@@ -165,10 +199,13 @@ fun MemoImage(
                         return@AsyncImage
                     }
                     android.util.Log.e(
-                        "MemosDebug", "MemoImage error: $filename, result=${it.result.throwable}"
+                        "MemosDebug",
+                        "MemoImage error: $filename, result=${it.result.throwable}",
                     )
-                    isLoading = false; isError = true
-                })
+                    isLoading = false
+                    isError = true
+                },
+            )
         } else {
             isError = true
             isLoading = false
@@ -176,7 +213,8 @@ fun MemoImage(
 
         if (isLoading && !isRound) {
             CircularProgressIndicator(
-                modifier = Modifier.size(24.dp), strokeWidth = 2.dp
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp,
             )
         }
 
@@ -185,17 +223,18 @@ fun MemoImage(
                 Icon(
                     imageVector = placeholderIcon,
                     contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(if (isRound) 4.dp else 0.dp),
-                    tint = MaterialTheme.colorScheme.outline
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(if (isRound) 4.dp else 0.dp),
+                    tint = MaterialTheme.colorScheme.outline,
                 )
             } else if (isError) {
                 Icon(
                     imageVector = Icons.Outlined.BrokenImage,
                     contentDescription = stringResource(R.string.attachments_error),
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp),
                 )
             }
         }

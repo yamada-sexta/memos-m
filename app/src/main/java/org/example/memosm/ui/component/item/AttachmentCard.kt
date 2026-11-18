@@ -1,8 +1,6 @@
 package org.example.memosm.ui.component.item
 
-import org.example.memosm.ui.theme.flatCardElevation
 import android.net.Uri
-import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
 import android.util.Base64
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
@@ -25,9 +23,9 @@ import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -40,19 +38,19 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import org.example.memosm.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.example.memosm.R
 import org.example.memosm.model.Attachment
 import org.example.memosm.ui.component.item.media.AttachmentOrigin
 import org.example.memosm.ui.component.item.media.AudioPlayer
@@ -60,19 +58,24 @@ import org.example.memosm.ui.component.item.media.AudioPlayerMode
 import org.example.memosm.ui.component.item.media.FileThumbnail
 import org.example.memosm.ui.component.item.media.FileThumbnailMode
 import org.example.memosm.ui.component.item.media.FullScreenImageViewer
+import org.example.memosm.ui.component.item.media.LocalAccountMediaIdentity
+import org.example.memosm.ui.component.item.media.LocalViewerToggleImmersive
 import org.example.memosm.ui.component.item.media.MemoImage
 import org.example.memosm.ui.component.item.media.VideoPlayer
-import org.example.memosm.ui.component.item.media.LocalViewerToggleImmersive
 import org.example.memosm.ui.component.item.media.formatMediaTime
+import org.example.memosm.ui.theme.flatCardElevation
 import org.example.memosm.viewmodel.manager.AttachmentManager
 import java.io.File
 
 internal val AttachmentCardMetadataHeight = 56.dp
 
 enum class AttachmentCompactMode {
-    Area, Width, Height, Always, Never
+    Area,
+    Width,
+    Height,
+    Always,
+    Never,
 }
-
 
 @Composable
 fun AttachmentCard(
@@ -91,7 +94,7 @@ fun AttachmentCard(
     onRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> },
     mediaModifier: Modifier = Modifier,
     gallery: Boolean = false,
-    onMediaRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> }
+    onMediaRatioAvailable: (Float, Boolean) -> Unit = { _, _ -> },
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val toggleImmersive = LocalViewerToggleImmersive.current
@@ -103,9 +106,12 @@ fun AttachmentCard(
     var isAudioPlaying by remember { mutableStateOf(false) }
     var videoDuration by remember(attachment, uri, accountIdentity) { mutableLongStateOf(0L) }
     var showAttachmentActions by remember(attachment, uri, accountIdentity) { mutableStateOf(false) }
-    val onLongClick: (() -> Unit)? = if (gallery && showInfo && showActions && !isFullScreen) {
-        { showAttachmentActions = true }
-    } else null
+    val onLongClick: (() -> Unit)? =
+        if (gallery && showInfo && showActions && !isFullScreen) {
+            { showAttachmentActions = true }
+        } else {
+            null
+        }
     val moreLabel = stringResource(R.string.memo_action_more)
 
     val info = rememberAttachmentInfo(attachment, uri)
@@ -113,21 +119,30 @@ fun AttachmentCard(
     val displayType = info.type
     val formattedSize = info.size.orEmpty()
     val formattedDate = info.created.orEmpty()
-    val isImage = remember(displayType) {
-        displayType.startsWith("image/", ignoreCase = true) || displayType.contains(
-            "image", ignoreCase = true
-        )
-    }
-    val isAudio = remember(displayType) {
-        displayType.startsWith("audio/", ignoreCase = true) || displayType.contains(
-            "audio", ignoreCase = true
-        )
-    }
-    val isVideo = remember(displayType) {
-        displayType.startsWith("video/", ignoreCase = true) || displayType.contains(
-            "video", ignoreCase = true
-        )
-    }
+    val isImage =
+        remember(displayType) {
+            displayType.startsWith("image/", ignoreCase = true) ||
+                displayType.contains(
+                    "image",
+                    ignoreCase = true,
+                )
+        }
+    val isAudio =
+        remember(displayType) {
+            displayType.startsWith("audio/", ignoreCase = true) ||
+                displayType.contains(
+                    "audio",
+                    ignoreCase = true,
+                )
+        }
+    val isVideo =
+        remember(displayType) {
+            displayType.startsWith("video/", ignoreCase = true) ||
+                displayType.contains(
+                    "video",
+                    ignoreCase = true,
+                )
+        }
     val isVisualMedia = isImage || isVideo
     val fullScreenBackground = if (isVisualMedia) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerLow
 
@@ -137,81 +152,114 @@ fun AttachmentCard(
             if (!isAudio) {
                 value = null
             } else {
-                value = withContext(Dispatchers.IO) {
-                    val localFile = org.example.memosm.MemosApplication.instance
-                        .attachmentCacheManager.getLocalFileForAccount(accountId, attachment?.name)
-                    when {
-                        uri != Uri.EMPTY -> uri.toString()
-                        localFile != null -> localFile.toUri().toString()
-                        else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
-                            !attachment?.content.isNullOrBlank() -> {
-                                try {
-                                    val bytes = Base64.decode(attachment.content, Base64.NO_WRAP)
-                                    val ext = when {
-                                        displayType.contains("aac") -> "aac"
-                                        displayType.contains("mp3") || displayType.contains("mpeg") -> "mp3"
-                                        displayType.contains("ogg") -> "ogg"
-                                        displayType.contains("wav") -> "wav"
-                                        displayType.contains("m4a") -> "m4a"
-                                        else -> "aac"
-                                    }
-                                    val tempFile = File(
-                                        context.cacheDir, "cached_audio_${filename.hashCode()}.$ext"
-                                    )
-                                    if (!tempFile.exists() || tempFile.length() != bytes.size.toLong()) {
-                                        tempFile.writeBytes(bytes)
-                                    }
-                                    tempFile.toUri().toString()
-                                } catch (e: Exception) {
-                                    Log.e("AttachmentCard", "Error creating temp audio file", e)
-                                    null
-                                }
+                value =
+                    withContext(Dispatchers.IO) {
+                        val localFile =
+                            org.example.memosm.MemosApplication.instance
+                                .attachmentCacheManager
+                                .getLocalFileForAccount(accountId, attachment?.name)
+                        when {
+                            uri != Uri.EMPTY -> {
+                                uri.toString()
                             }
 
-                            else -> null
+                            localFile != null -> {
+                                localFile.toUri().toString()
+                            }
+
+                            else -> {
+                                AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
+                                    !attachment?.content.isNullOrBlank() -> {
+                                        try {
+                                            val bytes = Base64.decode(attachment.content, Base64.NO_WRAP)
+                                            val ext =
+                                                when {
+                                                    displayType.contains("aac") -> "aac"
+                                                    displayType.contains("mp3") || displayType.contains("mpeg") -> "mp3"
+                                                    displayType.contains("ogg") -> "ogg"
+                                                    displayType.contains("wav") -> "wav"
+                                                    displayType.contains("m4a") -> "m4a"
+                                                    else -> "aac"
+                                                }
+                                            val tempFile =
+                                                File(
+                                                    context.cacheDir,
+                                                    "cached_audio_${filename.hashCode()}.$ext",
+                                                )
+                                            if (!tempFile.exists() || tempFile.length() != bytes.size.toLong()) {
+                                                tempFile.writeBytes(bytes)
+                                            }
+                                            tempFile.toUri().toString()
+                                        } catch (e: Exception) {
+                                            Log.e("AttachmentCard", "Error creating temp audio file", e)
+                                            null
+                                        }
+                                    }
+
+                                    else -> {
+                                        null
+                                    }
+                                }
+                            }
                         }
                     }
-                }
             }
         }.value
-
 
     // Default ratios before loading
     var intrinsicRatio by remember(attachment, uri, accountIdentity) {
         mutableFloatStateOf(
             when {
-                isVideo -> 1.777f // 16:9 as a better default for videos
+                isVideo -> 1.777f
+
+                // 16:9 as a better default for videos
                 else -> 1.0f
-            }
+            },
         )
     }
     var isIntrinsicExact by remember(attachment, uri, accountIdentity) { mutableStateOf(false) }
 
     val backgroundColor by animateColorAsState(
-        targetValue = when {
-            isFullScreen -> fullScreenBackground
-            isAudioPlaying -> MaterialTheme.colorScheme.primaryContainer
-            else -> MaterialTheme.colorScheme.surfaceVariant
-        },
+        targetValue =
+            when {
+                isFullScreen -> fullScreenBackground
+                isAudioPlaying -> MaterialTheme.colorScheme.primaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
         label = "AttachmentCardBackground",
-        animationSpec = tween(durationMillis = 300)
+        animationSpec = tween(durationMillis = 300),
     )
 
     val content: @Composable () -> Unit = {
-        @Suppress("COMPOSE_APPLIER_CALL_MISMATCH") BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val isCompact = when (compactMode) {
-                AttachmentCompactMode.Always -> true
-                AttachmentCompactMode.Never -> false
-                AttachmentCompactMode.Width -> maxWidth < 160.dp
-                AttachmentCompactMode.Height -> maxHeight < 140.dp
-                AttachmentCompactMode.Area -> {
-                    val area = maxWidth.value * maxHeight.value
-                    area < 25000f || maxWidth < 160.dp || maxHeight < 140.dp
+        @Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val isCompact =
+                when (compactMode) {
+                    AttachmentCompactMode.Always -> {
+                        true
+                    }
+
+                    AttachmentCompactMode.Never -> {
+                        false
+                    }
+
+                    AttachmentCompactMode.Width -> {
+                        maxWidth < 160.dp
+                    }
+
+                    AttachmentCompactMode.Height -> {
+                        maxHeight < 140.dp
+                    }
+
+                    AttachmentCompactMode.Area -> {
+                        val area = maxWidth.value * maxHeight.value
+                        area < 25000f || maxWidth < 160.dp || maxHeight < 140.dp
+                    }
                 }
-            }
             val isWide = !isCompact && maxWidth > 240.dp
-            val showFooter = showInfo && !gallery && !isCompact &&
-                (showFilename || showSize || attachment?.createTime != null)
+            val showFooter =
+                showInfo && !gallery && !isCompact &&
+                    (showFilename || showSize || attachment?.createTime != null)
 
             // Report total ratio to parent
             LaunchedEffect(
@@ -223,33 +271,34 @@ fun AttachmentCard(
                 showFooter,
                 showFilename,
                 showActions,
-                showSize
+                showSize,
             ) {
                 val w = maxWidth.value
                 val footerHeight = if (showFooter) AttachmentCardMetadataHeight.value else 0f
 
-                val calculatedRatio = if (isImage || isVideo) {
-                    if (w > 0 && footerHeight > 0) {
-                        // For media with footer: (Width) / (MediaHeight + FooterHeight)
-                        // MediaHeight = Width / IntrinsicRatio
-                        w / (w / intrinsicRatio + footerHeight)
+                val calculatedRatio =
+                    if (isImage || isVideo) {
+                        if (w > 0 && footerHeight > 0) {
+                            // For media with footer: (Width) / (MediaHeight + FooterHeight)
+                            // MediaHeight = Width / IntrinsicRatio
+                            w / (w / intrinsicRatio + footerHeight)
+                        } else {
+                            // No footer or width 0: just use intrinsic
+                            intrinsicRatio
+                        }
                     } else {
-                        // No footer or width 0: just use intrinsic
-                        intrinsicRatio
-                    }
-                } else {
-                    // To fix "RECT" (square), let's ensure non-media is nicer.
-                    // "Rect" usually means square in this context (1:1)
-                    val nonMediaIntrinsic = 1.0f
-                    val effectiveIntrinsic =
-                        if (isWide) (if (w > 0) w / 180f else 2.0f) else nonMediaIntrinsic
+                        // To fix "RECT" (square), let's ensure non-media is nicer.
+                        // "Rect" usually means square in this context (1:1)
+                        val nonMediaIntrinsic = 1.0f
+                        val effectiveIntrinsic =
+                            if (isWide) (if (w > 0) w / 180f else 2.0f) else nonMediaIntrinsic
 
-                    if (w > 0 && footerHeight > 0) {
-                        w / (w / effectiveIntrinsic + footerHeight)
-                    } else {
-                        effectiveIntrinsic
+                        if (w > 0 && footerHeight > 0) {
+                            w / (w / effectiveIntrinsic + footerHeight)
+                        } else {
+                            effectiveIntrinsic
+                        }
                     }
-                }
 
                 // If it's not an image/video, the calculated ratio is always exact (we defined it)
                 val isExact = if (isImage || isVideo) isIntrinsicExact else true
@@ -259,13 +308,14 @@ fun AttachmentCard(
 
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(backgroundColor)
-                        .onGloballyPositioned { origin.coordinates = it }
-                        .then(mediaModifier),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(backgroundColor)
+                            .onGloballyPositioned { origin.coordinates = it }
+                            .then(mediaModifier),
+                    contentAlignment = Alignment.Center,
                 ) {
                     if (isImage) {
                         MemoImage(
@@ -279,29 +329,43 @@ fun AttachmentCard(
                                 intrinsicRatio = it
                                 isIntrinsicExact = true
                             },
-                            onClick = if (isFullScreen) null else { onClick ?: { showFullScreenImage = true } },
+                            onClick =
+                                if (isFullScreen) {
+                                    null
+                                } else {
+                                    onClick ?: { showFullScreenImage = true }
+                                },
                             onLongClick = onLongClick,
-                            isFullScreen = isFullScreen
+                            isFullScreen = isFullScreen,
                         )
                     } else if (isVideo) {
-                        val videoUrl = produceState<String?>(
-                            initialValue = null, uri, attachment, hostUrl, accountIdentity
-                        ) {
-                            value = withContext(Dispatchers.IO) {
-                                val localFile = org.example.memosm.MemosApplication.instance
-                                    .attachmentCacheManager.getLocalFileForAccount(accountId, attachment?.name)
-                                when {
-                                    uri != Uri.EMPTY -> uri.toString()
-                                    localFile != null -> localFile.toUri().toString()
-                                    else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment)
-                                }
-                            }
-                        }.value
+                        val videoUrl =
+                            produceState<String?>(
+                                initialValue = null,
+                                uri,
+                                attachment,
+                                hostUrl,
+                                accountIdentity,
+                            ) {
+                                value =
+                                    withContext(Dispatchers.IO) {
+                                        val localFile =
+                                            org.example.memosm.MemosApplication.instance
+                                                .attachmentCacheManager
+                                                .getLocalFileForAccount(accountId, attachment?.name)
+                                        when {
+                                            uri != Uri.EMPTY -> uri.toString()
+                                            localFile != null -> localFile.toUri().toString()
+                                            else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+                                        }
+                                    }
+                            }.value
                         if (!videoUrl.isNullOrBlank()) {
                             VideoPlayer(
                                 url = videoUrl,
                                 filename = filename,
                                 token = token,
+                                hostUrl = hostUrl,
                                 modifier = Modifier.fillMaxSize(),
                                 isFullScreen = isFullScreen,
                                 onClick = if (isFullScreen) null else onClick,
@@ -314,31 +378,36 @@ fun AttachmentCard(
                                 onRatioAvailable = {
                                     intrinsicRatio = it
                                     isIntrinsicExact = true
-                                })
+                                },
+                            )
                         }
                     } else if (isAudio && !audioUrl.isNullOrBlank()) {
                         AudioPlayer(
                             url = audioUrl,
                             filename = filename,
                             token = token,
-                            mode = when {
-                                isFullScreen -> AudioPlayerMode.FULL_SCREEN
-                                gallery -> AudioPlayerMode.WIDE
-                                isWide -> AudioPlayerMode.WIDE
-                                isCompact -> AudioPlayerMode.COMPACT
-                                else -> AudioPlayerMode.NORMAL
-                            },
+                            hostUrl = hostUrl,
+                            mode =
+                                when {
+                                    isFullScreen -> AudioPlayerMode.FULL_SCREEN
+                                    gallery -> AudioPlayerMode.WIDE
+                                    isWide -> AudioPlayerMode.WIDE
+                                    isCompact -> AudioPlayerMode.COMPACT
+                                    else -> AudioPlayerMode.NORMAL
+                                },
                             showContainer = false,
                             onPlayingStateChanged = { isAudioPlaying = it },
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
                         )
                     } else {
                         // Check if it's a profile picture/avatar
-                        val isProfilePicture = remember(displayType) {
-                            displayType.startsWith(
-                                "avatar/", ignoreCase = true
-                            ) || filename.contains("profile", ignoreCase = true)
-                        }
+                        val isProfilePicture =
+                            remember(displayType) {
+                                displayType.startsWith(
+                                    "avatar/",
+                                    ignoreCase = true,
+                                ) || filename.contains("profile", ignoreCase = true)
+                            }
 
                         if (isProfilePicture) {
                             MemoImage(
@@ -349,24 +418,35 @@ fun AttachmentCard(
                                 filename = filename,
                                 isRound = true,
                                 modifier = Modifier.fillMaxSize(),
-                                onClick = if (isFullScreen) null else { onClick ?: { showFullScreenImage = true } },
+                                onClick =
+                                    if (isFullScreen) {
+                                        null
+                                    } else {
+                                        onClick ?: { showFullScreenImage = true }
+                                    },
                                 onLongClick = onLongClick,
-                                isFullScreen = isFullScreen
+                                isFullScreen = isFullScreen,
                             )
                         } else {
                             FileThumbnail(
                                 displayType = displayType,
                                 filename = filename,
-                                mode = when {
-                                    isFullScreen -> FileThumbnailMode.NORMAL
-                                    gallery -> FileThumbnailMode.WIDE
-                                    isWide -> FileThumbnailMode.WIDE
-                                    isCompact -> FileThumbnailMode.COMPACT
-                                    else -> FileThumbnailMode.NORMAL
-                                },
-                                onClick = if (isFullScreen) { toggleImmersive ?: {} } else { onClick ?: { showInfoDialog = true } },
+                                mode =
+                                    when {
+                                        isFullScreen -> FileThumbnailMode.NORMAL
+                                        gallery -> FileThumbnailMode.WIDE
+                                        isWide -> FileThumbnailMode.WIDE
+                                        isCompact -> FileThumbnailMode.COMPACT
+                                        else -> FileThumbnailMode.NORMAL
+                                    },
+                                onClick =
+                                    if (isFullScreen) {
+                                        toggleImmersive ?: {}
+                                    } else {
+                                        onClick ?: { showInfoDialog = true }
+                                    },
                                 onLongClick = onLongClick,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
                     }
@@ -375,31 +455,36 @@ fun AttachmentCard(
                         Surface(
                             modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                         ) {
                             Icon(
                                 Icons.Outlined.Videocam,
                                 contentDescription = stringResource(R.string.attachments_video),
-                                modifier = Modifier.padding(4.dp).size(20.dp)
+                                modifier = Modifier.padding(4.dp).size(20.dp),
                             )
                         }
                     }
 
                     if (gallery && !isFullScreen && (isImage || isVideo)) {
-                        val labels = listOf(
-                            Alignment.BottomStart to formattedSize.takeIf { showSize && it.isNotBlank() },
-                            Alignment.BottomEnd to videoDuration.takeIf { isVideo && it > 0L }?.let(::formatMediaTime)
-                        )
+                        val labels =
+                            listOf(
+                                Alignment.BottomStart to formattedSize.takeIf { showSize && it.isNotBlank() },
+                                Alignment.BottomEnd to videoDuration.takeIf { isVideo && it > 0L }?.let(::formatMediaTime),
+                            )
                         labels.forEach { (alignment, label) ->
-                            if (label != null) Surface(
-                                modifier = Modifier.align(alignment).padding(6.dp),
-                                shape = MaterialTheme.shapes.extraSmall,
-                                color = Color.Black.copy(alpha = 0.55f), contentColor = Color.White
-                            ) {
-                                Text(
-                                    label, style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                )
+                            if (label != null) {
+                                Surface(
+                                    modifier = Modifier.align(alignment).padding(6.dp),
+                                    shape = MaterialTheme.shapes.extraSmall,
+                                    color = Color.Black.copy(alpha = 0.55f),
+                                    contentColor = Color.White,
+                                ) {
+                                    Text(
+                                        label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                    )
+                                }
                             }
                         }
                     }
@@ -407,14 +492,18 @@ fun AttachmentCard(
                     // Floating menu button
                     if (showInfo && showActions && !gallery) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(4.dp),
-                            contentAlignment = Alignment.TopEnd
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(4.dp),
+                            contentAlignment = Alignment.TopEnd,
                         ) {
                             AttachmentActionsButton(
-                                attachment = attachment, token = token, hostUrl = hostUrl,
-                                filename = filename, onShowInfo = { showInfoDialog = true }
+                                attachment = attachment,
+                                token = token,
+                                hostUrl = hostUrl,
+                                filename = filename,
+                                onShowInfo = { showInfoDialog = true },
                             )
                         }
                     }
@@ -422,9 +511,10 @@ fun AttachmentCard(
 
                 if (showFooter) {
                     Column(
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .height(AttachmentCardMetadataHeight - 8.dp)
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .height(AttachmentCardMetadataHeight - 8.dp),
                     ) {
                         if (showFilename) {
                             Text(
@@ -433,28 +523,30 @@ fun AttachmentCard(
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            val infoText = remember(formattedSize, formattedDate) {
-                                listOfNotNull(
-                                    formattedSize.takeIf { showSize && attachment?.size != null },
-                                    formattedDate.takeIf { formattedDate.isNotEmpty() }).joinToString(
-                                    " • "
-                                )
-                            }
+                            val infoText =
+                                remember(formattedSize, formattedDate) {
+                                    listOfNotNull(
+                                        formattedSize.takeIf { showSize && attachment?.size != null },
+                                        formattedDate.takeIf { formattedDate.isNotEmpty() },
+                                    ).joinToString(
+                                        " • ",
+                                    )
+                                }
 
                             if (infoText.isNotEmpty()) {
                                 Text(
                                     text = infoText,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -466,32 +558,44 @@ fun AttachmentCard(
 
     if (isFullScreen) {
         CompositionLocalProvider(
-            LocalContentColor provides if (isVisualMedia) LocalContentColor.current else MaterialTheme.colorScheme.onSurface
+            LocalContentColor provides if (isVisualMedia) LocalContentColor.current else MaterialTheme.colorScheme.onSurface,
         ) {
             Box(modifier.background(fullScreenBackground)) {
                 content()
             }
         }
-    } else Card(
-        modifier = modifier.then(
-            if (gallery) Modifier.combinedClickable(
-                onClick = onClick ?: {
-                    if (isImage) showFullScreenImage = true else showInfoDialog = true
-                },
-                onLongClick = onLongClick,
-                onLongClickLabel = moreLabel
-            ) else Modifier
-        ),
-        shape = if (gallery) RectangleShape else MaterialTheme.shapes.medium,
-        elevation = flatCardElevation()
-    ) { content() }
+    } else {
+        Card(
+            modifier =
+                modifier.then(
+                    if (gallery) {
+                        Modifier.combinedClickable(
+                            onClick =
+                                onClick ?: {
+                                    if (isImage) showFullScreenImage = true else showInfoDialog = true
+                                },
+                            onLongClick = onLongClick,
+                            onLongClickLabel = moreLabel,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
+            shape = if (gallery) RectangleShape else MaterialTheme.shapes.medium,
+            elevation = flatCardElevation(),
+        ) { content() }
+    }
 
     if (gallery && showInfo && showActions) {
         AttachmentActionsButton(
-            attachment = attachment, token = token, hostUrl = hostUrl,
-            filename = filename, onShowInfo = { showInfoDialog = true },
-            showButton = false, expanded = showAttachmentActions,
-            onDismiss = { showAttachmentActions = false }
+            attachment = attachment,
+            token = token,
+            hostUrl = hostUrl,
+            filename = filename,
+            onShowInfo = { showInfoDialog = true },
+            showButton = false,
+            expanded = showAttachmentActions,
+            onDismiss = { showAttachmentActions = false },
         )
     }
 
@@ -500,39 +604,55 @@ fun AttachmentCard(
     }
 
     if (showFullScreenImage && isImage) {
-        val model = produceState<Any?>(initialValue = null, uri, attachment, hostUrl, accountIdentity) {
-            value = withContext(Dispatchers.IO) {
-                val localFile = org.example.memosm.MemosApplication.instance
-                    .attachmentCacheManager.getLocalFileForAccount(accountId, attachment?.name)
-                when {
-                    uri != Uri.EMPTY -> uri
-                    localFile != null -> localFile
-                    else -> AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
-                        !attachment?.content.isNullOrBlank() -> {
-                            try {
-                                Base64.decode(attachment.content, Base64.NO_WRAP)
-                            } catch (_: Exception) {
-                                null
+        val model =
+            produceState<Any?>(initialValue = null, uri, attachment, hostUrl, accountIdentity) {
+                value =
+                    withContext(Dispatchers.IO) {
+                        val localFile =
+                            org.example.memosm.MemosApplication.instance
+                                .attachmentCacheManager
+                                .getLocalFileForAccount(accountId, attachment?.name)
+                        when {
+                            uri != Uri.EMPTY -> {
+                                uri
+                            }
+
+                            localFile != null -> {
+                                localFile
+                            }
+
+                            else -> {
+                                AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: when {
+                                    !attachment?.content.isNullOrBlank() -> {
+                                        try {
+                                            Base64.decode(attachment.content, Base64.NO_WRAP)
+                                        } catch (_: Exception) {
+                                            null
+                                        }
+                                    }
+
+                                    else -> {
+                                        null
+                                    }
+                                }
                             }
                         }
-
-                        else -> null
                     }
-                }
-            }
-        }.value
+            }.value
 
         if (model != null && !isFullScreen) {
             FullScreenImageViewer(
                 model = model,
                 filename = filename,
                 token = token,
+                hostUrl = hostUrl,
                 onDismiss = { showFullScreenImage = false },
                 originBounds = origin::boundsOnScreen,
                 infoContent = { AttachmentInfoContent(info) },
                 actionsContent = { showInfo ->
                     AttachmentActionsButton(attachment, token, hostUrl, filename, showInfo)
-                })
+                },
+            )
         }
     }
 }

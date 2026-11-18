@@ -1,5 +1,7 @@
 package org.example.memosm.ui.component.item
 
+import org.example.memosm.api.resourceAuthorization
+
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -50,27 +52,30 @@ internal fun AttachmentActionsButton(
     enabled: Boolean = true,
     showButton: Boolean = true,
     expanded: Boolean = false,
-    onDismiss: () -> Unit = {}
+    onDismiss: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var showMenu by remember(attachment, filename) { mutableStateOf(false) }
     var showDownloadDialog by remember(attachment, filename) { mutableStateOf(false) }
-    val openWebUrl = remember(attachment, hostUrl) {
-        AttachmentManager.getAttachmentUrl(hostUrl, attachment)
-    }
+    val openWebUrl =
+        remember(attachment, hostUrl) {
+            AttachmentManager.getAttachmentUrl(hostUrl, attachment)
+        }
     val errorOpenLinkString = stringResource(R.string.attachments_error_open_link)
     val dismissMenu = {
         showMenu = false
         onDismiss()
     }
-    if (showButton) Surface(
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.size(48.dp)
-    ) {
-        IconButton(onClick = { showMenu = true }, enabled = enabled && !LocalViewerGesturesBlocked.current) {
-            Icon(Icons.Outlined.MoreVert, stringResource(R.string.memo_action_more), Modifier.size(24.dp))
+    if (showButton) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            modifier = modifier.size(48.dp),
+        ) {
+            IconButton(onClick = { showMenu = true }, enabled = enabled && !LocalViewerGesturesBlocked.current) {
+                Icon(Icons.Outlined.MoreVert, stringResource(R.string.memo_action_more), Modifier.size(24.dp))
+            }
         }
     }
 
@@ -78,63 +83,75 @@ internal fun AttachmentActionsButton(
         ActionSheet(onDismissRequest = dismissMenu) {
             ActionSheetItem(
                 text = { Text(stringResource(R.string.attachments_info_title)) },
-                onClick = { dismissMenu(); onShowInfo() },
+                onClick = {
+                    dismissMenu()
+                    onShowInfo()
+                },
                 leadingIcon = {
                     Icon(
-                        Icons.Outlined.Info, contentDescription = null
+                        Icons.Outlined.Info,
+                        contentDescription = null,
                     )
-                })
+                },
+            )
             ActionSheetItem(
                 text = { Text(stringResource(R.string.attachments_download_button)) },
                 onClick = {
-                    dismissMenu(); showDownloadDialog = true
+                    dismissMenu()
+                    showDownloadDialog = true
                 },
                 leadingIcon = {
                     Icon(
                         Icons.Outlined.Download,
-                        contentDescription = null
+                        contentDescription = null,
                     )
-                })
+                },
+            )
             if (openWebUrl != null) {
                 ActionSheetItem(
                     text = { Text(stringResource(R.string.memo_action_open_web)) },
                     onClick = {
                         dismissMenu()
                         try {
-                            val intent = Intent(
-                                Intent.ACTION_VIEW, openWebUrl.toUri()
-                            )
+                            val intent =
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    openWebUrl.toUri(),
+                                )
                             context.startActivity(intent)
                         } catch (e: Exception) {
                             Log.e(
                                 "AttachmentCard",
                                 "Failed to open link",
-                                e
+                                e,
                             )
-                            Toast.makeText(
-                                context,
-                                errorOpenLinkString,
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast
+                                .makeText(
+                                    context,
+                                    errorOpenLinkString,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
                         }
                     },
                     leadingIcon = {
                         Icon(
                             Icons.Outlined.Language,
-                            contentDescription = null
+                            contentDescription = null,
                         )
-                    })
+                    },
+                )
 
                 ActionSheetItem(
                     text = { Text(stringResource(R.string.common_share)) },
                     onClick = {
                         dismissMenu()
                         try {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, openWebUrl)
-                                type = "text/plain"
-                            }
+                            val sendIntent =
+                                Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, openWebUrl)
+                                    type = "text/plain"
+                                }
                             val shareIntent =
                                 Intent.createChooser(sendIntent, null)
                             context.startActivity(shareIntent)
@@ -142,16 +159,17 @@ internal fun AttachmentActionsButton(
                             Log.e(
                                 "AttachmentCard",
                                 "Failed to share link",
-                                e
+                                e,
                             )
                         }
                     },
                     leadingIcon = {
                         Icon(
                             Icons.Outlined.Share,
-                            contentDescription = null
+                            contentDescription = null,
                         )
-                    })
+                    },
+                )
             }
         }
     }
@@ -163,9 +181,14 @@ internal fun AttachmentActionsButton(
             text = { Text(stringResource(R.string.attachments_download_dialog_confirm, filename)) },
             confirmButton = {
                 TextButton(onClick = {
-                    if (attachment != null) downloadAttachmentFile(
-                        context, attachment, token, hostUrl
-                    )
+                    if (attachment != null) {
+                        downloadAttachmentFile(
+                            context,
+                            attachment,
+                            token,
+                            hostUrl,
+                        )
+                    }
                     showDownloadDialog = false
                 }) {
                     Text(stringResource(R.string.attachments_download_button))
@@ -175,27 +198,36 @@ internal fun AttachmentActionsButton(
                 TextButton(onClick = { showDownloadDialog = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
-            })
+            },
+        )
     }
-
 }
 
 private fun downloadAttachmentFile(
-    context: Context, attachment: Attachment, token: String?, hostUrl: String
+    context: Context,
+    attachment: Attachment,
+    token: String?,
+    hostUrl: String,
 ) {
     val url = AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: return
     try {
-        var request = DownloadManager.Request(url.toUri()).setTitle(attachment.filename)
-            .setDescription(context.getString(R.string.attachments_download_started))
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, attachment.filename)
-//            .addRequestHeader("Authorization", "Bearer $token")
-        if (token != null) request = request.addRequestHeader("Authorization", "Bearer $token")
+        var request =
+            DownloadManager
+                .Request(url.toUri())
+                .setTitle(attachment.filename)
+                .setDescription(context.getString(R.string.attachments_download_started))
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, attachment.filename)
+        resourceAuthorization(hostUrl, url, token)
+            ?.let { request = request.addRequestHeader("Authorization", it) }
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         manager.enqueue(request)
-        Toast.makeText(
-            context, context.getString(R.string.attachments_download_started), Toast.LENGTH_SHORT
-        ).show()
+        Toast
+            .makeText(
+                context,
+                context.getString(R.string.attachments_download_started),
+                Toast.LENGTH_SHORT,
+            ).show()
     } catch (e: Exception) {
         Log.e("AttachmentCard", "Download failed", e)
         val message = context.getString(R.string.attachments_error_download_failed)

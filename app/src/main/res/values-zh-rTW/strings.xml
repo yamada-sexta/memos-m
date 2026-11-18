@@ -464,4 +464,7 @@
     <string name="viewer_back">返回</string>
     <string name="video_playback_speed">影片播放速度</string>
     <string name="video_playback_error">無法播放此影片。</string>
+    <string name="offline_unavailable">離線時無法使用。請連線以載入此內容。</string>
+    <string name="offline_filter_unavailable">此已儲存的篩選條件需要網路連線。如有已載入的結果，將會顯示。</string>
+    <string name="sync_queue_review_conflict">檢視衝突</string>
 </resources>

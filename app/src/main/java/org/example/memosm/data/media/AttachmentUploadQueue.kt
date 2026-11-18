@@ -2,277 +2,313 @@ package org.example.memosm.data.media
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import org.example.memosm.api.GsonProvider
 import org.example.memosm.api.MemosApi
 import org.example.memosm.api.StreamingAttachmentApi
+import org.example.memosm.data.DataStoreManager
+import org.example.memosm.data.DraftManager
 import org.example.memosm.data.audit.SyncAuditLogger
+import org.example.memosm.data.backup.BackupCoordinator
+import org.example.memosm.data.cache.MemoCacheRepository
+import org.example.memosm.data.sync.WorkManagerSyncWorkScheduler
+import org.example.memosm.data.sync.isRejectedMutation
 import org.example.memosm.model.Attachment
 import retrofit2.HttpException
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
-/** Threshold for streaming upload (2MB), mirrored from AttachmentManager. */
 private const val STREAMING_THRESHOLD = 2 * 1024 * 1024L
-private const val TAG = "AttachmentUploadQueue"
 
-/**
- * Attempt ceiling after which a queued upload is retired as permanently
- * failed, even without a definitive server rejection: one poisoned row must
- * not retry (and head-of-line block the queue) forever.
- */
-private const val MAX_ATTEMPTS = 10
-
-/**
- * A 4xx response (except 408/429) is a permanent rejection: retrying the
- * same upload cannot succeed. Shared between the queue replay and the
- * worker so the classification never diverges.
- */
-internal fun isPermanentUploadError(error: Exception): Boolean =
-    error is HttpException && error.code() in 400..499 && error.code() !in setOf(408, 429)
-
-/**
- * Durable offline queue for attachment uploads.
- *
- * An upload that cannot complete right now (offline, or the request threw) is
- * persisted to the `attachment_uploads` table together with an app-private copy
- * of the bytes (content:// URIs do not survive process death). Each row carries
- * a stable [AttachmentUpload.clientId] that is forwarded as the API
- * `attachmentId` so a retried upload reconciles server-side instead of
- * duplicating the attachment.
- *
- * Replay honours the same size split as the live path: small files go through
- * the regular base64 endpoint, files larger than [STREAMING_THRESHOLD] stream.
- */
+/** Staged bytes and actual upload results. The account's outbox worker owns all network replay. */
 class AttachmentUploadQueue(
     private val context: Context,
     private val dao: AttachmentUploadDao,
-    private val auditLogger: SyncAuditLogger
+    private val auditLogger: SyncAuditLogger,
+    private val accountExists: suspend (String) -> Boolean = { true },
 ) {
-    private val uploadDir: File
-        get() = File(context.noBackupFilesDir, "attachment_uploads")
+    private val uploadDir get() = File(context.noBackupFilesDir, "attachment_uploads")
 
-    /**
-     * Copy [uri] into app-private storage and enqueue a durable upload row.
-     * Returns the stable clientId, or null when the bytes could not be read.
-     */
     suspend fun enqueue(
         accountId: String,
         uri: Uri,
         filename: String,
         mimeType: String,
-        size: Long
-    ): String? = withContext(Dispatchers.IO) {
-        val clientId = UUID.randomUUID().toString()
-        val localFile = try {
-            copyToLocal(clientId, uri)
-        } catch (e: Exception) {
-            Log.e(TAG, "enqueue: failed to stage bytes for $filename", e)
-            return@withContext null
-        }
-        val resolvedSize = if (size > 0) size else localFile.length()
-        val row = AttachmentUpload(
-            id = clientId,
-            accountId = accountId,
-            clientId = clientId,
-            localPath = localFile.absolutePath,
-            filename = filename,
-            mimeType = mimeType,
-            size = resolvedSize,
-            createdAt = System.currentTimeMillis()
-        )
-        dao.upsert(row)
-        schedule(accountId)
-        Log.d(TAG, "enqueue: queued $filename as $clientId ($resolvedSize bytes)")
-        clientId
-    }
+        size: Long,
+    ): String? = stage(accountId, filename, mimeType, size) { context.contentResolver.openInputStream(uri) }
 
-    /** Enqueue one durable, network-constrained background replay request. */
-    fun schedule(accountId: String) {
-        if (accountId.isBlank()) return
-        val request = OneTimeWorkRequestBuilder<AttachmentUploadWorker>()
-            .setInputData(workDataOf(AttachmentUploadWorker.ACCOUNT_ID to accountId))
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
-            )
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .addTag(workName(accountId))
-            .build()
-        WorkManager.getInstance(context.applicationContext)
-            .enqueueUniqueWork(workName(accountId), ExistingWorkPolicy.KEEP, request)
-    }
-
-    fun cancel(accountId: String) {
-        WorkManager.getInstance(context.applicationContext).cancelUniqueWork(workName(accountId))
-    }
-
-    /**
-     * Drop every queued upload of a removed account: cancels its scheduled
-     * replay, deletes the staged byte copies and clears the durable rows.
-     */
-    suspend fun clearForAccount(accountId: String) = withContext(Dispatchers.IO) {
-        cancel(accountId)
-        dao.getForAccount(accountId).forEach { File(it.localPath).delete() }
-        dao.deleteForAccount(accountId)
-    }
-
-    /**
-     * Drop a single queued upload: delete its staged byte copy and the durable
-     * row. No-op when the row is already gone (uploaded, retired, or discarded
-     * before). A replay pass that already read the row re-loads it via
-     * `dao.getById` right before uploading and skips it when vanished, so a
-     * discard landing mid-replay is safe.
-     */
-    suspend fun discard(clientId: String) = withContext(Dispatchers.IO) {
-        val row = dao.getById(clientId) ?: return@withContext
-        File(row.localPath).delete()
-        dao.delete(row.id)
-        Log.d(TAG, "discard: dropped queued upload $clientId")
-    }
-
-    /** True while at least one durable upload row is waiting for [accountId]. */
-    suspend fun hasPending(accountId: String): Boolean = withContext(Dispatchers.IO) {
-        dao.getForAccount(accountId).isNotEmpty()
-    }
-
-    /** The durable row for [clientId], or null once the upload finished (or was retired). */
-    suspend fun get(clientId: String): AttachmentUpload? = withContext(Dispatchers.IO) {
-        dao.getById(clientId)
-    }
-
-    /** App-private staged copy of the bytes queued under [clientId] (for local preview). */
-    fun stagedFile(clientId: String): File = File(uploadDir, clientId)
-
-    /**
-     * Replay every queued upload for [accountId] in creation order. Successful
-     * rows are deleted (and their staged file removed) and audited. A failing
-     * row never blocks the rest of the pass: permanent rejections
-     * ([isPermanentUploadError]) and rows that hit [MAX_ATTEMPTS] are dropped
-     * right away, while transient failures are recorded per row and rethrown
-     * after the pass so the caller schedules a backoff retry for them.
-     */
-    suspend fun replay(
+    /** New upload rows and the memo commit share one transaction; preparation cannot start replay. */
+    suspend fun <T> withPreparedAttachments(
         accountId: String,
-        api: MemosApi,
-        streamingApi: StreamingAttachmentApi?
-    ): Unit = withContext(Dispatchers.IO) {
-        var firstTransientError: Exception? = null
-        val rows = dao.getForAccount(accountId)
-        for (row in rows) {
-            val current = dao.getById(row.id) ?: continue
-            val file = File(current.localPath)
-            if (!file.exists()) {
-                // The staged bytes are gone; nothing can ever succeed. Drop it.
-                dao.delete(current.id)
-                recordAudit(accountId, "REJECTED", current.clientId, "missing_local_file")
-                continue
-            }
-            if (current.attemptCount >= MAX_ATTEMPTS) {
-                // Retried too many times without a definitive server
-                // rejection: retire as permanently failed so the row stops
-                // consuming retries and blocking the rows behind it.
-                dao.delete(current.id)
-                file.delete()
-                recordAudit(accountId, "REJECTED", current.clientId, "max_attempts")
-                Log.w(
-                    TAG,
-                    "replay: dropped ${current.filename} after ${current.attemptCount} attempts"
-                )
-                continue
-            }
+        attachments: List<Attachment>,
+        commit: suspend (List<Attachment>, List<AttachmentUpload>) -> T,
+    ): T =
+        withContext(Dispatchers.IO) {
+            val staged = mutableListOf<AttachmentUpload>()
             try {
-                val attachment = upload(current, file, api, streamingApi)
-                    ?: throw IOException("createAttachment returned null")
-                dao.delete(current.id)
-                file.delete()
-                recordAudit(accountId, "SUCCESS", current.clientId, null)
-                Log.d(TAG, "replay: uploaded ${current.filename} -> ${attachment.name}")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                dao.markFailed(
-                    current.id,
-                    current.attemptCount + 1,
-                    e.javaClass.simpleName,
-                    System.currentTimeMillis()
-                )
-                if (isPermanentUploadError(e)) {
-                    dao.delete(current.id)
-                    file.delete()
-                    recordAudit(accountId, "REJECTED", current.clientId, errorCode(e))
-                } else {
-                    // Continue with the next row instead of aborting the
-                    // pass; the rethrow after the loop lets the caller retry
-                    // the remaining failures with backoff.
-                    recordAudit(accountId, "RETRY", current.clientId, errorCode(e))
-                    if (firstTransientError == null) firstTransientError = e
+                val prepared =
+                    attachments.map { attachment ->
+                        if (!attachment.name.isNullOrBlank()) return@map attachment
+                        attachment.clientId?.let { id ->
+                            require(
+                                dao.getById(id)?.accountId == accountId,
+                            ) { "Staged attachment is missing or belongs to another account" }
+                            return@map attachment
+                        }
+                        val mimeType = attachment.mimeType ?: attachment.type
+                        val id =
+                            if (attachment.content != null) {
+                                stage(accountId, attachment.filename, mimeType, 0, staged) {
+                                    android.util.Base64InputStream(
+                                        java.io.ByteArrayInputStream(attachment.content.toByteArray(Charsets.US_ASCII)),
+                                        android.util.Base64.DEFAULT,
+                                    )
+                                }
+                            } else {
+                                val path = requireNotNull(attachment.localPath) { "Attachment has no source" }
+                                val file = File(path).canonicalFile
+                                val root = File(context.filesDir, "restored_backup_files").canonicalFile
+                                require(file.isFile && file.path.startsWith(root.path + File.separator)) { "Draft attachment is missing" }
+                                stage(accountId, attachment.filename, mimeType, file.length(), staged) { file.inputStream() }
+                            }
+                        requireNotNull(id) { "Could not save attachment" }
+                        attachment.copy(clientId = id, localPath = stagedFile(id).absolutePath, content = null)
+                    }
+                commit(prepared, staged)
+            } finally {
+                // A completed commit owns its files. Failed/cancelled preparation owns none.
+                withContext(NonCancellable) {
+                    try {
+                        BackupCoordinator.withStorageLock {
+                            staged.forEach { if (dao.getById(it.id) == null) File(it.localPath).delete() }
+                        }
+                    } catch (error: Exception) {
+                        android.util.Log.w("AttachmentUploads", "Could not clean abandoned preparation", error)
+                    }
                 }
             }
         }
-        firstTransientError?.let { throw it }
-    }
 
-    private suspend fun upload(
-        row: AttachmentUpload,
-        file: File,
-        api: MemosApi,
-        streamingApi: StreamingAttachmentApi?
-    ): Attachment? {
-        return if (row.size > STREAMING_THRESHOLD && streamingApi != null) {
-            streamingApi.createAttachmentFromFile(file, row.mimeType, row.clientId)
-        } else {
-            val base64 = file.inputStream().use { input ->
-                android.util.Base64.encodeToString(input.readBytes(), android.util.Base64.NO_WRAP)
+    private suspend fun stage(
+        accountId: String,
+        filename: String,
+        mimeType: String,
+        size: Long,
+        staged: MutableList<AttachmentUpload>? = null,
+        openSource: () -> java.io.InputStream?,
+    ): String? =
+        withContext(Dispatchers.IO) {
+            val generation = BackupCoordinator.generation
+            val id = UUID.randomUUID().toString()
+            check(uploadDir.isDirectory || uploadDir.mkdirs()) { "Could not create upload directory" }
+            val file = stagedFile(id)
+            var committed = false
+            try {
+                openSource()?.use { input ->
+                    FileOutputStream(file).use { output ->
+                        input.copyTo(output)
+                        output.fd.sync()
+                    }
+                } ?: return@withContext null
+                val row =
+                    AttachmentUpload(
+                        id,
+                        accountId,
+                        id,
+                        file.absolutePath,
+                        filename,
+                        mimeType,
+                        if (size > 0) size else file.length(),
+                        System.currentTimeMillis(),
+                    )
+                if (staged != null) {
+                    staged += row
+                    committed = true // The enclosing preparation now owns cleanup.
+                } else {
+                    BackupCoordinator.withStorageLock {
+                        check(BackupCoordinator.generation == generation && !BackupCoordinator.restoring.value) { "Storage was restored" }
+                        check(accountExists(accountId)) { "Account was removed" }
+                        withContext(NonCancellable) {
+                            dao.upsert(row)
+                            committed = true
+                        }
+                    }
+                    try {
+                        schedule(accountId)
+                    } catch (
+                        error: Exception,
+                    ) {
+                        android.util.Log.w("AttachmentUploads", "Could not schedule saved upload", error)
+                    }
+                }
+                id
+            } finally {
+                if (!committed) file.delete()
             }
-            api.createAttachment(
-                Attachment(filename = row.filename, type = row.mimeType, content = base64),
-                attachmentId = row.clientId
-            )
+        }
+
+    /** Only prior-process, unowned UUID files are eligible; active staging remains untouched. */
+    suspend fun cleanupOrphanedFiles(createdBefore: Long) =
+        withContext(Dispatchers.IO) {
+            BackupCoordinator.withStorageLock {
+                val owned = dao.getAll().map { File(it.localPath).canonicalPath }.toSet()
+                uploadDir.listFiles().orEmpty().forEach { file ->
+                    if (file.isFile && file.lastModified() < createdBefore &&
+                        runCatching { UUID.fromString(file.name).toString() == file.name }.getOrDefault(false) &&
+                        file.canonicalPath !in owned
+                    ) {
+                        file.delete()
+                    }
+                }
+            }
+        }
+
+    fun schedule(accountId: String) = WorkManagerSyncWorkScheduler(context).schedule(accountId)
+
+    fun cancel(accountId: String) = WorkManagerSyncWorkScheduler(context).cancel(accountId)
+
+    suspend fun get(clientId: String): AttachmentUpload? = dao.getById(clientId)
+
+    fun stagedFile(clientId: String) = File(uploadDir, clientId)
+
+    suspend fun hasPending(accountId: String) = dao.getForAccount(accountId).any { it.serverJson == null }
+
+    suspend fun retryAuthentication(accountId: String) = BackupCoordinator.withStorageLock { dao.retryAuthentication(accountId) }
+
+    suspend fun retryAll(accountId: String) = BackupCoordinator.withStorageLock { dao.retryAll(accountId) }
+
+    suspend fun resolved(clientId: String): Attachment? =
+        dao.getById(clientId)?.serverJson?.let {
+            GsonProvider.gson.fromJson(it, Attachment::class.java)
+        }
+
+    suspend fun clearForAccount(accountId: String) =
+        withContext(Dispatchers.IO) {
+            cancel(accountId)
+            BackupCoordinator.withStorageLock {
+                dao.getForAccount(accountId).forEach { File(it.localPath).delete() }
+                dao.deleteForAccount(accountId)
+            }
+        }
+
+    /** Caller must establish that no draft or mutation references this attachment. */
+    suspend fun discard(clientId: String) =
+        withContext(Dispatchers.IO) {
+            BackupCoordinator.withStorageLock {
+                val row = dao.getById(clientId) ?: return@withStorageLock
+                dao.delete(row.id)
+                File(row.localPath).delete()
+            }
+        }
+
+    /** Reclaim prior-process results; current composers may own newer rows without a persisted reference. */
+    suspend fun cleanupCompletedUploads(
+        accountId: String,
+        drafts: DraftManager,
+        settings: DataStoreManager,
+        cache: MemoCacheRepository,
+        outbox: org.example.memosm.data.sync.SyncRepository,
+        createdBefore: Long,
+    ) = withContext(Dispatchers.IO) {
+        BackupCoordinator.withStorageLock {
+            // Strict reads fail closed: uncertain ownership must preserve the bytes and mapping.
+            val draftAttachments = drafts.getDrafts(accountId, strict = true).flatMap { it.attachments.orEmpty() }
+            val pending = outbox.getOps(accountId)
+            val restored = settings.restoredEdits(accountId).first().toString()
+            for (row in dao.getForAccount(accountId)) {
+                if (row.serverJson == null || row.createdAt >= createdBefore) continue
+                if (draftAttachments.any { it.clientId == row.clientId || it.localPath == row.localPath } ||
+                    pending.any { it.payloadJson?.contains(row.clientId) == true || it.payloadJson?.contains(row.localPath) == true } ||
+                    restored.contains(row.clientId) || restored.contains(row.localPath) ||
+                    cache.referencesAttachment(accountId, row.clientId, row.localPath)
+                ) {
+                    continue
+                }
+                val file = File(row.localPath).canonicalFile
+                if (file.parentFile != uploadDir.canonicalFile) continue
+                if (!file.exists() || file.delete()) dao.delete(row.id)
+            }
         }
     }
 
-    private fun copyToLocal(clientId: String, uri: Uri): File {
-        uploadDir.mkdirs()
-        val target = File(uploadDir, clientId)
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            target.outputStream().use { output -> input.copyTo(output) }
-        } ?: throw IOException("Cannot open input stream for $uri")
-        return target
-    }
-
-    private suspend fun recordAudit(
+    /** Returns whether runnable transient failures remain; permanent failures preserve both row and bytes. */
+    suspend fun replay(
         accountId: String,
-        outcome: String,
-        clientId: String,
-        detailCode: String?
-    ) = auditLogger.record(
-        accountId = accountId,
-        event = "ATTACHMENT_UPLOAD",
-        outcome = outcome,
-        operation = "CREATE",
-        target = clientId,
-        detailCode = detailCode
-    )
-
-    private fun errorCode(error: Exception): String = when (error) {
-        is HttpException -> "http_${error.code()}"
-        else -> error.javaClass.simpleName.take(64)
-    }
+        api: MemosApi,
+        streamingApi: StreamingAttachmentApi?,
+        isCurrent: suspend () -> Boolean = { true },
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            var retry = false
+            for (row in dao.getForAccount(accountId)) {
+                if (!isCurrent()) break
+                if (row.serverJson != null || row.permanentlyFailed || row.authRequired) continue
+                try {
+                    val file = File(row.localPath)
+                    require(file.isFile) { "Staged attachment is missing" }
+                    val uploaded =
+                        try {
+                            if (row.size > STREAMING_THRESHOLD && streamingApi != null) {
+                                streamingApi.createAttachmentFromFile(file, row.mimeType, row.clientId, filename = row.filename)
+                            } else {
+                                val encoded = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
+                                api.createAttachment(
+                                    Attachment(filename = row.filename, type = row.mimeType, content = encoded),
+                                    row.clientId,
+                                )
+                            }
+                        } catch (error: HttpException) {
+                            if (error.code() != 409) throw error
+                            api.getAttachment("attachments/${row.clientId}")
+                        }
+                    if (uploaded?.name.isNullOrBlank()) throw IOException("Server returned no attachment identity")
+                    BackupCoordinator.withStorageLock {
+                        if (isCurrent() && dao.getById(row.id) != null) {
+                            dao.complete(row.id, GsonProvider.gson.toJson(uploaded))
+                            // Keep bytes for drafts and pending memo previews until their references are released.
+                        }
+                    }
+                    auditLogger.record(accountId, "ATTACHMENT_UPLOAD", "SUCCESS", "CREATE", row.clientId)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    if (!isCurrent()) break
+                    val auth = error is HttpException && error.code() in setOf(401, 403)
+                    val rejected = isRejectedMutation(error)
+                    BackupCoordinator.withStorageLock {
+                        if (isCurrent() && dao.getById(row.id) != null) {
+                            dao.markFailed(row.id, row.attemptCount + 1, error.message, System.currentTimeMillis())
+                            dao.setFailure(row.id, rejected, auth)
+                        }
+                    }
+                    retry = retry || (!rejected && !auth)
+                    auditLogger.record(
+                        accountId,
+                        "ATTACHMENT_UPLOAD",
+                        if (auth) {
+                            "AUTH_REQUIRED"
+                        } else if (rejected) {
+                            "REJECTED"
+                        } else {
+                            "RETRY"
+                        },
+                        "CREATE",
+                        row.clientId,
+                        if (error is HttpException) "http_${error.code()}" else error.javaClass.simpleName,
+                    )
+                }
+            }
+            retry
+        }
 
     companion object {
-        fun workName(accountId: String) = "memosm-attachment-upload-$accountId"
+        // Retained only as the durable work-name identifier used by old cancellation/backup callers.
+        fun workName(accountId: String) = WorkManagerSyncWorkScheduler.workName(accountId)
     }
 }

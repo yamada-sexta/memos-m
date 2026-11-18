@@ -2,6 +2,8 @@ package org.example.memosm.data.media
 
 import androidx.room.Entity
 import androidx.room.Index
+import org.example.memosm.api.GsonProvider
+import org.example.memosm.model.Attachment
 
 /**
  * Room entity caching attachment metadata for offline listing.
@@ -19,15 +21,30 @@ import androidx.room.Index
 @Entity(
     tableName = "cached_attachment_meta",
     primaryKeys = ["accountId", "attachmentName"],
-    indices = [Index(value = ["accountId", "createTime"])]
+    indices = [Index(value = ["accountId", "createTime"])],
 )
 data class CachedAttachmentMeta(
     val accountId: String,
-    val attachmentName: String,     // attachment.name (e.g. "attachments/123")
+    val attachmentName: String, // attachment.name (e.g. "attachments/123")
     val filename: String,
-    val type: String,               // MIME type
-    val size: Long = 0L,            // File size in bytes
-    val createTime: Long = 0L,      // Epoch millis, for ordering (newest first)
-    val memoName: String? = null,   // Source memo, when known
-    val attachmentJson: String      // Full serialized Attachment (lossless)
+    val type: String, // MIME type
+    val size: Long = 0L, // File size in bytes
+    val createTime: Long = 0L, // Epoch millis, for ordering (newest first)
+    val memoName: String? = null, // Source memo, when known
+    val attachmentJson: String, // Full serialized Attachment (lossless)
 )
+
+fun Attachment.toCachedMetadata(
+    accountId: String,
+    memoName: String? = memo,
+): CachedAttachmentMeta =
+    CachedAttachmentMeta(
+        accountId = accountId,
+        attachmentName = requireNotNull(name) { "Attachment has no server identity" },
+        filename = filename,
+        type = displayType,
+        size = size?.toLongOrNull() ?: 0,
+        createTime = createTime?.toEpochMilliseconds() ?: 0,
+        memoName = memoName,
+        attachmentJson = GsonProvider.gson.toJson(this),
+    )

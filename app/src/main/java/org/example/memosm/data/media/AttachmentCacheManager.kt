@@ -5,19 +5,26 @@ import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.example.memosm.api.awaitResponse
+import org.example.memosm.api.resourceAuthorization
 import org.example.memosm.data.DataStoreManager
+import org.example.memosm.data.backup.BackupCoordinator
 import org.example.memosm.model.Attachment
-import org.example.memosm.model.Memo
 import org.example.memosm.viewmodel.manager.AttachmentManager
 import java.io.File
 import java.util.UUID
@@ -28,6 +35,11 @@ private const val TAG = "AttachmentCacheManager"
 
 /** Parallel downloads during a preload batch (keeps servers from being hammered). */
 private const val PRELOAD_PARALLELISM = 4
+
+data class PreloadResult(
+    val available: Int = 0,
+    val failed: Int = 0,
+)
 
 /**
  * Downloads attachment files (images/audio/video/other) to local storage so
@@ -42,10 +54,12 @@ class AttachmentCacheManager(
     private val dao: CachedAttachmentDao,
     private val okHttpClient: OkHttpClient,
     private val dataStoreManager: DataStoreManager,
-    private val isWifiProvider: () -> Boolean
+    private val isWifiProvider: () -> Boolean,
 ) {
-
-    data class Usage(val bytes: Long = 0L, val count: Int = 0)
+    data class Usage(
+        val bytes: Long = 0L,
+        val count: Int = 0,
+    )
 
     /**
      * Usage of the ACTIVE account only. Consumers (settings screen,
@@ -55,7 +69,10 @@ class AttachmentCacheManager(
      * [activeAccountId] and [clearAccount] only zeroes it when the cleared
      * account is the published one.
      */
-    data class AccountUsage(val accountId: String? = null, val usage: Usage = Usage())
+    data class AccountUsage(
+        val accountId: String? = null,
+        val usage: Usage = Usage(),
+    )
 
     private val _usage = MutableStateFlow(AccountUsage())
     val usage: StateFlow<AccountUsage> = _usage.asStateFlow()
@@ -90,9 +107,12 @@ class AttachmentCacheManager(
                 if (legacy.exists()) {
                     var moved = 0
                     dao.getAll().forEach { row ->
-                        val target = OfflineMediaMigrator.movePreservingPath(
-                            legacy, rootDir(), File(row.localPath)
-                        ) ?: return@forEach
+                        val target =
+                            OfflineMediaMigrator.movePreservingPath(
+                                legacy,
+                                rootDir(),
+                                File(row.localPath),
+                            ) ?: return@forEach
                         if (target.absolutePath != row.localPath) {
                             dao.upsert(row.copy(localPath = target.absolutePath))
                             moved++
@@ -138,8 +158,10 @@ class AttachmentCacheManager(
         indexWarmed.set(false)
     }
 
-    private fun indexKey(accountId: String, attachmentName: String): String =
-        "$accountId\u0000$attachmentName"
+    private fun indexKey(
+        accountId: String,
+        attachmentName: String,
+    ): String = "$accountId\u0000$attachmentName"
 
     private fun indexLookup(key: String): File? {
         val file = localIndex[key] ?: return null
@@ -150,11 +172,18 @@ class AttachmentCacheManager(
         return file
     }
 
-    private fun indexPut(accountId: String, attachmentName: String, file: File) {
+    private fun indexPut(
+        accountId: String,
+        attachmentName: String,
+        file: File,
+    ) {
         localIndex[indexKey(accountId, attachmentName)] = file
     }
 
-    private fun indexRemove(accountId: String, attachmentName: String) {
+    private fun indexRemove(
+        accountId: String,
+        attachmentName: String,
+    ) {
         localIndex.remove(indexKey(accountId, attachmentName))
     }
 
@@ -190,7 +219,10 @@ class AttachmentCacheManager(
      * Return the locally cached file for an attachment, or null.
      * Served from the in-memory index; falls back to a single DB read on miss.
      */
-    suspend fun getLocalFile(accountId: String, attachmentName: String?): File? {
+    suspend fun getLocalFile(
+        accountId: String,
+        attachmentName: String?,
+    ): File? {
         if (attachmentName.isNullOrBlank()) return null
         migrateLegacyRootIfNeeded()
         indexLookup(indexKey(accountId, attachmentName))?.let { return it }
@@ -214,10 +246,16 @@ class AttachmentCacheManager(
     }
 
     /** Missing account identity must fall back to the network, never another account's file. */
-    suspend fun getLocalFileForAccount(accountId: String?, attachmentName: String?): File? =
-        accountId?.let { getLocalFile(it, attachmentName) }
+    suspend fun getLocalFileForAccount(
+        accountId: String?,
+        attachmentName: String?,
+    ): File? = accountId?.let { getLocalFile(it, attachmentName) }
 
-    suspend fun displayModel(accountId: String?, hostUrl: String, attachment: Attachment?): Any? {
+    suspend fun displayModel(
+        accountId: String?,
+        hostUrl: String,
+        attachment: Attachment?,
+    ): Any? {
         if (attachment == null) return null
         getLocalFileForAccount(accountId, attachment.name)?.let { return it }
         return AttachmentManager.getAttachmentUrl(hostUrl, attachment)
@@ -239,15 +277,17 @@ class AttachmentCacheManager(
         memoName: String,
         attachment: Attachment,
         evict: Boolean = true,
-        dispatcher: CoroutineDispatcher = Dispatchers.IO
+        dispatcher: CoroutineDispatcher = Dispatchers.IO,
     ): Boolean {
+        val generation = BackupCoordinator.generation
         val attName = attachment.name ?: return false
         // Inline base64 content needs no download - it travels with the memo JSON.
-        if (!attachment.content.isNullOrBlank()) return false
+        if (!attachment.content.isNullOrBlank()) return true
         if (getLocalFile(accountId, attName) != null) return true
         val url = AttachmentManager.getAttachmentUrl(hostUrl, attachment) ?: return false
 
         return withContext(dispatcher) {
+            var partFile: File? = null
             try {
                 val fileName = sanitizeFileName(attachment.filename)
                 val dir = File(File(rootDir(), accountId), sanitizeDirName(attName))
@@ -258,19 +298,13 @@ class AttachmentCacheManager(
                 // would corrupt each other's bytes). The final rename target
                 // stays stable, so the last finisher wins atomically.
                 val temp = File(dir, ".$fileName.part-${UUID.randomUUID()}")
+                partFile = temp
 
                 val requestBuilder = Request.Builder().url(url)
-                if (token.isNotBlank()) {
-                    requestBuilder.header("Authorization", "Bearer $token")
-                }
-                val response = okHttpClient.newCall(requestBuilder.build()).execute()
-                response.use {
-                    if (!it.isSuccessful) {
-                        Log.w(TAG, "download failed: ${it.code} for $url")
-                        return@withContext false
-                    }
-                    val body = it.body
-                    body.byteStream().use { input ->
+                resourceAuthorization(hostUrl, url, token)?.let { requestBuilder.header("Authorization", it) }
+                okHttpClient.newCall(requestBuilder.build()).awaitResponse { response ->
+                    check(response.isSuccessful) { "Attachment download failed: HTTP ${response.code}" }
+                    response.body.byteStream().use { input ->
                         temp.outputStream().use { output -> input.copyTo(output) }
                     }
                 }
@@ -279,52 +313,50 @@ class AttachmentCacheManager(
                     temp.delete()
                     return@withContext false
                 }
-                if (!temp.renameTo(target)) {
-                    temp.delete()
-                    return@withContext false
+                BackupCoordinator.withStorageLock {
+                    check(generation == BackupCoordinator.generation && !BackupCoordinator.restoring.value) { "Storage was restored" }
+                    check(dataStoreManager.getAccounts().any { it.id == accountId }) { "Account was removed" }
+                    // Another attempt may have committed while this response was downloading.
+                    val existing = dao.getByAttachment(accountId, attName)?.let { File(it.localPath) }?.takeIf { it.isFile }
+                    if (existing != null) {
+                        indexPut(accountId, attName, existing)
+                    } else {
+                        withContext(NonCancellable) {
+                            check(temp.renameTo(target)) { "Could not commit attachment file" }
+                            var committed = false
+                            try {
+                                dao.upsert(
+                                    CachedAttachment(
+                                        attachmentName = attName,
+                                        accountId = accountId,
+                                        memoName = memoName,
+                                        url = url,
+                                        localPath = target.absolutePath,
+                                        size = size,
+                                        downloadedAt = System.currentTimeMillis(),
+                                        lastAccessedAt = System.currentTimeMillis(),
+                                    ),
+                                )
+                                committed = true
+                                indexPut(accountId, attName, target)
+                            } finally {
+                                if (!committed) target.delete()
+                            }
+                        }
+                    }
                 }
-
-                dao.upsert(
-                    CachedAttachment(
-                        attachmentName = attName,
-                        accountId = accountId,
-                        memoName = memoName,
-                        url = url,
-                        localPath = target.absolutePath,
-                        size = size,
-                        downloadedAt = System.currentTimeMillis(),
-                        lastAccessedAt = System.currentTimeMillis()
-                    )
-                )
-                indexPut(accountId, attName, target)
                 if (evict) evictIfNeeded()
-                Log.d(TAG, "downloaded $url (${size} bytes)")
+                Log.d(TAG, "downloaded $url ($size bytes)")
                 true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "download failed: $url", e)
                 false
+            } finally {
+                partFile?.delete()
             }
         }
-    }
-
-    /**
-     * Pre-download attachments of the given memos (skips already-cached ones).
-     * Thin adapter over [preloadAttachments] that flattens the memo list.
-     */
-    suspend fun preload(
-        hostUrl: String,
-        token: String,
-        accountId: String,
-        memos: List<Memo>
-    ) {
-        preloadAttachments(
-            hostUrl, token, accountId,
-            memos.flatMap { memo ->
-                memo.attachments.orEmpty().map { it to (memo.name ?: "") }
-            }
-        )
     }
 
     /**
@@ -343,28 +375,38 @@ class AttachmentCacheManager(
         hostUrl: String,
         token: String,
         accountId: String,
-        attachments: List<Pair<Attachment, String>>
-    ) {
-        if (attachments.isEmpty()) return
+        attachments: List<Pair<Attachment, String>>,
+    ): PreloadResult {
+        if (attachments.isEmpty()) return PreloadResult()
         if (dataStoreManager.preDownloadWifiOnly.first() && !isWifiProvider()) {
-            Log.d(TAG, "preload skipped (wifi-only enabled, not on wifi)")
-            return
+            return PreloadResult(failed = attachments.size)
         }
         warmIndex()
-        withContext(Dispatchers.IO) {
-            val downloadIo = Dispatchers.IO.limitedParallelism(PRELOAD_PARALLELISM)
-            coroutineScope {
-                attachments.forEach { (attachment, memoName) ->
-                    launch(downloadIo) {
-                        download(
-                            hostUrl, token, accountId, memoName, attachment,
-                            evict = false, dispatcher = downloadIo
-                        )
-                    }
+        return withContext(Dispatchers.IO) {
+            val permits = Semaphore(PRELOAD_PARALLELISM)
+            val available =
+                coroutineScope {
+                    attachments
+                        .distinctBy { it.first.name }
+                        .map { (attachment, memoName) ->
+                            async(Dispatchers.IO) {
+                                permits.withPermit {
+                                    download(
+                                        hostUrl,
+                                        token,
+                                        accountId,
+                                        memoName,
+                                        attachment,
+                                        evict = false,
+                                        dispatcher = Dispatchers.IO,
+                                    )
+                                }
+                            }
+                        }.awaitAll()
                 }
-            }
             evictIfNeeded()
             refreshUsage(accountId)
+            PreloadResult(available.count { it }, available.count { !it })
         }
     }
 
@@ -380,18 +422,13 @@ class AttachmentCacheManager(
             // 0 (or negative) = unlimited: never evict.
             if (capMb <= 0) return
             val cap = capMb * 1024L * 1024L
-            var total = dao.getTotalSizeAll()
-            if (total <= cap) return
-            val rows = dao.getAll().sortedBy { it.lastAccessedAt }
-            for (row in rows) {
-                if (total <= cap) break
-                try {
-                    File(row.localPath).delete()
-                } catch (_: Exception) {
+            BackupCoordinator.withStorageLock {
+                var total = dao.getTotalSizeAll()
+                if (total <= cap) return@withStorageLock
+                for (row in dao.getAll().sortedBy { it.lastAccessedAt }) {
+                    if (total <= cap) break
+                    if (removeCachedFile(row)) total -= row.size
                 }
-                indexRemove(row.accountId, row.attachmentName)
-                dao.deleteForAttachment(row.accountId, row.attachmentName)
-                total -= row.size
             }
             Log.d(TAG, "evicted attachments to fit ${capMb}MB cap")
         } catch (e: CancellationException) {
@@ -407,10 +444,11 @@ class AttachmentCacheManager(
      */
     suspend fun refreshUsage(accountId: String) {
         try {
-            val usage = Usage(
-                bytes = dao.getTotalSize(accountId),
-                count = dao.getAllForAccount(accountId).size
-            )
+            val usage =
+                Usage(
+                    bytes = dao.getTotalSize(accountId),
+                    count = dao.getAllForAccount(accountId).size,
+                )
             if (accountId == activeAccountId()) {
                 _usage.value = AccountUsage(accountId, usage)
             }
@@ -423,7 +461,10 @@ class AttachmentCacheManager(
 
     /** Id of the active account, resolved from the stored account list. */
     private suspend fun activeAccountId(): String? =
-        dataStoreManager.accounts.first().firstOrNull { it.isActive }?.id
+        dataStoreManager.accounts
+            .first()
+            .firstOrNull { it.isActive }
+            ?.id
 
     /**
      * Remove all downloaded attachments for an account (files + metadata).
@@ -431,15 +472,9 @@ class AttachmentCacheManager(
     suspend fun clearAccount(accountId: String) {
         withContext(Dispatchers.IO) {
             try {
-                val rows = dao.getAllForAccount(accountId)
-                rows.forEach { row ->
-                    try {
-                        File(row.localPath).delete()
-                    } catch (_: Exception) {
-                    }
-                    indexRemove(accountId, row.attachmentName)
+                BackupCoordinator.withStorageLock {
+                    dao.getAllForAccount(accountId).forEach { removeCachedFile(it) }
                 }
-                dao.deleteAllForAccount(accountId)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -451,6 +486,23 @@ class AttachmentCacheManager(
             _usage.update { if (it.accountId == accountId) AccountUsage() else it }
         }
     }
+
+    /** Keep accounting and retry ownership when the filesystem refuses deletion. */
+    private suspend fun removeCachedFile(row: CachedAttachment): Boolean =
+        withContext(NonCancellable) {
+            val file = File(row.localPath)
+            val removed =
+                try {
+                    !file.exists() || file.delete()
+                } catch (_: java.io.IOException) {
+                    false
+                }
+            if (removed) {
+                dao.deleteForAttachment(row.accountId, row.attachmentName)
+                indexRemove(row.accountId, row.attachmentName)
+            }
+            removed
+        }
 
     private fun sanitizeFileName(name: String): String {
         val sanitized = name.replace(Regex("[/\\\\:?*\"<>|]"), "_")

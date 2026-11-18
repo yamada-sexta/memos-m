@@ -26,6 +26,8 @@ import org.example.memosm.data.DraftManager
 import org.example.memosm.data.backup.BackupCoordinator
 import org.example.memosm.data.cache.CacheListType
 import org.example.memosm.data.cache.MemoCacheRepository
+import org.example.memosm.data.cache.cachedMemos
+import org.example.memosm.data.cache.seedMemos
 import org.example.memosm.model.Account
 import org.example.memosm.model.Attachment
 import org.example.memosm.model.Draft
@@ -35,10 +37,10 @@ import org.example.memosm.model.MemoState
 import org.example.memosm.model.UserSnapshot
 import org.example.memosm.model.Visibility
 import org.example.memosm.ui.profile.DraftsActivity
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Before
-import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.GlobalContext
@@ -50,39 +52,72 @@ class MemoEditorActivityTest {
     private val accountId = "editor-activity-test"
     private val draftId = "editor-test-draft"
     private val sessionIds = mutableSetOf<String>()
+
     private fun label(id: Int) = context.getString(id)
+
     private fun input() = compose.onNode(hasSetTextAction())
-    private fun submit(labelRes: Int) = compose.onNode(
-        hasText(label(labelRes)) or hasContentDescription(label(labelRes))
-    ).performClick()
+
+    private fun submit(labelRes: Int) =
+        compose
+            .onNode(
+                hasText(label(labelRes)) or hasContentDescription(label(labelRes)),
+            ).performClick()
+
     private fun drafts() = runBlocking { GlobalContext.get().get<DraftManager>().getDrafts(accountId) }
-    private fun intent(request: EditorRequest) = runBlocking {
-        MemoEditorActivity.createIntent(context, request).also { sessionIds += it.getStringExtra("editor_session")!! }
-    }
+
+    private fun intent(request: EditorRequest) =
+        runBlocking {
+            MemoEditorActivity.createIntent(context, request).also { sessionIds += it.getStringExtra("editor_session")!! }
+        }
 
     @After
-    fun awaitFinalSaves() = runBlocking {
-        sessionIds.forEach { EditorSessionStore.awaitWrites(it) }
-    }
-    private fun request(draft: Draft? = null) = EditorRequest(accountId,
-        titleRes = R.string.memo_composer_fab_new_memo, draft = draft, draftId = draft?.id ?: draftId)
+    fun awaitFinalSaves() =
+        runBlocking {
+            sessionIds.forEach { EditorSessionStore.awaitWrites(it) }
+        }
+
+    private fun request(draft: Draft? = null) =
+        EditorRequest(
+            accountId,
+            titleRes = R.string.memo_composer_fab_new_memo,
+            draft = draft,
+            draftId = draft?.id ?: draftId,
+        )
 
     @Before
-    fun seedAccount(): Unit = runBlocking {
-        BackupCoordinator.awaitStartupRecovery()
-        val koin = GlobalContext.get()
-        koin.get<DraftManager>().clearDrafts(accountId)
-        koin.get<MemoCacheRepository>().cacheMemos(accountId, CacheListType.USER, listOf(
-            Memo(name = "memos/editor-test", creator = "users/1", content = "Cached editor memo",
-                state = MemoState.NORMAL)
-        ))
-        koin.get<DataStoreManager>().apply {
-            completeSetup()
-            saveAccounts(listOf(Account(id = accountId, hostUrl = "https://example.invalid",
-                accessToken = "test-token", name = "editor-test", isActive = true,
-                user = UserSnapshot(name = "users/1", username = "editor-test", displayName = "Editor test"))))
+    fun seedAccount(): Unit =
+        runBlocking {
+            BackupCoordinator.awaitStartupRecovery()
+            val koin = GlobalContext.get()
+            koin.get<DraftManager>().clearDrafts(accountId)
+            koin.get<MemoCacheRepository>().seedMemos(
+                accountId,
+                CacheListType.USER,
+                listOf(
+                    Memo(
+                        name = "memos/editor-test",
+                        creator = "users/1",
+                        content = "Cached editor memo",
+                        state = MemoState.NORMAL,
+                    ),
+                ),
+            )
+            koin.get<DataStoreManager>().apply {
+                completeSetup()
+                saveAccounts(
+                    listOf(
+                        Account(
+                            id = accountId,
+                            hostUrl = "https://example.invalid",
+                            accessToken = "test-token",
+                            name = "editor-test",
+                            isActive = true,
+                            user = UserSnapshot(name = "users/1", username = "editor-test", displayName = "Editor test"),
+                        ),
+                    ),
+                )
+            }
         }
-    }
 
     @Test
     fun autosavePreservesSelectionAndSubsequentTypingInTheMiddle() {
@@ -119,7 +154,13 @@ class MemoEditorActivityTest {
         val launch = intent(request(Draft(id = draftId, content = "Large attachment", attachments = listOf(attachment))))
         assertEquals(setOf("editor_session", "editor_account"), launch.extras!!.keySet())
         val snapshot = runBlocking { EditorSessionStore.read(launch.getStringExtra("editor_session")!!).snapshot }
-        assertEquals(attachment.content, snapshot.attachments.single().attachment!!.content)
+        assertEquals(
+            attachment.content,
+            snapshot.attachments
+                .single()
+                .attachment!!
+                .content,
+        )
         ActivityScenario.launch<MemoEditorActivity>(launch).use {
             awaitInput()
             input().assertTextEquals("Large attachment")
@@ -129,9 +170,14 @@ class MemoEditorActivityTest {
     @Test
     fun recreationAndStoredSnapshotRetainTextSelectionAndMetadata() {
         val attachment = Attachment(filename = "note.txt", type = "text/plain", content = "aGVsbG8=")
-        val draft = Draft(id = draftId, content = "Original", visibility = Visibility.PUBLIC,
-            location = Location(placeholder = "Test place", latitude = 41.0, longitude = -87.0),
-            attachments = listOf(attachment))
+        val draft =
+            Draft(
+                id = draftId,
+                content = "Original",
+                visibility = Visibility.PUBLIC,
+                location = Location(placeholder = "Test place", latitude = 41.0, longitude = -87.0),
+                attachments = listOf(attachment),
+            )
         val launch = intent(request(draft))
         ActivityScenario.launch<MemoEditorActivity>(launch).use { scenario ->
             awaitInput()
@@ -142,11 +188,12 @@ class MemoEditorActivityTest {
             input().assertTextEquals("Changed text")
             input().assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(3)))
             scenario.moveToState(Lifecycle.State.CREATED)
-            val snapshot = runBlocking {
-                val id = launch.getStringExtra("editor_session")!!
-                EditorSessionStore.awaitWrites(id)
-                EditorSessionStore.read(id).snapshot
-            }
+            val snapshot =
+                runBlocking {
+                    val id = launch.getStringExtra("editor_session")!!
+                    EditorSessionStore.awaitWrites(id)
+                    EditorSessionStore.read(id).snapshot
+                }
             assertEquals("Changed text", snapshot.text)
             assertEquals(3, snapshot.selectionStart)
             assertEquals(Visibility.PUBLIC, snapshot.visibility)
@@ -181,16 +228,25 @@ class MemoEditorActivityTest {
             runBlocking { EditorSessionStore.awaitWrites(launch.getStringExtra("editor_session")) }
             SystemClock.sleep(700)
             assertTrue(drafts().none { it.id == draftId })
-            val cached = runBlocking { GlobalContext.get().get<MemoCacheRepository>()
-                .getCachedMemos(accountId, CacheListType.USER) }
+            val cached =
+                runBlocking {
+                    GlobalContext
+                        .get()
+                        .get<MemoCacheRepository>()
+                        .cachedMemos(accountId, CacheListType.USER)
+                }
             assertTrue(cached.any { it.content == "Publish offline" })
         }
     }
 
     @Test
     fun draftsAndEditorAreActivitiesAndBackReturnsThroughBoth() {
-        runBlocking { GlobalContext.get().get<DraftManager>().saveDraft(accountId,
-            Draft(id = draftId, content = "Draft activity navigation")) }
+        runBlocking {
+            GlobalContext.get().get<DraftManager>().saveDraft(
+                accountId,
+                Draft(id = draftId, content = "Draft activity navigation"),
+            )
+        }
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(20_000) {
                 compose.onAllNodesWithText(label(R.string.drafts_card_message)).fetchSemanticsNodes().isNotEmpty()
@@ -214,39 +270,73 @@ class MemoEditorActivityTest {
 
     @Test
     fun updateAndCommentModesPersistOfflineBeforeClosing() {
-        val memo = Memo(name = "memos/editor-test", creator = "users/1", content = "Cached editor memo",
-            state = MemoState.NORMAL)
-        ActivityScenario.launch<MemoEditorActivity>(intent(EditorRequest(accountId, ComposerMode.UPDATE,
-            R.string.memo_dialog_edit_title, memo = memo))).use { scenario ->
-            awaitInput()
-            input().assertTextEquals("Cached editor memo")
-            input().performTextReplacement("Updated offline")
-            submit(R.string.memo_action_update)
-            compose.waitUntil(30_000) { scenario.state == Lifecycle.State.DESTROYED }
-            val cached = runBlocking { GlobalContext.get().get<MemoCacheRepository>()
-                .getCachedMemo(accountId, memo.name!!) }
-            assertEquals("Updated offline", cached!!.content)
-        }
-        ActivityScenario.launch<MemoEditorActivity>(intent(EditorRequest(accountId, ComposerMode.COMMENT,
-            R.string.memo_detail_add_comment, parentMemo = memo))).use { scenario ->
-            awaitInput()
-            input().performTextInput("Comment offline")
-            submit(R.string.memo_action_post)
-            compose.waitUntil(30_000) { scenario.state == Lifecycle.State.DESTROYED }
-            val comments = runBlocking { GlobalContext.get().get<MemoCacheRepository>()
-                .getCachedMemos(accountId, CacheListType.COMMENT, parentName = memo.name) }
-            assertTrue(comments.any { it.content == "Comment offline" })
-        }
+        val memo =
+            Memo(
+                name = "memos/editor-test",
+                creator = "users/1",
+                content = "Cached editor memo",
+                state = MemoState.NORMAL,
+            )
+        ActivityScenario
+            .launch<MemoEditorActivity>(
+                intent(
+                    EditorRequest(
+                        accountId,
+                        ComposerMode.UPDATE,
+                        R.string.memo_dialog_edit_title,
+                        memo = memo,
+                    ),
+                ),
+            ).use { scenario ->
+                awaitInput()
+                input().assertTextEquals("Cached editor memo")
+                input().performTextReplacement("Updated offline")
+                submit(R.string.memo_action_update)
+                compose.waitUntil(30_000) { scenario.state == Lifecycle.State.DESTROYED }
+                val cached =
+                    runBlocking {
+                        GlobalContext
+                            .get()
+                            .get<MemoCacheRepository>()
+                            .getCachedMemo(accountId, memo.name!!)
+                    }
+                assertEquals("Updated offline", cached!!.content)
+            }
+        ActivityScenario
+            .launch<MemoEditorActivity>(
+                intent(
+                    EditorRequest(
+                        accountId,
+                        ComposerMode.COMMENT,
+                        R.string.memo_detail_add_comment,
+                        parentMemo = memo,
+                    ),
+                ),
+            ).use { scenario ->
+                awaitInput()
+                input().performTextInput("Comment offline")
+                submit(R.string.memo_action_post)
+                compose.waitUntil(30_000) { scenario.state == Lifecycle.State.DESTROYED }
+                val comments =
+                    runBlocking {
+                        GlobalContext
+                            .get()
+                            .get<MemoCacheRepository>()
+                            .cachedMemos(accountId, CacheListType.COMMENT, parentName = memo.name)
+                    }
+                assertTrue(comments.any { it.content == "Comment offline" })
+            }
         assertTrue(drafts().isEmpty())
     }
 
     @Test
     fun sharedTextOpensEditorActivityAndBackReturnsToFeed() {
-        val share = Intent(context, MainActivity::class.java).apply {
-            action = Intent.ACTION_SEND
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Shared editor text")
-        }
+        val share =
+            Intent(context, MainActivity::class.java).apply {
+                action = Intent.ACTION_SEND
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, "Shared editor text")
+            }
         ActivityScenario.launch<MainActivity>(share).use {
             awaitInput()
             awaitResumed(MemoEditorActivity::class.java)
@@ -260,8 +350,12 @@ class MemoEditorActivityTest {
 
     @Test
     fun deletingLastDraftShowsEmptyStateAndRemovesFeedCardOnReturn() {
-        runBlocking { GlobalContext.get().get<DraftManager>().saveDraft(accountId,
-            Draft(id = draftId, content = "Delete last draft")) }
+        runBlocking {
+            GlobalContext.get().get<DraftManager>().saveDraft(
+                accountId,
+                Draft(id = draftId, content = "Delete last draft"),
+            )
+        }
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(20_000) {
                 compose.onAllNodesWithText(label(R.string.drafts_card_message)).fetchSemanticsNodes().isNotEmpty()
@@ -288,10 +382,19 @@ class MemoEditorActivityTest {
         ActivityScenario.launch<MemoEditorActivity>(launch).use { scenario ->
             awaitInput()
             input().performTextInput("Account specific text")
-            runBlocking { GlobalContext.get().get<DataStoreManager>().saveAccounts(listOf(
-                Account(id = "other-editor-account", hostUrl = "https://example.invalid", accessToken = "other",
-                    name = "other", isActive = true)
-            )) }
+            runBlocking {
+                GlobalContext.get().get<DataStoreManager>().saveAccounts(
+                    listOf(
+                        Account(
+                            id = "other-editor-account",
+                            hostUrl = "https://example.invalid",
+                            accessToken = "other",
+                            name = "other",
+                            isActive = true,
+                        ),
+                    ),
+                )
+            }
             compose.waitUntil(10_000) { scenario.state == Lifecycle.State.DESTROYED }
             runBlocking { EditorSessionStore.awaitWrites(launch.getStringExtra("editor_session")) }
             assertEquals("Account specific text", drafts().single().content)
@@ -303,8 +406,12 @@ class MemoEditorActivityTest {
     fun canceledPredictiveGestureKeepsEditorAndCompletedGestureReturnsToDrafts() {
         assumeTrue(Build.VERSION.SDK_INT >= 35)
         assumeTrue(Settings.Secure.getInt(context.contentResolver, "navigation_mode", 0) == 2)
-        runBlocking { GlobalContext.get().get<DraftManager>().saveDraft(accountId,
-            Draft(id = draftId, content = "Predictive draft")) }
+        runBlocking {
+            GlobalContext.get().get<DraftManager>().saveDraft(
+                accountId,
+                Draft(id = draftId, content = "Predictive draft"),
+            )
+        }
         ActivityScenario.launch(DraftsActivity::class.java).use {
             compose.waitUntil(20_000) { compose.onAllNodesWithText("Predictive draft").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Predictive draft").performClick()
@@ -329,8 +436,11 @@ class MemoEditorActivityTest {
         compose.waitUntil(20_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size == 1 }
         compose.waitForIdle()
         instrumentation.runOnMainSync {
-            ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
-                .filterIsInstance<MemoEditorActivity>().forEach { activity ->
+            ActivityLifecycleMonitorRegistry
+                .getInstance()
+                .getActivitiesInStage(Stage.RESUMED)
+                .filterIsInstance<MemoEditorActivity>()
+                .forEach { activity ->
                     activity.intent.getStringExtra("editor_session")?.let { sessionIds += it }
                 }
         }
@@ -340,8 +450,11 @@ class MemoEditorActivityTest {
         compose.waitUntil(10_000) {
             var resumed = false
             instrumentation.runOnMainSync {
-                resumed = ActivityLifecycleMonitorRegistry.getInstance()
-                    .getActivitiesInStage(Stage.RESUMED).any(type::isInstance)
+                resumed =
+                    ActivityLifecycleMonitorRegistry
+                        .getInstance()
+                        .getActivitiesInStage(Stage.RESUMED)
+                        .any(type::isInstance)
             }
             resumed
         }
@@ -352,8 +465,12 @@ class MemoEditorActivityTest {
         compose.waitUntil(10_000) {
             var keyboardVisible = false
             instrumentation.runOnMainSync {
-                val activity = ActivityLifecycleMonitorRegistry.getInstance()
-                    .getActivitiesInStage(Stage.RESUMED).filterIsInstance<MemoEditorActivity>().singleOrNull()
+                val activity =
+                    ActivityLifecycleMonitorRegistry
+                        .getInstance()
+                        .getActivitiesInStage(Stage.RESUMED)
+                        .filterIsInstance<MemoEditorActivity>()
+                        .singleOrNull()
                 keyboardVisible = activity?.let {
                     ViewCompat.getRootWindowInsets(it.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime())
                 } == true
@@ -366,7 +483,11 @@ class MemoEditorActivityTest {
         val metrics = context.resources.displayMetrics
         val downTime = SystemClock.uptimeMillis()
         val y = metrics.heightPixels * 0.5f
-        fun inject(action: Int, x: Float) {
+
+        fun inject(
+            action: Int,
+            x: Float,
+        ) {
             val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
             event.source = InputDevice.SOURCE_TOUCHSCREEN
             instrumentation.uiAutomation.injectInputEvent(event, true)

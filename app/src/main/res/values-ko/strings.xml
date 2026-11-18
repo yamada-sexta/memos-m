@@ -465,4 +465,7 @@
     <string name="viewer_back">뒤로</string>
     <string name="video_playback_speed">동영상 재생 속도</string>
     <string name="video_playback_error">이 동영상을 재생할 수 없습니다.</string>
+    <string name="offline_unavailable">오프라인에서는 사용할 수 없습니다. 연결하여 이 콘텐츠를 불러오세요.</string>
+    <string name="offline_filter_unavailable">이 저장된 필터에는 연결이 필요합니다. 이전에 불러온 결과가 있으면 표시됩니다.</string>
+    <string name="sync_queue_review_conflict">충돌 검토</string>
 </resources>

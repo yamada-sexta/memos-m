@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 /** Durable local source for an attachment upload that has not been acknowledged. */
 @Entity(
     tableName = "attachment_uploads",
-    indices = [Index("accountId"), Index(value = ["accountId", "clientId"], unique = true)]
+    indices = [Index("accountId"), Index(value = ["accountId", "clientId"], unique = true)],
 )
 data class AttachmentUpload(
     @PrimaryKey val id: String,
@@ -21,5 +21,8 @@ data class AttachmentUpload(
     val createdAt: Long,
     val attemptCount: Int = 0,
     val lastError: String? = null,
-    val lastAttemptAt: Long = 0L
+    val lastAttemptAt: Long = 0L,
+    val serverJson: String? = null,
+    val permanentlyFailed: Boolean = false,
+    val authRequired: Boolean = false,
 )

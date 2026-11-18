@@ -9,11 +9,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.compose.collectAsLazyPagingItems
 import org.example.memosm.R
 import org.example.memosm.viewmodel.MemosViewModel
 
@@ -24,18 +25,14 @@ fun ArchivedMemosScreen(
     viewModel: MemosViewModel,
     onBack: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-
-    // Refresh archived memos on start
-    LaunchedEffect(uiState.accountGeneration, uiState.isOnline) {
-        viewModel.fetchArchivedMemos(refresh = true)
-    }
+    val pages = viewModel.archivedMemos.collectAsLazyPagingItems()
 
     Box(modifier = modifier.fillMaxSize()) {
         MemosScaffold(
             viewModel = viewModel,
-            memos = uiState.archivedMemoList.list.items,
+            memos = pages.itemSnapshotList.items,
             listState = listState,
             isNavBarVisible = false,
             topBar = { isDetailVisible, isDualPane ->
@@ -53,17 +50,14 @@ fun ArchivedMemosScreen(
             listPane = { onMemoClick ->
                 GenericMemosListPane(
                     viewModel = viewModel,
-                    memos = uiState.archivedMemoList.list.items,
-                    isLoading = uiState.archivedMemoList.list.isLoading,
-                    isRefreshing = uiState.isRefreshing,
-                    nextPageToken = uiState.archivedMemoList.list.nextPageToken,
-                    onLoadMore = { viewModel.loadMoreArchivedMemos() },
+                    memos = pages,
                     onRefresh = { viewModel.fetchArchivedMemos(refresh = true) },
                     onMemoClick = onMemoClick,
                     listState = listState,
                     userProvider = { uiState.session.currUser },
-                    contentPadding = PaddingValues(16.dp)
+                    contentPadding = PaddingValues(16.dp),
                 )
-            })
+            },
+        )
     }
 }

@@ -6,11 +6,14 @@ import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 data class ListMemosResponse(
-    val memos: List<Memo>?, val nextPageToken: String?
+    val memos: List<Memo>?,
+    val nextPageToken: String?,
 )
 
 data class ListAttachmentsResponse(
-    val attachments: List<Attachment>?, val nextPageToken: String?, val totalSize: Int?
+    val attachments: List<Attachment>?,
+    val nextPageToken: String?,
+    val totalSize: Int?,
 )
 
 @Serializable
@@ -25,7 +28,7 @@ enum class Visibility {
     PRIVATE,
 
     @SerializedName("VISIBILITY_UNSPECIFIED")
-    VISIBILITY_UNSPECIFIED
+    VISIBILITY_UNSPECIFIED,
 }
 
 @Serializable
@@ -37,7 +40,7 @@ enum class MemoState {
     ARCHIVED,
 
     @SerialName("STATE_UNSPECIFIED")
-    STATE_UNSPECIFIED
+    STATE_UNSPECIFIED,
 }
 
 data class Memo(
@@ -57,7 +60,9 @@ data class Memo(
     val property: MemoProperty? = null,
     val parent: String? = null,
     val snippet: String? = null,
-    val location: Location? = null
+    val location: Location? = null,
+    /** Local transport metadata; never serialized into API payloads. */
+    @Transient val remoteName: String? = null,
 )
 
 data class Attachment(
@@ -76,7 +81,7 @@ data class Attachment(
     // queue. clientId matches the AttachmentUpload row (forwarded as the API
     // attachmentId); localPath points at the staged bytes for local preview.
     val clientId: String? = null,
-    val localPath: String? = null
+    val localPath: String? = null,
 ) {
     /** Stable identity for thumbnails, row keys, and transitions, including local-only attachments. */
     val identityKey: String
@@ -86,7 +91,6 @@ data class Attachment(
         get() = mimeType ?: type
 }
 
-
 enum class MemoRelationType {
     @SerialName("TYPE_UNSPECIFIED")
     TYPE_UNSPECIFIED,
@@ -95,15 +99,18 @@ enum class MemoRelationType {
     COMMENT,
 
     @SerialName("COMMENT")
-    REPLY
+    REPLY,
 }
 
 data class MemoRelation(
-    val memo: MemoSnippet, val relatedMemo: MemoSnippet, val type: MemoRelationType
+    val memo: MemoSnippet,
+    val relatedMemo: MemoSnippet,
+    val type: MemoRelationType,
 )
 
 data class MemoSnippet(
-    val name: String, val snippet: String? = null
+    val name: String,
+    val snippet: String? = null,
 )
 
 data class Reaction(
@@ -111,24 +118,27 @@ data class Reaction(
     val creator: String? = null,
     val contentId: String,
     val reactionType: String,
-    val createTime: Instant? = null
+    val createTime: Instant? = null,
 )
 
 data class MemoProperty(
     val hasLink: Boolean? = null,
     val hasTaskList: Boolean? = null,
     val hasCode: Boolean? = null,
-    val hasIncompleteTasks: Boolean? = null
+    val hasIncompleteTasks: Boolean? = null,
 )
 
 data class Location(
-    val placeholder: String? = null, val latitude: Double? = null, val longitude: Double? = null
+    val placeholder: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )
 
 // --- Activity Models ---
 
 data class ListActivitiesResponse(
-    val activities: List<Activity>?, val nextPageToken: String?
+    val activities: List<Activity>?,
+    val nextPageToken: String?,
 )
 
 data class Activity(
@@ -137,43 +147,53 @@ data class Activity(
     val type: String? = null,
     val level: String? = null,
     @SerializedName("createTime", alternate = ["create_time"]) val createTime: Instant? = null,
-    val payload: ActivityPayload? = null
+    val payload: ActivityPayload? = null,
 )
 
 data class ActivityPayload(
-    val memoComment: ActivityMemoCommentPayload? = null
+    val memoComment: ActivityMemoCommentPayload? = null,
 )
 
 data class ActivityMemoCommentPayload(
-    val memo: String? = null, val relatedMemo: String? = null
+    val memo: String? = null,
+    val relatedMemo: String? = null,
 )
 
 // --- Additional Memo Service Models ---
 
 data class ListMemoAttachmentsResponse(
-    val attachments: List<Attachment>?, val nextPageToken: String?
+    val attachments: List<Attachment>?,
+    val nextPageToken: String?,
 )
 
 data class SetMemoAttachmentsRequest(
-    val name: String, val attachments: List<Attachment>
+    val name: String,
+    val attachments: List<Attachment>,
 )
 
 data class ListMemoCommentsResponse(
-    val memos: List<Memo>?, val nextPageToken: String?, val totalSize: Int?
+    val memos: List<Memo>?,
+    val nextPageToken: String?,
+    val totalSize: Int?,
 )
 
 data class ListMemoReactionsResponse(
-    val reactions: List<Reaction>?, val nextPageToken: String?, val totalSize: Int?
+    val reactions: List<Reaction>?,
+    val nextPageToken: String?,
+    val totalSize: Int?,
 )
 
 data class UpsertMemoReactionRequest(
-    val name: String, val reaction: Reaction
+    val name: String,
+    val reaction: Reaction,
 )
 
 data class ListMemoRelationsResponse(
-    val relations: List<MemoRelation>?, val nextPageToken: String?
+    val relations: List<MemoRelation>?,
+    val nextPageToken: String?,
 )
 
 data class SetMemoRelationsRequest(
-    val name: String, val relations: List<MemoRelation>
+    val name: String,
+    val relations: List<MemoRelation>,
 )

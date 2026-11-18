@@ -1,12 +1,13 @@
 package org.example.memosm.ui.component.item.media
 
+import org.example.memosm.api.resourceAuthentication
+
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.NoOpCacheEvictor
@@ -34,7 +35,8 @@ object MediaCache {
     private var builtWithLimitMb: Int = -1
 
     private val okHttpClient by lazy {
-        OkHttpClient.Builder()
+        OkHttpClient
+            .Builder()
             .build()
     }
 
@@ -47,7 +49,10 @@ object MediaCache {
         return aspectRatios[key]
     }
 
-    fun setAspectRatio(key: String?, ratio: Float) {
+    fun setAspectRatio(
+        key: String?,
+        ratio: Float,
+    ) {
         if (key.isNullOrBlank()) return
         aspectRatios[key] = ratio
     }
@@ -67,11 +72,12 @@ object MediaCache {
         if (simpleCache == null) {
             val cacheDir = File(context.cacheDir, "media_cache")
             // 0 (or negative) = unlimited: NoOpCacheEvictor never evicts.
-            val evictor = if (cacheLimitMb <= 0) {
-                NoOpCacheEvictor()
-            } else {
-                LeastRecentlyUsedCacheEvictor(cacheLimitMb * 1024L * 1024L)
-            }
+            val evictor =
+                if (cacheLimitMb <= 0) {
+                    NoOpCacheEvictor()
+                } else {
+                    LeastRecentlyUsedCacheEvictor(cacheLimitMb * 1024L * 1024L)
+                }
             val databaseProvider = StandaloneDatabaseProvider(context)
             simpleCache = SimpleCache(cacheDir, evictor, databaseProvider)
             builtWithLimitMb = cacheLimitMb
@@ -109,17 +115,25 @@ object MediaCache {
         }
     }
 
-    fun createDataSourceFactory(context: Context, token: String?, accountId: String?): DataSource.Factory {
-        val httpDataSourceFactory: HttpDataSource.Factory = if (token != null) {
-            OkHttpDataSource.Factory(okHttpClient)
-                .setDefaultRequestProperties(mapOf("Authorization" to "Bearer $token"))
-        } else {
-            OkHttpDataSource.Factory(okHttpClient)
-        }
+    fun createDataSourceFactory(
+        context: Context,
+        token: String?,
+        accountId: String?,
+        hostUrl: String,
+    ): DataSource.Factory {
+        val httpDataSourceFactory =
+            OkHttpDataSource.Factory(
+                okHttpClient
+                    .newBuilder()
+                    .addNetworkInterceptor(
+                        resourceAuthentication(hostUrl, token),
+                    ).build(),
+            )
 
         val defaultDataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
 
-        return CacheDataSource.Factory()
+        return CacheDataSource
+            .Factory()
             .setCache(getCache(context))
             .setCacheKeyFactory { spec -> accountMediaCacheKey(accountId, spec.key ?: spec.uri.toString()) }
             .setUpstreamDataSourceFactory(defaultDataSourceFactory)

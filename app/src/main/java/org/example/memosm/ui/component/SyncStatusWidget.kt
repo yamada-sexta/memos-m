@@ -15,14 +15,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Storage
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import org.example.memosm.R
 import org.example.memosm.api.GsonProvider
 import org.example.memosm.data.sync.PendingOp
+import org.example.memosm.data.sync.PendingOpStatus
 import org.example.memosm.data.sync.PendingOpType
 import org.example.memosm.data.sync.PreDownloadState
 import org.example.memosm.ui.component.setting.SettingsGroup
@@ -66,7 +67,7 @@ import java.util.Locale
 fun SyncStatusIconButton(
     uiState: MemosUiState,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val status = syncStatusOf(uiState)
     IconButton(onClick = onClick, modifier = modifier) {
@@ -74,38 +75,48 @@ fun SyncStatusIconButton(
             SyncStatus.SYNCING, SyncStatus.PREDOWNLOAD -> {
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
                 )
             }
 
-            SyncStatus.PENDING -> Icon(
-                Icons.Outlined.CloudSync,
-                contentDescription = stringResource(
-                    R.string.sync_status_pending, uiState.pendingOpsCount
-                ),
-                tint = MaterialTheme.colorScheme.tertiary
-            )
+            SyncStatus.PENDING -> {
+                Icon(
+                    Icons.Outlined.CloudSync,
+                    contentDescription =
+                        stringResource(
+                            R.string.sync_status_pending,
+                            uiState.pendingOpsCount,
+                        ),
+                    tint = MaterialTheme.colorScheme.tertiary,
+                )
+            }
 
-            SyncStatus.OFFLINE -> Icon(
-                Icons.Outlined.CloudOff,
-                contentDescription = stringResource(R.string.sync_status_offline),
-                // Error red: the icon is the only persistent offline cue the
-                // user asked to keep (the banner below the search bar stays
-                // quiet), so it must stand out at a glance.
-                tint = MaterialTheme.colorScheme.error
-            )
+            SyncStatus.OFFLINE -> {
+                Icon(
+                    Icons.Outlined.CloudOff,
+                    contentDescription = stringResource(R.string.sync_status_offline),
+                    // Error red: the icon is the only persistent offline cue the
+                    // user asked to keep (the banner below the search bar stays
+                    // quiet), so it must stand out at a glance.
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
 
-            SyncStatus.RATE_LIMITED -> Icon(
-                Icons.Outlined.CloudSync,
-                contentDescription = stringResource(R.string.sync_status_rate_limited),
-                tint = MaterialTheme.colorScheme.tertiary
-            )
+            SyncStatus.RATE_LIMITED -> {
+                Icon(
+                    Icons.Outlined.CloudSync,
+                    contentDescription = stringResource(R.string.sync_status_rate_limited),
+                    tint = MaterialTheme.colorScheme.tertiary,
+                )
+            }
 
-            SyncStatus.IDLE -> Icon(
-                Icons.Outlined.CheckCircle,
-                contentDescription = stringResource(R.string.sync_status_idle),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            SyncStatus.IDLE -> {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    contentDescription = stringResource(R.string.sync_status_idle),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
@@ -119,67 +130,93 @@ fun SyncStatusPanel(
     uiState: MemosUiState,
     onDismiss: () -> Unit,
     onDeleteOp: (String) -> Unit,
-    onManageCache: () -> Unit
+    onRetry: () -> Unit,
+    onReviewConflict: (String) -> Unit,
+    onManageCache: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, bottom = 32.dp),
         ) {
             // Main status row (larger than the old caption-sized row)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val status = syncStatusOf(uiState)
-                val icon = when (status) {
-                    SyncStatus.OFFLINE -> Icons.Outlined.CloudOff
-                    SyncStatus.IDLE -> Icons.Outlined.CheckCircle
-                    else -> Icons.Outlined.CloudSync
-                }
-                val statusText: String = when (status) {
-                    SyncStatus.SYNCING ->
-                        stringResource(R.string.offline_sync_status_syncing)
-                    SyncStatus.PREDOWNLOAD -> {
-                        val phase = (uiState.preDownloadState as PreDownloadState.Running).phase
-                        stringResource(
-                            R.string.sync_status_predownload,
-                            preDownloadPhaseLabel(phase)
-                        )
+                val icon =
+                    when (status) {
+                        SyncStatus.OFFLINE -> Icons.Outlined.CloudOff
+                        SyncStatus.IDLE -> Icons.Outlined.CheckCircle
+                        else -> Icons.Outlined.CloudSync
                     }
-                    SyncStatus.PENDING ->
-                        stringResource(R.string.sync_status_pending, uiState.pendingOpsCount)
-                    SyncStatus.OFFLINE ->
-                        stringResource(R.string.sync_status_offline)
-                    SyncStatus.RATE_LIMITED ->
-                        stringResource(R.string.sync_status_rate_limited)
-                    SyncStatus.IDLE ->
-                        stringResource(R.string.sync_status_idle)
-                }
+                val statusText: String =
+                    when (status) {
+                        SyncStatus.SYNCING -> {
+                            stringResource(R.string.offline_sync_status_syncing)
+                        }
+
+                        SyncStatus.PREDOWNLOAD -> {
+                            val phase = (uiState.preDownloadState as PreDownloadState.Running).phase
+                            stringResource(
+                                R.string.sync_status_predownload,
+                                preDownloadPhaseLabel(phase),
+                            )
+                        }
+
+                        SyncStatus.PENDING -> {
+                            stringResource(R.string.sync_status_pending, uiState.pendingOpsCount)
+                        }
+
+                        SyncStatus.OFFLINE -> {
+                            stringResource(R.string.sync_status_offline)
+                        }
+
+                        SyncStatus.RATE_LIMITED -> {
+                            stringResource(R.string.sync_status_rate_limited)
+                        }
+
+                        SyncStatus.IDLE -> {
+                            stringResource(R.string.sync_status_idle)
+                        }
+                    }
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(24.dp),
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
                         statusText,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
                     )
                     Text(
-                        text = stringResource(
-                            R.string.sync_panel_last_sync,
-                            if (uiState.lastSyncTime <= 0L) stringResource(R.string.sync_time_never)
-                            else DateUtils.getRelativeTimeSpanString(
-                                uiState.lastSyncTime, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS
-                            ).toString()
-                        ),
+                        text =
+                            stringResource(
+                                R.string.sync_panel_last_sync,
+                                if (uiState.lastSyncTime <= 0L) {
+                                    stringResource(R.string.sync_time_never)
+                                } else {
+                                    DateUtils
+                                        .getRelativeTimeSpanString(
+                                            uiState.lastSyncTime,
+                                            System.currentTimeMillis(),
+                                            DateUtils.SECOND_IN_MILLIS,
+                                        ).toString()
+                                },
+                            ),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+
+            TextButton(onClick = onRetry, enabled = !uiState.isSyncing) {
+                Text(stringResource(R.string.profile_retry))
             }
 
             // Pending ops queue
@@ -188,12 +225,13 @@ fun SyncStatusPanel(
                 Text(
                     stringResource(R.string.sync_panel_queue, uiState.pendingOps.size),
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
                 uiState.pendingOps.forEach { op ->
                     PendingOperationItem(
                         op = op,
-                        onDelete = { onDeleteOp(op.id) }
+                        onDelete = { onDeleteOp(op.id) },
+                        onReviewConflict = { onReviewConflict(op.id) },
                     )
                 }
             }
@@ -203,12 +241,13 @@ fun SyncStatusPanel(
             when (val state = uiState.preDownloadState) {
                 is PreDownloadState.Running -> {
                     Text(
-                        text = stringResource(
-                            R.string.sync_panel_predownload_running,
-                            preDownloadPhaseLabel(state.phase),
-                            state.page
-                        ),
-                        style = MaterialTheme.typography.bodySmall
+                        text =
+                            stringResource(
+                                R.string.sync_panel_predownload_running,
+                                preDownloadPhaseLabel(state.phase),
+                                state.page,
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     // Indeterminate: the total page count is unknown, and a
@@ -221,11 +260,11 @@ fun SyncStatusPanel(
                     Text(
                         text = stringResource(R.string.offline_predownload_failed, state.message),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
 
-                else -> Unit
+                else -> {}
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -233,7 +272,7 @@ fun SyncStatusPanel(
                 SettingsNavigationRow(
                     title = stringResource(R.string.sync_panel_manage_cache),
                     icon = Icons.Outlined.Storage,
-                    onClick = onManageCache
+                    onClick = onManageCache,
                 )
             }
         }
@@ -241,7 +280,11 @@ fun SyncStatusPanel(
 }
 
 @Composable
-private fun PendingOperationItem(op: PendingOp, onDelete: () -> Unit) {
+private fun PendingOperationItem(
+    op: PendingOp,
+    onDelete: () -> Unit,
+    onReviewConflict: () -> Unit,
+) {
     var expanded by remember(op.id) { mutableStateOf(false) }
     // Deleting a queued op discards an unsynced user write, so it needs an
     // explicit confirmation (same AlertDialog pattern as RecoveryCard).
@@ -250,50 +293,59 @@ private fun PendingOperationItem(op: PendingOp, onDelete: () -> Unit) {
     val payloadSummary = remember(op.payloadJson) { pendingPayloadSummary(op.payloadJson) }
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
         shape = MaterialTheme.shapes.medium,
-        color = if (op.permanentlyFailed) {
-            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerLow
-        }
+        color =
+            if (op.permanentlyFailed) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(start = 12.dp, top = 8.dp, end = 4.dp, bottom = 8.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(start = 12.dp, top = 8.dp, end = 4.dp, bottom = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = opTypeLabel(op),
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
                     )
                     Text(
                         text = payloadSummary ?: target,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = stringResource(
-                        if (expanded) R.string.sync_queue_collapse else R.string.sync_queue_expand
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentDescription =
+                        stringResource(
+                            if (expanded) R.string.sync_queue_collapse else R.string.sync_queue_expand,
+                        ),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (op.status == PendingOpStatus.CONFLICT.name) {
+                    TextButton(onClick = onReviewConflict) {
+                        Text(stringResource(R.string.sync_queue_review_conflict))
+                    }
+                }
                 IconButton(onClick = { confirmDelete = true }) {
                     Icon(
                         Icons.Outlined.Delete,
                         contentDescription = stringResource(R.string.offline_sync_delete_op),
                         tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
@@ -302,33 +354,33 @@ private fun PendingOperationItem(op: PendingOp, onDelete: () -> Unit) {
                 Spacer(modifier = Modifier.height(6.dp))
                 PendingOperationDetail(
                     label = stringResource(R.string.sync_queue_target),
-                    value = target
+                    value = target,
                 )
                 PendingOperationDetail(
                     label = stringResource(R.string.sync_queue_queued_at),
-                    value = formatOperationTime(op.createdAt)
+                    value = formatOperationTime(op.createdAt),
                 )
                 PendingOperationDetail(
                     label = stringResource(R.string.sync_queue_attempts),
-                    value = op.attemptCount.toString()
+                    value = op.attemptCount.toString(),
                 )
                 if (op.lastAttemptAt > 0L) {
                     PendingOperationDetail(
                         label = stringResource(R.string.sync_queue_last_attempt),
-                        value = formatOperationTime(op.lastAttemptAt)
+                        value = formatOperationTime(op.lastAttemptAt),
                     )
                 }
                 if (!op.updateMask.isNullOrBlank()) {
                     PendingOperationDetail(
                         label = stringResource(R.string.sync_queue_fields),
-                        value = op.updateMask
+                        value = op.updateMask,
                     )
                 }
                 if (!op.lastError.isNullOrBlank()) {
                     PendingOperationDetail(
                         label = stringResource(R.string.sync_queue_error),
                         value = op.lastError,
-                        isError = true
+                        isError = true,
                     )
                 }
                 if (op.permanentlyFailed) {
@@ -336,7 +388,7 @@ private fun PendingOperationItem(op: PendingOp, onDelete: () -> Unit) {
                         text = stringResource(R.string.sync_queue_needs_attention),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
@@ -354,9 +406,10 @@ private fun PendingOperationItem(op: PendingOp, onDelete: () -> Unit) {
                         confirmDelete = false
                         onDelete()
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
+                    colors =
+                        androidx.compose.material3.ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
                 ) {
                     Text(stringResource(R.string.offline_sync_delete_op))
                 }
@@ -365,30 +418,35 @@ private fun PendingOperationItem(op: PendingOp, onDelete: () -> Unit) {
                 TextButton(onClick = { confirmDelete = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
-            }
+            },
         )
     }
 }
 
 @Composable
-private fun PendingOperationDetail(label: String, value: String, isError: Boolean = false) {
+private fun PendingOperationDetail(
+    label: String,
+    value: String,
+    isError: Boolean = false,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 1.dp),
-        verticalAlignment = Alignment.Top
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 1.dp),
+        verticalAlignment = Alignment.Top,
     ) {
         Text(
             text = "$label:",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(92.dp)
+            modifier = Modifier.width(92.dp),
         )
         Text(
             text = value,
             style = MaterialTheme.typography.labelSmall,
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -397,15 +455,17 @@ private fun pendingPayloadSummary(payloadJson: String?): String? {
     if (payloadJson.isNullOrBlank()) return null
     return runCatching {
         val payload = GsonProvider.gson.fromJson(payloadJson, com.google.gson.JsonObject::class.java)
-        payload.get("content")?.takeUnless { it.isJsonNull }?.asString
+        payload
+            .get("content")
+            ?.takeUnless { it.isJsonNull }
+            ?.asString
             ?.replace(Regex("\\s+"), " ")
             ?.trim()
             ?.take(120)
     }.getOrNull()?.takeIf { it.isNotBlank() }
 }
 
-private fun formatOperationTime(timestamp: Long): String =
-    SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+private fun formatOperationTime(timestamp: Long): String = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
 
 @Composable
 private fun opTypeLabel(op: PendingOp): String {
@@ -418,6 +478,6 @@ private fun opTypeLabel(op: PendingOp): String {
             PendingOpType.COMMENT_CREATE -> R.string.offline_op_comment_create
             PendingOpType.REACTION_UPSERT -> R.string.offline_op_reaction_upsert
             PendingOpType.REACTION_DELETE -> R.string.offline_op_reaction_delete
-        }
+        },
     )
 }

@@ -1,5 +1,7 @@
 package org.example.memosm.ui.component.item.media
 
+import org.example.memosm.api.resourceAuthorization
+
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,30 +23,40 @@ fun FullScreenImageViewer(
     model: Any,
     filename: String,
     token: String?,
+    hostUrl: String,
     onDismiss: () -> Unit,
     originBounds: (() -> Rect?)? = null,
     infoContent: (@Composable () -> Unit)? = null,
-    actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null
+    actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null,
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
     val context = LocalContext.current
     var imageSize by remember(model) { mutableStateOf(IntSize.Zero) }
-    val request = remember(model, token, accountIdentity) {
-        val headers = NetworkHeaders.Builder().apply {
-            if (token != null) set("Authorization", "Bearer $token")
-        }.build()
-        ImageRequest.Builder(context).data(model).httpHeaders(headers)
-            .memoryCacheKey(accountMediaCacheKey(accountId, model.toString()))
-            .diskCacheKey(accountMediaCacheKey(accountId, model.toString())).build()
-    }
+    val request =
+        remember(model, token, accountIdentity, hostUrl) {
+            val headers =
+                NetworkHeaders
+                    .Builder()
+                    .apply {
+                        resourceAuthorization(hostUrl, model, token)
+                            ?.let { set("Authorization", it) }
+                    }.build()
+            ImageRequest
+                .Builder(context)
+                .data(model)
+                .httpHeaders(headers)
+                .memoryCacheKey(accountMediaCacheKey(accountId, model.toString()))
+                .diskCacheKey(accountMediaCacheKey(accountId, model.toString()))
+                .build()
+        }
     FullScreenMediaDialog(
         onDismiss = onDismiss,
         title = filename,
         mediaAspectRatio = if (imageSize.height > 0) imageSize.width.toFloat() / imageSize.height else null,
         originBounds = originBounds,
         infoContent = infoContent,
-        actionsContent = actionsContent
+        actionsContent = actionsContent,
     ) {
         AsyncImage(
             model = request,
@@ -52,8 +64,14 @@ fun FullScreenImageViewer(
             modifier = Modifier.fillMaxSize().zoomable(true, imageSize, doubleTapZoom = true),
             contentScale = ContentScale.Fit,
             onSuccess = {
-                imageSize = IntSize(it.painter.intrinsicSize.width.toInt(), it.painter.intrinsicSize.height.toInt())
-            }
+                imageSize =
+                    IntSize(
+                        it.painter.intrinsicSize.width
+                            .toInt(),
+                        it.painter.intrinsicSize.height
+                            .toInt(),
+                    )
+            },
         )
     }
 }

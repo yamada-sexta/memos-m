@@ -1,6 +1,7 @@
 package org.example.memosm.ui.component.item
 
-import org.example.memosm.ui.theme.flatCardElevation
+import org.example.memosm.api.resourceAuthorization
+
 import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
@@ -81,6 +82,7 @@ import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.network.httpHeaders
 import org.example.memosm.R
+import org.example.memosm.api.resolveResourceUrl
 import org.example.memosm.model.Memo
 import org.example.memosm.model.MemoRelationType
 import org.example.memosm.model.MemoState
@@ -91,10 +93,9 @@ import org.example.memosm.ui.component.ActionSheet
 import org.example.memosm.ui.component.ActionSheetItem
 import org.example.memosm.ui.component.item.markdown.NativeComposeMarkdown
 import org.example.memosm.ui.component.item.media.AttachmentOrigins
-import org.example.memosm.ui.component.item.media.attachmentOrigin
 import org.example.memosm.ui.component.item.media.FullScreenAttachmentViewer
-import org.example.memosm.ui.component.resolveResourceUrl
-
+import org.example.memosm.ui.component.item.media.attachmentOrigin
+import org.example.memosm.ui.theme.flatCardElevation
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +120,7 @@ fun MemoItem(
     isDetailView: Boolean = false,
     reactionOptions: List<String> = emptyList(),
     headerScale: Float,
-    onHashtagClick: ((String) -> Unit)? = null
+    onHashtagClick: ((String) -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showReactionPicker by remember { mutableStateOf(false) }
@@ -131,90 +132,106 @@ fun MemoItem(
 
     val unknownTime = stringResource(R.string.memo_unknown_time)
 
-    val formattedTime = remember(memo.displayTime) {
-        memo.displayTime?.let { instant ->
-            try {
-                DateUtils.getRelativeTimeSpanString(
-                    instant.toEpochMilliseconds(),
-                    System.currentTimeMillis(),
-                    DateUtils.MINUTE_IN_MILLIS
-                ).toString()
-            } catch (_: Exception) {
-                instant.toString()
-            }
-        } ?: unknownTime
-    }
-
-
+    val formattedTime =
+        remember(memo.displayTime) {
+            memo.displayTime?.let { instant ->
+                try {
+                    DateUtils
+                        .getRelativeTimeSpanString(
+                            instant.toEpochMilliseconds(),
+                            System.currentTimeMillis(),
+                            DateUtils.MINUTE_IN_MILLIS,
+                        ).toString()
+                } catch (_: Exception) {
+                    instant.toString()
+                }
+            } ?: unknownTime
+        }
 
     Card(
         elevation = flatCardElevation(),
-        modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, colors = colors
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = colors,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-                .padding(
-                    start = 12.dp,
-                    top = if (user != null) 12.dp else 4.dp,
-                    end = 4.dp,
-                    bottom = 12.dp
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                    .padding(
+                        start = 12.dp,
+                        top = if (user != null) 12.dp else 4.dp,
+                        end = 4.dp,
+                        bottom = 12.dp,
+                    ),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
                 ) {
                     if (user != null) {
-                        val avatarUrl = remember(user.avatarUrl, hostUrl) {
-                            resolveResourceUrl(hostUrl, user.avatarUrl)
-                        }
-                        if (avatarUrl != null) {
-                            val imageRequest = remember(avatarUrl, token) {
-                                val headers = coil3.network.NetworkHeaders.Builder().apply {
-                                    if (token.isNotEmpty()) {
-                                        set("Authorization", "Bearer $token")
-                                    }
-                                }.build()
-
-                                coil3.request.ImageRequest.Builder(context).data(avatarUrl)
-                                    .httpHeaders(headers).build()
+                        val avatarUrl =
+                            remember(user.avatarUrl, hostUrl) {
+                                resolveResourceUrl(hostUrl, user.avatarUrl)
                             }
+                        if (avatarUrl != null) {
+                            val imageRequest =
+                                remember(avatarUrl, token) {
+                                    val headers =
+                                        coil3.network.NetworkHeaders
+                                            .Builder()
+                                            .apply {
+                                                resourceAuthorization(
+                                                        hostUrl,
+                                                        avatarUrl,
+                                                        token,
+                                                    )?.let { set("Authorization", it) }
+                                            }.build()
+
+                                    coil3.request.ImageRequest
+                                        .Builder(context)
+                                        .data(avatarUrl)
+                                        .httpHeaders(headers)
+                                        .build()
+                                }
                             AsyncImage(
                                 model = imageRequest,
                                 contentDescription = stringResource(R.string.profile_avatar_description),
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
+                                modifier =
+                                    Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape),
+                                contentScale = ContentScale.Crop,
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Outlined.AccountCircle,
                                 contentDescription = null,
                                 modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.outline
+                                tint = MaterialTheme.colorScheme.outline,
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(verticalArrangement = Arrangement.Center) {
                             Text(
-                                text = user.displayName ?: user.username
-                                ?: stringResource(R.string.memo_unknown_user),
+                                text =
+                                    user.displayName ?: user.username
+                                        ?: stringResource(R.string.memo_unknown_user),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
-                                lineHeight = MaterialTheme.typography.labelSmall.lineHeight
+                                lineHeight = MaterialTheme.typography.labelSmall.lineHeight,
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = formattedTime,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 if (memo.pinned == true) {
@@ -222,36 +239,40 @@ fun MemoItem(
                                         imageVector = Icons.Outlined.PushPin,
                                         contentDescription = stringResource(R.string.profile_stats_pinned),
                                         modifier = Modifier.size(12.dp),
-                                        tint = MaterialTheme.colorScheme.secondary
+                                        tint = MaterialTheme.colorScheme.secondary,
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                 }
                                 VisibilityIcon(
                                     visibility = memo.visibility,
                                     modifier = Modifier.size(10.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 )
-                                val commentCount = remember(memo.relations) {
-                                    memo.relations?.count { it.type == MemoRelationType.COMMENT }
-                                        ?: 0
-                                }
+                                val commentCount =
+                                    remember(memo.relations) {
+                                        memo.relations?.count { it.type == MemoRelationType.COMMENT }
+                                            ?: 0
+                                    }
                                 if (commentCount > 0 && !isDetailView) {
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Outlined.Comment,
-                                        contentDescription = stringResource(
-                                            R.string.memo_detail_comments, commentCount
-                                        ),
+                                        contentDescription =
+                                            stringResource(
+                                                R.string.memo_detail_comments,
+                                                commentCount,
+                                            ),
                                         modifier = Modifier.size(10.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     )
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Text(
                                         text = commentCount.toString(),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.7f
-                                        )
+                                        color =
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                alpha = 0.7f,
+                                            ),
                                     )
                                 }
                             }
@@ -259,12 +280,12 @@ fun MemoItem(
                     } else {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            modifier = Modifier.padding(vertical = 4.dp),
                         ) {
                             Text(
                                 text = formattedTime,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             if (memo.pinned == true) {
@@ -272,33 +293,36 @@ fun MemoItem(
                                     imageVector = Icons.Outlined.PushPin,
                                     contentDescription = stringResource(R.string.profile_stats_pinned),
                                     modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.secondary
+                                    tint = MaterialTheme.colorScheme.secondary,
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                             }
                             VisibilityIcon(
                                 visibility = memo.visibility,
                                 modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             )
-                            val commentCount = remember(memo.relations) {
-                                memo.relations?.count { it.type == MemoRelationType.COMMENT } ?: 0
-                            }
+                            val commentCount =
+                                remember(memo.relations) {
+                                    memo.relations?.count { it.type == MemoRelationType.COMMENT } ?: 0
+                                }
                             if (commentCount > 0 && !isDetailView) {
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Outlined.Comment,
-                                    contentDescription = stringResource(
-                                        R.string.memo_detail_comments, commentCount
-                                    ),
+                                    contentDescription =
+                                        stringResource(
+                                            R.string.memo_detail_comments,
+                                            commentCount,
+                                        ),
                                     modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 )
                                 Spacer(modifier = Modifier.width(2.dp))
                                 Text(
                                     text = commentCount.toString(),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 )
                             }
                         }
@@ -307,12 +331,13 @@ fun MemoItem(
 
                 if (onEdit != null || onDelete != null || onUpsertReaction != null || memo.name != null) {
                     IconButton(
-                        onClick = { showMenu = true }, modifier = Modifier.size(32.dp)
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.MoreVert,
                             contentDescription = stringResource(R.string.memo_action_more),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
@@ -321,29 +346,34 @@ fun MemoItem(
 
             Column(modifier = Modifier.padding(start = 0.dp, end = 0.dp)) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (maxHeight != Dp.Unspecified) {
-                                Modifier
-                                    .heightIn(max = maxHeight)
-                                    .clip(RectangleShape)
-                                    .graphicsLayer {
-                                        compositingStrategy = CompositingStrategy.Offscreen
-                                    }
-                                    .drawWithContent {
-                                        drawContent()
-                                        if (size.height >= maxHeight.toPx() - 1.dp.toPx()) {
-                                            drawRect(
-                                                brush = Brush.verticalGradient(
-                                                    0.7f to Color.Black, 1.0f to Color.Transparent
-                                                ), blendMode = BlendMode.DstIn
-                                            )
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (maxHeight != Dp.Unspecified) {
+                                    Modifier
+                                        .heightIn(max = maxHeight)
+                                        .clip(RectangleShape)
+                                        .graphicsLayer {
+                                            compositingStrategy = CompositingStrategy.Offscreen
+                                        }.drawWithContent {
+                                            drawContent()
+                                            if (size.height >= maxHeight.toPx() - 1.dp.toPx()) {
+                                                drawRect(
+                                                    brush =
+                                                        Brush.verticalGradient(
+                                                            0.7f to Color.Black,
+                                                            1.0f to Color.Transparent,
+                                                        ),
+                                                    blendMode = BlendMode.DstIn,
+                                                )
+                                            }
                                         }
-                                    }
-                            } else {
-                                Modifier
-                            })) {
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                ) {
                     NativeComposeMarkdown(
                         content = memo.content,
                         token = token,
@@ -351,10 +381,11 @@ fun MemoItem(
                         selectable = isDetailView,
                         onContentChange = onContentUpdate,
                         onHashtagClick = onHashtagClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 12.dp, end = 16.dp, bottom = 8.dp),
-                        headerScale = headerScale
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 16.dp, bottom = 8.dp),
+                        headerScale = headerScale,
                     )
                 }
 
@@ -366,9 +397,13 @@ fun MemoItem(
                                 val label = loc.placeholder ?: ""
                                 val geoUri =
                                     "geo:${loc.latitude},${loc.longitude}?q=${loc.latitude},${loc.longitude}${
-                                        if (label.isNotEmpty()) "(${
-                                            Uri.encode(label)
-                                        })" else ""
+                                        if (label.isNotEmpty()) {
+                                            "(${
+                                                Uri.encode(label)
+                                            })"
+                                        } else {
+                                            ""
+                                        }
                                     }"
                                 val intent = Intent(Intent.ACTION_VIEW, geoUri.toUri())
                                 context.startActivity(intent)
@@ -377,44 +412,46 @@ fun MemoItem(
                         enabled = isClickable,
                         shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Place,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(14.dp),
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = loc.placeholder ?: "${loc.latitude}, ${loc.longitude}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
                 }
 
-                val attachments = remember(memo.attachments) {
-                    memo.attachments ?: emptyList()
-                }
+                val attachments =
+                    remember(memo.attachments) {
+                        memo.attachments ?: emptyList()
+                    }
 
                 if (attachments.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     if (isDetailView) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(end = 8.dp)
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(end = 8.dp),
                         ) {
                             attachments.forEachIndexed { index, attachment ->
                                 var aspectRatio by remember(
-                                    attachment.name ?: attachment.filename
+                                    attachment.name ?: attachment.filename,
                                 ) {
                                     mutableFloatStateOf(16f / 9f)
                                 }
@@ -423,15 +460,17 @@ fun MemoItem(
                                     mediaModifier = Modifier.attachmentOrigin(attachmentOrigins, attachment),
                                     token = token,
                                     hostUrl = hostUrl,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(aspectRatio),
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(aspectRatio),
                                     compactMode = AttachmentCompactMode.Never,
                                     onClick = {
                                         fullScreenInitialIndex = index
                                         showFullScreenViewer = true
                                     },
-                                    onRatioAvailable = { ratio, _ -> aspectRatio = ratio })
+                                    onRatioAvailable = { ratio, _ -> aspectRatio = ratio },
+                                )
                             }
                         }
                     } else {
@@ -440,35 +479,44 @@ fun MemoItem(
                             state = scrollState,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(bottom = 4.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer {
-                                    compositingStrategy = CompositingStrategy.Offscreen
-                                }
-                                .drawWithContent {
-                                    drawContent()
-                                    val canScrollBackward = scrollState.canScrollBackward
-                                    val canScrollForward = scrollState.canScrollForward
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                    }.drawWithContent {
+                                        drawContent()
+                                        val canScrollBackward = scrollState.canScrollBackward
+                                        val canScrollForward = scrollState.canScrollForward
 
-                                    if (canScrollBackward || canScrollForward) {
-                                        val leftFade =
-                                            if (canScrollBackward) Color.Transparent else Color.Black
-                                        val rightFade =
-                                            if (canScrollForward) Color.Transparent else Color.Black
+                                        if (canScrollBackward || canScrollForward) {
+                                            val leftFade =
+                                                if (canScrollBackward) Color.Transparent else Color.Black
+                                            val rightFade =
+                                                if (canScrollForward) Color.Transparent else Color.Black
 
-                                        drawRect(
-                                            brush = Brush.horizontalGradient(
-                                                0f to leftFade,
-                                                0.05f to Color.Black,
-                                                0.95f to Color.Black,
-                                                1f to rightFade
-                                            ), blendMode = BlendMode.DstIn
-                                        )
-                                    }
-                                }) {
+                                            drawRect(
+                                                brush =
+                                                    Brush.horizontalGradient(
+                                                        0f to leftFade,
+                                                        0.05f to Color.Black,
+                                                        0.95f to Color.Black,
+                                                        1f to rightFade,
+                                                    ),
+                                                blendMode = BlendMode.DstIn,
+                                            )
+                                        }
+                                    },
+                        ) {
                             itemsIndexed(
                                 attachments,
-                                key = { index, it -> "${it.externalLink ?: "link"}_${it.filename}_${it.createTime ?: 0}_$index" }) { index, attachment ->
+                                key = {
+                                    index,
+                                    it,
+                                    ->
+                                    "${it.externalLink ?: "link"}_${it.filename}_${it.createTime ?: 0}_$index"
+                                },
+                            ) { index, attachment ->
                                 AttachmentCard(
                                     attachment = attachment,
                                     mediaModifier = Modifier.attachmentOrigin(attachmentOrigins, attachment),
@@ -480,7 +528,7 @@ fun MemoItem(
                                     onClick = {
                                         fullScreenInitialIndex = index
                                         showFullScreenViewer = true
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -488,53 +536,63 @@ fun MemoItem(
                 }
 
                 // Reactions
-                val reactions = remember(memo.reactions) {
-                    memo.reactions ?: emptyList()
-                }
+                val reactions =
+                    remember(memo.reactions) {
+                        memo.reactions ?: emptyList()
+                    }
                 if (reactions.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    val groupedReactions = remember(reactions) {
-                        reactions.groupBy { it.reactionType }
-                    }
+                    val groupedReactions =
+                        remember(reactions) {
+                            reactions.groupBy { it.reactionType }
+                        }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         groupedReactions.forEach { (type, reactionList) ->
                             val myReaction = reactionList.find { it.creator == currentUser?.name }
                             Surface(
-                                shape = RoundedCornerShape(12.dp), color = if (myReaction != null) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                }, border = if (myReaction != null) {
-                                    null
-                                } else {
-                                    null
-                                }, onClick = {
+                                shape = RoundedCornerShape(12.dp),
+                                color =
+                                    if (myReaction != null) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    },
+                                border =
+                                    if (myReaction != null) {
+                                        null
+                                    } else {
+                                        null
+                                    },
+                                onClick = {
                                     if (myReaction != null) {
                                         // Pass the emoji type or the reaction name to the viewmodel
                                         onDeleteReaction?.invoke(myReaction)
                                     } else {
                                         onUpsertReaction?.invoke(type)
                                     }
-                                }) {
+                                },
+                            ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
-                                        text = type, style = MaterialTheme.typography.labelMedium
+                                        text = type,
+                                        style = MaterialTheme.typography.labelMedium,
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = reactionList.size.toString(),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (myReaction != null) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
+                                        color =
+                                            if (myReaction != null) {
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
                                     )
                                 }
                             }
@@ -547,14 +605,15 @@ fun MemoItem(
 
     if (showMenu) {
         ActionSheet(
-            onDismissRequest = { showMenu = false }
+            onDismissRequest = { showMenu = false },
         ) {
-            if (memo.name != null && hostUrl.isNotBlank()) {
+            val serverName = memo.remoteName ?: memo.name?.takeIf { it.startsWith("memos/") }
+            if (serverName != null && hostUrl.isNotBlank()) {
                 ActionSheetItem(
                     text = { Text(stringResource(R.string.memo_action_open_web)) },
                     onClick = {
                         showMenu = false
-                        val memoId = memo.name.removePrefix("memos/")
+                        val memoId = serverName.removePrefix("memos/")
                         val baseUrl =
                             if (hostUrl.endsWith("/")) hostUrl else "$hostUrl/"
                         val webUrl = "${baseUrl}memos/$memoId"
@@ -563,13 +622,16 @@ fun MemoItem(
                             context.startActivity(intent)
                         } catch (e: Exception) {
                             Log.e(
-                                "MemoItem", "Failed to open web URL: $webUrl", e
+                                "MemoItem",
+                                "Failed to open web URL: $webUrl",
+                                e,
                             )
                         }
                     },
                     leadingIcon = {
                         Icon(Icons.Outlined.Language, contentDescription = null)
-                    })
+                    },
+                )
             }
 
             ActionSheetItem(
@@ -580,8 +642,8 @@ fun MemoItem(
                 },
                 leadingIcon = {
                     Icon(Icons.Outlined.Description, contentDescription = null)
-                })
-
+                },
+            )
 
             if (onUpsertReaction != null) {
                 ActionSheetItem(
@@ -592,7 +654,8 @@ fun MemoItem(
                     },
                     leadingIcon = {
                         Icon(Icons.Outlined.AddReaction, contentDescription = null)
-                    })
+                    },
+                )
             }
             if (onEdit != null) {
                 ActionSheetItem(
@@ -603,9 +666,11 @@ fun MemoItem(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Outlined.Edit, contentDescription = null
+                            Icons.Outlined.Edit,
+                            contentDescription = null,
                         )
-                    })
+                    },
+                )
             }
             if (onPin != null && memo.state == MemoState.NORMAL) {
                 val isPinned = memo.pinned == true
@@ -617,9 +682,11 @@ fun MemoItem(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Outlined.PushPin, contentDescription = null
+                            Icons.Outlined.PushPin,
+                            contentDescription = null,
                         )
-                    })
+                    },
+                )
             }
             if (onArchive != null && memo.state == MemoState.NORMAL) {
                 ActionSheetItem(
@@ -630,9 +697,11 @@ fun MemoItem(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Outlined.Archive, contentDescription = null
+                            Icons.Outlined.Archive,
+                            contentDescription = null,
                         )
-                    })
+                    },
+                )
             }
             if (onUnarchive != null && memo.state == MemoState.ARCHIVED) {
                 ActionSheetItem(
@@ -643,9 +712,11 @@ fun MemoItem(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Outlined.Unarchive, contentDescription = null
+                            Icons.Outlined.Unarchive,
+                            contentDescription = null,
                         )
-                    })
+                    },
+                )
             }
             if (onDelete != null) {
                 ActionSheetItem(
@@ -656,10 +727,11 @@ fun MemoItem(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Outlined.Delete, contentDescription = null
+                            Icons.Outlined.Delete,
+                            contentDescription = null,
                         )
                     },
-                    destructive = true
+                    destructive = true,
                 )
             }
         }
@@ -672,7 +744,8 @@ fun MemoItem(
             onReactionSelected = { emoji ->
                 onUpsertReaction?.invoke(emoji)
                 showReactionPicker = false
-            })
+            },
+        )
     }
 
     if (showRawTextDialog) {
@@ -683,9 +756,10 @@ fun MemoItem(
                 SelectionContainer {
                     Text(
                         text = memo.content,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
                     )
                 }
             },
@@ -693,7 +767,8 @@ fun MemoItem(
                 TextButton(onClick = { showRawTextDialog = false }) {
                     Text(stringResource(R.string.common_close))
                 }
-            })
+            },
+        )
     }
 
     if (showFullScreenViewer) {
@@ -704,7 +779,7 @@ fun MemoItem(
             token = token,
             hostUrl = hostUrl,
             onDismiss = { showFullScreenViewer = false },
-            originBounds = attachmentOrigins::boundsFor
+            originBounds = attachmentOrigins::boundsFor,
         )
     }
 }

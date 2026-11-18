@@ -469,4 +469,7 @@
     <string name="viewer_back">返回</string>
     <string name="video_playback_speed">视频播放速度</string>
     <string name="video_playback_error">无法播放此视频。</string>
+    <string name="offline_unavailable">离线时不可用。请连接网络以加载此内容。</string>
+    <string name="offline_filter_unavailable">此已保存的筛选条件需要网络连接。如有已加载的结果，将会显示。</string>
+    <string name="sync_queue_review_conflict">查看冲突</string>
 </resources>

@@ -42,6 +42,7 @@ import org.example.memosm.ui.findActivity
 fun VideoPlayer(
     url: String,
     token: String?,
+    hostUrl: String,
     modifier: Modifier = Modifier,
     isFullScreen: Boolean = false,
     onClick: (() -> Unit)? = null,
@@ -50,7 +51,7 @@ fun VideoPlayer(
     infoContent: (@Composable () -> Unit)? = null,
     actionsContent: (@Composable (showInfo: () -> Unit) -> Unit)? = null,
     onDurationAvailable: (Long) -> Unit = {},
-    filename: String? = null
+    filename: String? = null,
 ) {
     val accountIdentity = LocalAccountMediaIdentity.current
     val accountId = accountIdentity?.id
@@ -67,15 +68,19 @@ fun VideoPlayer(
         }
     }
 
-    val exoPlayer = remember(url, token, accountIdentity) {
-        val dataSourceFactory = MediaCache.createDataSourceFactory(context, token, accountId)
-        ExoPlayer.Builder(context).setMediaSourceFactory(
-            DefaultMediaSourceFactory(dataSourceFactory)
-        ).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
-            prepare()
+    val exoPlayer =
+        remember(url, token, accountIdentity, hostUrl) {
+            val dataSourceFactory = MediaCache.createDataSourceFactory(context, token, accountId, hostUrl)
+            ExoPlayer
+                .Builder(context)
+                .setMediaSourceFactory(
+                    DefaultMediaSourceFactory(dataSourceFactory),
+                ).build()
+                .apply {
+                    setMediaItem(MediaItem.fromUri(url))
+                    prepare()
+                }
         }
-    }
 
     var isReady by remember(exoPlayer) { mutableStateOf(false) }
     var mediaSize by remember(exoPlayer) { mutableStateOf(IntSize.Zero) }
@@ -89,22 +94,26 @@ fun VideoPlayer(
                 reportRatio(ratio)
             }
         }
-        val listener = object : Player.Listener {
-            override fun onEvents(player: Player, events: Player.Events) {
-                player.duration.takeIf { it > 0L }?.let(reportDuration)
-            }
+        val listener =
+            object : Player.Listener {
+                override fun onEvents(
+                    player: Player,
+                    events: Player.Events,
+                ) {
+                    player.duration.takeIf { it > 0L }?.let(reportDuration)
+                }
 
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    isReady = true
-                    reportVideoSize(exoPlayer.videoSize)
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY) {
+                        isReady = true
+                        reportVideoSize(exoPlayer.videoSize)
+                    }
+                }
+
+                override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    reportVideoSize(videoSize)
                 }
             }
-
-            override fun onVideoSizeChanged(videoSize: VideoSize) {
-                reportVideoSize(videoSize)
-            }
-        }
         exoPlayer.addListener(listener)
         onDispose {
             exoPlayer.removeListener(listener)
@@ -114,7 +123,7 @@ fun VideoPlayer(
 
     Box(
         modifier = modifier.background(if (isFullScreen) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         if (isFullScreen) {
             VideoPlaybackSurface(exoPlayer, mediaSize)
@@ -123,7 +132,7 @@ fun VideoPlayer(
                 player = if (isFullscreen) null else exoPlayer,
                 modifier = Modifier.fillMaxSize().alpha(if (isReady) 1f else 0f),
                 onClick = { onClick?.invoke() ?: run { isFullscreen = true } },
-                onLongClick = onLongClick
+                onLongClick = onLongClick,
             )
             if (!isReady) CircularProgressIndicator(modifier = Modifier.size(32.dp))
         }
@@ -133,10 +142,12 @@ fun VideoPlayer(
         FullScreenMediaDialog(
             onDismiss = { isFullscreen = false },
             title = filename,
-            mediaAspectRatio = mediaSize.takeIf { it.width > 0 && it.height > 0 }
-                ?.let { it.width.toFloat() / it.height },
+            mediaAspectRatio =
+                mediaSize
+                    .takeIf { it.width > 0 && it.height > 0 }
+                    ?.let { it.width.toFloat() / it.height },
             infoContent = infoContent,
-            actionsContent = actionsContent
+            actionsContent = actionsContent,
         ) {
             val activity = context.findActivity()
             val videoSize = exoPlayer.videoSize
@@ -145,11 +156,12 @@ fun VideoPlayer(
             DisposableEffect(Unit) {
                 val originalOrientation =
                     activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                activity?.requestedOrientation = if (isVertical) {
-                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                } else {
-                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                }
+                activity?.requestedOrientation =
+                    if (isVertical) {
+                        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    } else {
+                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    }
                 onDispose { activity?.requestedOrientation = originalOrientation }
             }
             VideoPlaybackSurface(exoPlayer, mediaSize)
@@ -158,7 +170,10 @@ fun VideoPlayer(
 }
 
 @Composable
-private fun VideoPlaybackSurface(player: Player, mediaSize: IntSize) {
+private fun VideoPlaybackSurface(
+    player: Player,
+    mediaSize: IntSize,
+) {
     val pollPosition = LocalViewerMediaActive.current && !LocalViewerGesturesBlocked.current && !LocalViewerImmersive.current
     val playback = rememberVideoPlaybackState(player, pollPosition)
     key(player) {
@@ -170,7 +185,7 @@ private fun VideoPlaybackSurface(player: Player, mediaSize: IntSize) {
             onChangeSpeed = playback::changeSpeed,
             onToggleMute = playback::toggleMute,
             onRetry = playback::retry,
-            mediaSize = mediaSize
+            mediaSize = mediaSize,
         ) { VideoSurface(player, Modifier.fillMaxSize()) }
     }
 }
@@ -181,7 +196,7 @@ private fun VideoSurface(
     player: Player?,
     modifier: Modifier,
     onClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null
+    onLongClick: (() -> Unit)? = null,
 ) {
     AndroidView(
         factory = { context ->
@@ -190,9 +205,11 @@ private fun VideoSurface(
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-                )
+                layoutParams =
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
             }
         },
         update = { view ->
@@ -200,12 +217,19 @@ private fun VideoSurface(
             view.useController = false
             view.setOnClickListener(if (onClick != null) android.view.View.OnClickListener { onClick() } else null)
             view.isClickable = onClick != null
-            view.setOnLongClickListener(if (onLongClick != null) android.view.View.OnLongClickListener {
-                onLongClick(); true
-            } else null)
+            view.setOnLongClickListener(
+                if (onLongClick != null) {
+                    android.view.View.OnLongClickListener {
+                        onLongClick()
+                        true
+                    }
+                } else {
+                    null
+                },
+            )
             view.isLongClickable = onLongClick != null
         },
         onRelease = { it.player = null },
-        modifier = modifier
+        modifier = modifier,
     )
 }

@@ -4,7 +4,10 @@ import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.Response
 
-class AuthInterceptor(private var token: String, private val rateLimit: ServerRateLimit = ServerRateLimit.shared) : Interceptor {
+class AuthInterceptor(
+    private var token: String,
+    private val rateLimit: ServerRateLimit = ServerRateLimit.shared,
+) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
         val builder = original.newBuilder()
@@ -17,17 +20,15 @@ class AuthInterceptor(private var token: String, private val rateLimit: ServerRa
         val remaining = rateLimit.remaining(request.url, token)
         if (remaining > 0) throw RateLimitException(remaining)
         Log.d("MemosApi", "--> ${request.method} ${request.url}")
-        if (token.isNotEmpty()) {
-            Log.d("MemosApi", "Authorization: Bearer ${token.take(10)}...")
-        }
 
         val startTime = System.nanoTime()
-        val response = try {
-            chain.proceed(request)
-        } catch (e: Exception) {
-            Log.e("MemosApi", "<-- HTTP FAILED: $e")
-            throw e
-        }
+        val response =
+            try {
+                chain.proceed(request)
+            } catch (e: Exception) {
+                Log.e("MemosApi", "<-- HTTP FAILED: $e")
+                throw e
+            }
         val endTime = System.nanoTime()
         val durationMs = (endTime - startTime) / 1e6
 

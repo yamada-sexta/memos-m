@@ -1,255 +1,171 @@
 package org.example.memosm.data.cache
 
-import android.util.Log
-import kotlinx.coroutines.CancellationException
+import org.example.memosm.data.media.AttachmentUpload
+
+import androidx.paging.PagingSource
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import org.example.memosm.api.MemoOrderBy
+import org.example.memosm.data.backup.BackupCoordinator
+import org.example.memosm.data.sync.PendingOp
 import org.example.memosm.model.Memo
 
-private const val TAG = "MemoCacheRepository"
+/** All rendered memo values originate in Room; failures are never converted to empty data. */
+class MemoCacheRepository(
+    private val memoDao: MemoDao,
+) {
+    fun pagingSource(
+        accountId: String,
+        queryKey: String,
+        order: MemoOrderBy? = null,
+        sourceListType: CacheListType? = null,
+    ): PagingSource<Int, CachedMemo> = memoDao.pagingSource(accountId, queryKey, order?.name.orEmpty(), sourceListType?.name)
 
-/**
- * Repository for caching and retrieving memos from local storage.
- */
-class MemoCacheRepository(private val memoDao: MemoDao) {
+    fun observeQuery(
+        accountId: String,
+        queryKey: String,
+    ): Flow<CachedQuery?> = memoDao.observeQuery(accountId, queryKey)
 
-    suspend fun reconciliationCandidates(accountId: String): List<CachedMemoCandidate> =
-        memoDao.reconciliationCandidates(accountId)
+    suspend fun getQuery(
+        accountId: String,
+        queryKey: String,
+    ): CachedQuery? = memoDao.getQuery(accountId, queryKey)
 
-    suspend fun removeMissingMemo(accountId: String, candidate: CachedMemoCandidate): Boolean =
-        memoDao.deleteMissingMemo(accountId, candidate.name, candidate.cachedAt) > 0
+    fun observeMemo(
+        accountId: String,
+        name: String,
+    ): Flow<Memo?> =
+        memoDao.observeEntity(accountId, name).map {
+            it?.takeUnless { entity -> entity.deleted }?.visibleMemo()
+        }
 
-    /** Only an exhausted, unfiltered paging run may prune the initial list snapshot. */
-    suspend fun pruneMissingFromList(accountId: String, listType: CacheListType, names: List<String>, startedAt: Long) {
-        names.chunked(500).forEach { memoDao.pruneMissingFromList(accountId, listType.name, it, startedAt) }
+    fun observeCachedMemos(
+        accountId: String,
+        listTypes: List<CacheListType>,
+    ): Flow<List<Memo>> =
+        memoDao.observeMemos(accountId, listTypes.map { it.name }).map { rows -> rows.map { requireNotNull(it.toMemo()) } }
+
+    fun observeQueryMemos(
+        accountId: String,
+        queryKey: String,
+    ): Flow<List<Memo>> = memoDao.observeQueryMemos(accountId, queryKey).map { rows -> rows.map { requireNotNull(it.toMemo()) } }
+
+    suspend fun readCollectionSnapshot(
+        accountId: String,
+        queryKey: String,
+        sourceListTypes: List<CacheListType>,
+        allowFallback: Boolean,
+    ): Pair<List<Memo>, CachedQuery?> {
+        val (rows, query) = memoDao.readCollectionSnapshot(accountId, queryKey, sourceListTypes.map { it.name }, allowFallback)
+        return rows.map { requireNotNull(it.toMemo()) } to query
     }
 
-    /**
-     * Cache a list of memos for a specific account and list type.
-     *
-     * @param replace when true the existing cache for that list is replaced
-     * (first page of a fresh fetch); when false the new items are merged into
-     * the existing cache (subsequent pages accumulated for offline paging).
-     * @param parentName for [CacheListType.COMMENT] rows, the parent memo name.
-     */
-    suspend fun cacheMemos(
+    suspend fun resolveServerName(
         accountId: String,
+        localName: String,
+    ): String? {
+        val entity = memoDao.getEntity(accountId, localName)
+        return if (entity != null) entity.remoteName else localName.takeIf { it.startsWith("memos/") }
+    }
+
+    suspend fun beginRefresh(
+        accountId: String,
+        queryKey: String,
+        listType: CacheListType,
+        parentName: String? = null,
+        incremental: Boolean = false,
+    ): Long =
+        BackupCoordinator.withStorageLock {
+            memoDao.beginRefresh(accountId, queryKey, listType, parentName, incremental)
+        }
+
+    suspend fun ingestPage(
+        accountId: String,
+        queryKey: String,
         listType: CacheListType,
         memos: List<Memo>,
-        replace: Boolean = true,
-        parentName: String? = null
-    ) {
-        try {
-            // Cache non-null-named memos with their order preserved
-            val cachedMemos = memos
-                .filter { it.name != null }
-                .mapIndexed { index, memo ->
-                    CachedMemo.fromMemo(memo, accountId, listType, index, parentName)
-                }
-
-            memoDao.cacheRemoteMemos(accountId, listType.name, cachedMemos, replace)
-            Log.d(TAG, "Cached ${cachedMemos.size} memos for $listType (replace=$replace)")
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error caching memos for $listType", e)
-        }
+        parentName: String? = null,
+        nextPageToken: String?,
+        refresh: Boolean,
+        incremental: Boolean = false,
+        checkpointAt: Long = System.currentTimeMillis(),
+        expectedGeneration: Long? = null,
+        expectedPageToken: String? = null,
+    ) = BackupCoordinator.withStorageLock {
+        memoDao.ingestPage(
+            accountId,
+            queryKey,
+            listType,
+            memos,
+            parentName,
+            nextPageToken,
+            refresh,
+            incremental,
+            checkpointAt,
+            expectedGeneration,
+            expectedPageToken,
+        )
     }
 
-    /**
-     * Retrieve cached memos for a specific account and list type.
-     * [limit] bounds the result (null = all rows): the list prefill only needs
-     * the top rows for first paint and would otherwise deserialize the whole
-     * pre-downloaded history on every cold start.
-     * Returns empty list if no cache exists or on error.
-     */
-    suspend fun getCachedMemos(
+    suspend fun commitMutation(
+        op: PendingOp,
+        optimisticMemo: Memo?,
+        listType: CacheListType = CacheListType.USER,
+        parentName: String? = op.parentName,
+        uploads: List<AttachmentUpload> = emptyList(),
+    ) = BackupCoordinator.withStorageLock {
+        memoDao.commitMutation(op, optimisticMemo, listType, parentName, uploads)
+    }
+
+    suspend fun acknowledge(
+        op: PendingOp,
+        serverMemo: Memo? = null,
+    ) = BackupCoordinator.withStorageLock { memoDao.acknowledge(op, serverMemo) }
+
+    suspend fun discardMutation(
+        op: PendingOp,
+        serverMemo: Memo? = null,
+    ) = BackupCoordinator.withStorageLock {
+        memoDao.discardMutation(op, serverMemo)
+    }
+
+    suspend fun resolveMutation(
+        op: PendingOp,
+        serverMemo: Memo,
+        resolvedPayload: String? = null,
+        resolvedMask: String? = null,
+    ) = BackupCoordinator.withStorageLock {
+        memoDao.resolveMutation(op, serverMemo, resolvedPayload, resolvedMask)
+    }
+
+    suspend fun getCachedMemo(
+        accountId: String,
+        name: String,
+    ): Memo? =
+        memoDao
+            .getEntity(accountId, name)
+            ?.takeUnless {
+                it.deleted
+            }?.visibleMemo()
+
+    suspend fun clearCache(accountId: String) = BackupCoordinator.withStorageLock { memoDao.deleteAllForAccount(accountId) }
+
+    suspend fun getCachedCount(accountId: String): Int = memoDao.getCountForAccount(accountId)
+
+    suspend fun referencesAttachment(
+        accountId: String,
+        clientId: String,
+        localPath: String,
+    ): Boolean = memoDao.referencesAttachment(accountId, clientId, localPath)
+
+    suspend fun trimCachedMemos(
         accountId: String,
         listType: CacheListType,
-        parentName: String? = null,
-        limit: Int? = null
-    ): List<Memo> {
-        return try {
-            val cached = if (parentName != null) {
-                memoDao.getMemosByParent(accountId, listType.name, parentName)
-            } else if (limit != null) {
-                memoDao.getMemosLimited(accountId, listType.name, limit)
-            } else {
-                memoDao.getMemos(accountId, listType.name)
-            }
-            val memos = cached.mapNotNull { it.toMemo() }
-            Log.d(TAG, "Retrieved ${memos.size} cached memos for $listType")
-            memos
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error retrieving cached memos for $listType", e)
-            emptyList()
-        }
-    }
-
-    /**
-     * Return a single cached memo by name (across all list types), or null.
-     */
-    suspend fun getCachedMemo(accountId: String, name: String): Memo? {
-        return try {
-            memoDao.getMemoByName(accountId, name)?.toMemo()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error retrieving cached memo $name", e)
-            null
-        }
-    }
-
-    /**
-     * Local search over the cached memos of an account.
-     * Tags are AND-matched against the memo's tag set; results are deduped by
-     * memo name. [explore] restricts the search to the EXPLORE cache rows
-     * (PUBLIC/PROTECTED only) for the Explore-tab search; otherwise the
-     * user-owned lists (USER/ARCHIVED/EXPLORE) are searched.
-     */
-    suspend fun searchCachedMemos(
-        accountId: String,
-        query: String,
-        tags: List<String> = emptyList(),
-        startMillis: Long = 0L,
-        endMillis: Long = 0L,
-        limit: Int = 200,
-        explore: Boolean = false
-    ): List<Memo> {
-        return try {
-            val queryPattern = if (query.isBlank()) "" else "%${escapeLike(query)}%"
-            val listTypes = if (explore) {
-                listOf(CacheListType.EXPLORE.name)
-            } else {
-                listOf(CacheListType.USER.name, CacheListType.ARCHIVED.name, CacheListType.EXPLORE.name)
-            }
-            val cached = memoDao.searchMemosByContent(
-                accountId = accountId,
-                listTypes = listTypes,
-                queryPattern = queryPattern,
-                startTs = startMillis,
-                endTs = endMillis,
-                limit = limit * 2 // extra headroom so tag filtering doesn't starve the result set
-            )
-            val selectedTags = tags.mapNotNull { it.removePrefix("#") }.filter { it.isNotBlank() }
-            cached.mapNotNull { it.toMemo() }
-                .distinctBy { it.name }
-                .filter { memo ->
-                    val memoTags = memo.tags.orEmpty()
-                    selectedTags.all { tag -> memoTags.contains(tag) }
-                }
-                .take(limit)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error searching cached memos", e)
-            emptyList()
-        }
-    }
-
-    /**
-     * Insert or update a single cached memo (optimistic local write / sync result).
-     */
-    suspend fun upsertCachedMemo(
-        accountId: String,
-        memo: Memo,
-        listType: CacheListType = CacheListType.USER,
-        parentName: String? = null,
-        order: Int = 0
-    ) {
-        try {
-            memo.name ?: return
-            memoDao.insertMemo(CachedMemo.fromMemo(memo, accountId, listType, order, parentName))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error upserting cached memo", e)
-        }
-    }
-
-    /**
-     * Atomically persist a memo across list types: removes any stale row for
-     * the same name (e.g. when it moved between NORMAL/ARCHIVED) and inserts
-     * the fresh row in one transaction. Replaces the previous
-     * removeCachedMemo + upsertCachedMemo pair, which could race with a
-     * concurrent writer and leave the row missing.
-     */
-    suspend fun upsertCachedMemoState(
-        accountId: String,
-        memo: Memo,
-        listType: CacheListType = CacheListType.USER,
-        order: Int = 0
-    ) {
-        try {
-            memo.name ?: return
-            memoDao.saveMemoState(
-                CachedMemo.fromMemo(memo, accountId, listType, order, null)
-            )
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error upserting cached memo state", e)
-        }
-    }
-
-    /**
-     * Remove a memo from the cache across all list types (local delete).
-     */
-    suspend fun removeCachedMemo(accountId: String, name: String) {
-        try {
-            memoDao.deleteMemoByName(accountId, name)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error removing cached memo", e)
-        }
-    }
-
-    /**
-     * Clear all cached memos for an account.
-     */
-    suspend fun clearCache(accountId: String) {
-        try {
-            memoDao.deleteAllForAccount(accountId)
-            Log.d(TAG, "Cleared cache for account $accountId")
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error clearing cache for account $accountId", e)
-        }
-    }
-
-    /**
-     * Number of cached memos for an account (used for cache analysis).
-     */
-    suspend fun getCachedCount(accountId: String): Int {
-        return try {
-            memoDao.getCountForAccount(accountId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error counting cached memos", e)
-            0
-        }
-    }
-
-    /**
-     * Trim a list type's cache to the [keep] newest memos. Enforces the
-     * per-tier text cache size limit after a full pre-download.
-     */
-    suspend fun trimCachedMemos(accountId: String, listType: CacheListType, keep: Int) {
-        if (keep <= 0) return
-        try {
+        keep: Int,
+    ) = BackupCoordinator.withStorageLock {
+        if (keep > 0) {
             memoDao.trimListType(accountId, listType.name, keep)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error trimming cached memos for $listType", e)
+            memoDao.deleteCleanOrphans(accountId)
         }
     }
-
-    private fun escapeLike(value: String): String = value
-        .replace("\\", "\\\\")
-        .replace("%", "\\%")
-        .replace("_", "\\_")
 }

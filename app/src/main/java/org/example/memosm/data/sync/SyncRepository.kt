@@ -1,62 +1,76 @@
 package org.example.memosm.data.sync
 
 import kotlinx.coroutines.flow.Flow
+import org.example.memosm.api.GsonProvider
+import org.example.memosm.data.backup.BackupCoordinator
+import org.example.memosm.data.cache.MemoCacheRepository
 
-/**
- * Repository for the offline write queue (pending operations).
- */
-class SyncRepository(private val dao: PendingOpDao) {
-
-    suspend fun enqueue(op: PendingOp) {
-        // Consecutive edits to the same memo can be collapsed safely: each
-        // UPDATE payload is a complete optimistic memo, so only the newest
-        // payload is needed while retaining the original server base version.
-        if (op.type == PendingOpType.UPDATE.name && op.memoName != null) {
-            val previous = dao.getLatestForMemo(
-                op.accountId, op.memoName, PendingOpType.UPDATE.name
-            )
-            if (previous != null && previous.createdAt <= op.createdAt) {
-                val mergedMask = (listOfNotNull(previous.updateMask, op.updateMask)
-                    .flatMap { it.split(',') }
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .toSet()
-                    .joinToString(","))
-                dao.insert(
-                    op.copy(
-                        id = previous.id,
-                        createdAt = previous.createdAt,
-                        baseUpdateTime = previous.baseUpdateTime ?: op.baseUpdateTime,
-                        updateMask = mergedMask.ifBlank { op.updateMask }
-                    )
-                )
-                return
-            }
-        }
-        dao.insert(op)
-    }
-
+/** Durable operations and their outcomes. Payloads are never compacted over an in-flight operation. */
+class SyncRepository(
+    private val dao: PendingOpDao,
+) {
     suspend fun getOps(accountId: String): List<PendingOp> = dao.getOps(accountId)
 
     suspend fun getOp(id: String): PendingOp? = dao.getOp(id)
 
     fun getOpsFlow(accountId: String): Flow<List<PendingOp>> = dao.getOpsFlow(accountId)
 
-    suspend fun deleteOp(id: String) = dao.deleteOp(id)
+    suspend fun clearForAccount(accountId: String) = BackupCoordinator.withStorageLock { dao.deleteOpsForAccount(accountId) }
 
-    suspend fun clearForAccount(accountId: String) = dao.deleteOpsForAccount(accountId)
+    suspend fun retry(id: String) = BackupCoordinator.withStorageLock { dao.retry(id) }
+
+    suspend fun retryAll(accountId: String) = BackupCoordinator.withStorageLock { dao.retryAll(accountId) }
+
+    suspend fun retryAuthentication(accountId: String) = BackupCoordinator.withStorageLock { dao.retryAuthentication(accountId) }
 
     suspend fun markFailed(
         id: String,
         attemptCount: Int,
         lastError: String?,
         lastAttemptAt: Long,
-        permanentlyFailed: Boolean = false
+        permanentlyFailed: Boolean = false,
     ) = dao.markFailed(id, attemptCount, lastError, lastAttemptAt, permanentlyFailed)
 
-    suspend fun renameMemo(accountId: String, oldName: String, newName: String) =
-        dao.renameMemo(accountId, oldName, newName)
+    suspend fun setStatus(
+        id: String,
+        status: PendingOpStatus,
+        serverJson: String? = null,
+    ) = dao.setStatus(id, status.name, serverJson)
 
-    suspend fun setBaseUpdateTime(id: String, baseUpdateTime: String?) =
-        dao.setBaseUpdateTime(id, baseUpdateTime)
+    suspend fun discard(
+        op: PendingOp,
+        cache: MemoCacheRepository,
+    ) = cache.discardMutation(op)
+
+    suspend fun resolveConflict(
+        item: ConflictItem,
+        resolution: ConflictResolution,
+        mergedContent: String?,
+        cache: MemoCacheRepository,
+    ) {
+        val op = dao.getOp(item.opId) ?: return
+        require(op.accountId == item.accountId)
+        if (op.status != PendingOpStatus.CONFLICT.name || resolution == ConflictResolution.LATER) return
+        val resolved =
+            when (resolution) {
+                ConflictResolution.KEEP_SERVER -> null
+                ConflictResolution.KEEP_LOCAL -> op.payloadJson
+                ConflictResolution.MERGE -> GsonProvider.gson.toJson(decodeMemo(op).copy(content = requireNotNull(mergedContent)))
+                ConflictResolution.LATER -> return
+            }
+        val resolvedMask =
+            if (resolution == ConflictResolution.MERGE) {
+                (
+                    op.updateMask
+                        .orEmpty()
+                        .split(',')
+                        .map(String::trim)
+                        .filter(String::isNotEmpty) + "content"
+                ).distinct()
+                    .joinToString(",")
+            } else {
+                null
+            }
+        cache.resolveMutation(op, item.serverMemo, resolved, resolvedMask)
+    }
 }

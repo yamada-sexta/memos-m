@@ -421,4 +421,7 @@
     <string name="viewer_back">Wstecz</string>
     <string name="video_playback_speed">Prędkość odtwarzania filmu</string>
     <string name="video_playback_error">Nie można odtworzyć tego filmu.</string>
+    <string name="offline_unavailable">Niedostępne offline. Połącz się, aby wczytać tę zawartość.</string>
+    <string name="offline_filter_unavailable">Ten zapisany filtr wymaga połączenia. Wcześniej wczytane wyniki są wyświetlane, jeśli są dostępne.</string>
+    <string name="sync_queue_review_conflict">Sprawdź konflikt</string>
 </resources>

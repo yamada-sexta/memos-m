@@ -466,4 +466,7 @@
     <string name="viewer_back">戻る</string>
     <string name="video_playback_speed">動画の再生速度</string>
     <string name="video_playback_error">この動画を再生できません。</string>
+    <string name="offline_unavailable">オフラインでは利用できません。接続してこのコンテンツを読み込んでください。</string>
+    <string name="offline_filter_unavailable">この保存済みフィルターには接続が必要です。読み込み済みの結果がある場合は表示されます。</string>
+    <string name="sync_queue_review_conflict">競合を確認</string>
 </resources>

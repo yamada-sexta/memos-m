@@ -8,38 +8,49 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import org.example.memosm.api.ServerRateLimit
-import org.example.memosm.viewmodel.ConnectionState
+import okhttp3.OkHttpClient
 import org.example.memosm.MainActivity
 import org.example.memosm.api.AuthInterceptor
 import org.example.memosm.api.MemosApiFactory
+import org.example.memosm.api.ServerRateLimit
 import org.example.memosm.data.DataStoreManager
 import org.example.memosm.data.backup.BackupCoordinator
+import org.example.memosm.data.cache.cachedMemos
 import org.example.memosm.data.network.ConnectivityObserver
 import org.example.memosm.model.Account
 import org.example.memosm.model.Memo
 import org.example.memosm.model.PasswordCredentials
 import org.example.memosm.model.SignInRequest
 import org.example.memosm.model.toUserSnapshot
+import org.example.memosm.viewmodel.ConnectionState
 import org.example.memosm.viewmodel.MemosViewModel
 import org.junit.Assert.*
 import org.junit.Assume.assumeNotNull
 import org.junit.Test
 import org.koin.core.context.GlobalContext
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Run against a disposable server with -e recoveryHost http://10.0.2.2:15230/. */
 class NetworkRecoveryTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
-    private fun shell(command: String): String = instrumentation.uiAutomation
-        .executeShellCommand(command).use { descriptor ->
-            java.io.FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText() }
-        }
 
-    private fun await(message: String, timeoutMs: Long = 20_000, predicate: () -> Boolean) {
+    private fun shell(command: String): String =
+        instrumentation.uiAutomation
+            .executeShellCommand(command)
+            .use { descriptor ->
+                java.io
+                    .FileInputStream(descriptor.fileDescriptor)
+                    .bufferedReader()
+                    .use { it.readText() }
+            }
+
+    private fun await(
+        message: String,
+        timeoutMs: Long = 20_000,
+        predicate: () -> Boolean,
+    ) {
         val deadline = android.os.SystemClock.elapsedRealtime() + timeoutMs
         while (!predicate() && android.os.SystemClock.elapsedRealtime() < deadline) Thread.sleep(100)
         assertTrue(message, predicate())
@@ -55,7 +66,12 @@ class NetworkRecoveryTest {
 
     @Test fun recoversAfterRateLimitCooldownWithoutRestart() = exerciseRestriction(doze = false, rateLimited = true)
 
-    private fun exerciseRestriction(doze: Boolean, batterySaver: Boolean = false, deleteRemote: Boolean = false, rateLimited: Boolean = false) = runBlocking {
+    private fun exerciseRestriction(
+        doze: Boolean,
+        batterySaver: Boolean = false,
+        deleteRemote: Boolean = false,
+        rateLimited: Boolean = false,
+    ) = runBlocking {
         val host = InstrumentationRegistry.getArguments().getString("recoveryHost")
         assumeNotNull(host)
         BackupCoordinator.awaitStartupRecovery()
@@ -69,19 +85,49 @@ class NetworkRecoveryTest {
         val originalAccess = shell("cmd connectivity get-package-networking-enabled ${context.packageName}").trim().endsWith(":allow")
         val blocked = AtomicBoolean(false)
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onBlockedStatusChanged(network: Network, value: Boolean) { blocked.set(value) }
-        }
-        val client = OkHttpClient.Builder().connectTimeout(3, TimeUnit.SECONDS)
-            .readTimeout(3, TimeUnit.SECONDS).build()
+        val callback =
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onBlockedStatusChanged(
+                    network: Network,
+                    value: Boolean,
+                ) {
+                    blocked.set(value)
+                }
+            }
+        val client =
+            OkHttpClient
+                .Builder()
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .readTimeout(3, TimeUnit.SECONDS)
+                .build()
         val unauthenticated = MemosApiFactory.create(host!!, client)
-        val login = unauthenticated.signIn(SignInRequest(passwordCredentials =
-            PasswordCredentials("recovery", "recovery-test-only")))
-        val api = MemosApiFactory.create(host, client.newBuilder()
-            .addInterceptor(AuthInterceptor(login.accessToken)).build())
+        val login =
+            unauthenticated.signIn(
+                SignInRequest(
+                    passwordCredentials =
+                        PasswordCredentials("recovery", "recovery-test-only"),
+                ),
+            )
+        val api =
+            MemosApiFactory.create(
+                host,
+                client
+                    .newBuilder()
+                    .addInterceptor(AuthInterceptor(login.accessToken))
+                    .build(),
+            )
         val memo = api.createMemo(Memo(content = "Network recovery regression"))
-        val account = Account(id = "network-recovery-integration", hostUrl = host,
-            accessToken = login.accessToken, isActive = true, user = api.getCurrentSession().user!!.toUserSnapshot())
+        val account =
+            Account(
+                id = "network-recovery-integration",
+                hostUrl = host,
+                accessToken = login.accessToken,
+                isActive = true,
+                user = api.getCurrentSession().user!!.toUserSnapshot(),
+            )
+        val repository = GlobalContext.get().get<org.example.memosm.data.cache.MemoCacheRepository>()
+
+        fun cachedMemos() = runBlocking { repository.cachedMemos(account.id, org.example.memosm.data.cache.CacheListType.USER) }
         var newMemo: Memo? = null
         try {
             settings.completeSetup()
@@ -92,8 +138,10 @@ class NetworkRecoveryTest {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 lateinit var viewModel: MemosViewModel
                 scenario.onActivity { viewModel = ViewModelProvider(it)[MemosViewModel::class.java] }
-                await("Initial fetch failed") { viewModel.uiState.value.isOnline &&
-                    viewModel.uiState.value.userMemoList.list.items.any { it.name == memo.name } }
+                await("Initial fetch failed") {
+                    viewModel.uiState.value.isOnline &&
+                        cachedMemos().any { it.name == memo.name }
+                }
                 if (rateLimited) {
                     newMemo = api.createMemo(Memo(content = "Created during rate-limit recovery test"))
                     ServerRateLimit.shared.record(host.toHttpUrl(), account.accessToken, 4_000)
@@ -103,21 +151,22 @@ class NetworkRecoveryTest {
                     repeat(3) { scenario.onActivity { viewModel.fetchUserMemos(refresh = true) } }
                     await("Pull to refresh stuck during cooldown") { !viewModel.uiState.value.isRefreshing }
                     assertTrue(viewModel.uiState.value.isOnline)
-                    assertTrue(viewModel.uiState.value.userMemoList.list.items.any { it.name == memo.name })
+                    assertTrue(cachedMemos().any { it.name == memo.name })
                     await("Cooldown recovery required another refresh or restart") {
                         viewModel.uiState.value.connectionState == ConnectionState.ONLINE &&
-                            viewModel.uiState.value.userMemoList.list.items.any { it.name == newMemo.name }
+                            cachedMemos().any { it.name == newMemo.name }
                     }
                 } else if (deleteRemote) {
                     api.deleteMemo(memo.name!!)
                     scenario.onActivity { viewModel.fetchUserMemos(refresh = true) }
-                    val repository = GlobalContext.get().get<org.example.memosm.data.cache.MemoCacheRepository>()
                     await("Remote deletion remained in the list or offline cache") {
-                        viewModel.uiState.value.userMemoList.list.items.none { it.name == memo.name } &&
+                        cachedMemos().none { it.name == memo.name } &&
                             runBlocking { repository.getCachedMemo(account.id, memo.name) == null }
                     }
-                    assertTrue("Deleted memo survived in offline search",
-                        repository.searchCachedMemos(account.id, "Network recovery regression").none { it.name == memo.name })
+                    assertTrue(
+                        "Deleted memo survived in offline search",
+                        repository.cachedMemos(account.id, org.example.memosm.data.cache.CacheListType.USER).none { it.name == memo.name },
+                    )
                 } else {
                     val observer = GlobalContext.get().get<ConnectivityObserver>()
                     shell("cmd connectivity set-package-networking-enabled false ${context.packageName}")
@@ -130,8 +179,10 @@ class NetworkRecoveryTest {
                     }
                     if (doze) shell("dumpsys deviceidle force-idle")
                     await("Android did not block this app's network") { blocked.get() }
-                    assertTrue("A real request should fail while this UID is blocked",
-                        runCatching { api.getInstanceProfile() }.isFailure)
+                    assertTrue(
+                        "A real request should fail while this UID is blocked",
+                        runCatching { api.getInstanceProfile() }.isFailure,
+                    )
                     await("App ignored Android's blocked-network callback") { !observer.isOnline.value }
                     await("App kept displaying an online connection while blocked") { !viewModel.uiState.value.isOnline }
                     if (doze) shell("dumpsys deviceidle unforce")
@@ -142,11 +193,13 @@ class NetworkRecoveryTest {
                     shell("cmd connectivity set-package-networking-enabled true ${context.packageName}")
                     scenario.moveToState(Lifecycle.State.RESUMED)
                     await("Recovery required restarting the app") {
-                        viewModel.uiState.value.isOnline && !viewModel.uiState.value.userMemoList.list.isLoading
+                        viewModel.uiState.value.isOnline
                     }
                     scenario.onActivity { viewModel.fetchUserMemos(refresh = true) }
-                    await("Manual refresh remained stuck") { !viewModel.uiState.value.isRefreshing &&
-                        !viewModel.uiState.value.userMemoList.list.isLoading && viewModel.uiState.value.isOnline }
+                    await("Manual refresh remained stuck") {
+                        !viewModel.uiState.value.isRefreshing &&
+                            viewModel.uiState.value.isOnline
+                    }
                 }
             }
         } finally {
