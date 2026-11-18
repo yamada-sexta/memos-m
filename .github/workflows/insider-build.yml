@@ -47,8 +47,8 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE }}" | base64 --decode > app/release.keystore
 
-      - name: Build Insider APK
-        run: ./gradlew assembleInsider
+      - name: Test and build Insider APK
+        run: ./gradlew :app:testDebugUnitTest :app:assembleInsider
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/app/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
