@@ -143,7 +143,8 @@ class NetworkRecoveryTest {
                         cachedMemos().any { it.name == memo.name }
                 }
                 if (rateLimited) {
-                    newMemo = api.createMemo(Memo(content = "Created during rate-limit recovery test"))
+                    val createdMemo = api.createMemo(Memo(content = "Created during rate-limit recovery test"))
+                    newMemo = createdMemo
                     ServerRateLimit.shared.record(host.toHttpUrl(), account.accessToken, 4_000)
                     await("Rate limit was labelled offline") {
                         viewModel.uiState.value.connectionState == ConnectionState.RATE_LIMITED
@@ -153,7 +154,7 @@ class NetworkRecoveryTest {
                     assertTrue(cachedMemos().any { it.name == memo.name })
                     await("Cooldown recovery required another refresh or restart") {
                         viewModel.uiState.value.connectionState == ConnectionState.ONLINE &&
-                            cachedMemos().any { it.name == newMemo.name }
+                            cachedMemos().any { it.name == createdMemo.name }
                     }
                 } else if (deleteRemote) {
                     api.deleteMemo(memo.name!!)
@@ -194,10 +195,11 @@ class NetworkRecoveryTest {
                     await("Recovery required restarting the app") {
                         viewModel.uiState.value.isOnline
                     }
-                    newMemo = api.createMemo(Memo(content = "Created before manual refresh"))
+                    val refreshedMemo = api.createMemo(Memo(content = "Created before manual refresh"))
+                    newMemo = refreshedMemo
                     scenario.onActivity { viewModel.fetchUserMemos(refresh = true) }
                     await("Manual refresh did not cache the new remote memo") {
-                        cachedMemos().any { it.name == newMemo.name }
+                        cachedMemos().any { it.name == refreshedMemo.name }
                     }
                 }
             }
