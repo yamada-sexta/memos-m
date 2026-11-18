@@ -42,8 +42,6 @@ import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneScaffold
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
@@ -92,7 +91,7 @@ fun MemosScaffold(
     listState: LazyListState,
     listPane: @Composable BoxScope.(onMemoClick: (Memo) -> Unit) -> Unit,
     topBar: @Composable (isDetailVisible: Boolean, isDualPane: Boolean) -> Unit = { _, _ -> },
-    overlay: @Composable BoxScope.(
+    header: @Composable (
         onMemoClick: (Memo) -> Unit,
         showSearchBar: Boolean,
         isSearchExpanded: Boolean,
@@ -221,19 +220,8 @@ fun MemosScaffold(
                     navigator = navigator,
                     listPane = {
                         AnimatedPane {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                listPane { memo ->
-                                    focusManager.clearFocus()
-                                    scope.launch {
-                                        val id = memo.name ?: memo.content.hashCode().toString()
-                                        navigator.navigateTo(
-                                            ListDetailPaneScaffoldRole.Detail,
-                                            MemoKey(id),
-                                        )
-                                    }
-                                }
-
-                                overlay(
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                header(
                                     { memo ->
                                         focusManager.clearFocus()
                                         scope.launch {
@@ -250,6 +238,18 @@ fun MemosScaffold(
                                     isDualPane,
                                     isDetailVisible,
                                 )
+                                Box(Modifier.weight(1f).fillMaxWidth()) {
+                                    listPane { memo ->
+                                        focusManager.clearFocus()
+                                        scope.launch {
+                                            val id = memo.name ?: memo.content.hashCode().toString()
+                                            navigator.navigateTo(
+                                                ListDetailPaneScaffoldRole.Detail,
+                                                MemoKey(id),
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
@@ -351,7 +351,7 @@ fun GenericMemosListPane(
     listState: LazyListState = rememberLazyListState(),
     userProvider: (Memo) -> User? = { null },
     header: (LazyListScope.() -> Unit)? = null,
-    contentPadding: PaddingValues = PaddingValues(start = 16.dp, top = 88.dp, end = 16.dp, bottom = 80.dp),
+    contentPadding: PaddingValues = PaddingValues(start = 16.dp, end = 16.dp, bottom = 80.dp),
     errorTitle: String = stringResource(R.string.common_error_failed_to_load),
     onHashtagClick: ((String) -> Unit)? = null,
     isActive: Boolean = true,
@@ -368,7 +368,7 @@ fun GenericMemosListPane(
                 viewModel.checkConnection()
             }
         },
-        modifier = modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) },
+        modifier = modifier.fillMaxSize().clipToBounds().pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) },
     ) {
         LazyColumn(
             state = listState,

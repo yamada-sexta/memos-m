@@ -9,8 +9,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -57,9 +55,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -105,8 +101,6 @@ fun MemosScreen(
             explorePages.itemSnapshotList.items
         }
     var isSearchExpanded by remember(activeFeed) { mutableStateOf(false) }
-    val density = LocalDensity.current
-    var feedHeaderHeight by remember { mutableStateOf(64.dp) }
     val context = LocalContext.current
     val openEditor = rememberMemoEditorLauncher(viewModel)
     val draftsLauncher =
@@ -186,7 +180,6 @@ fun MemosScreen(
                 val contentPadding =
                     PaddingValues(
                         start = 16.dp,
-                        top = 88.dp + feedHeaderHeight,
                         end = 16.dp,
                         bottom = bottomPadding,
                     )
@@ -219,49 +212,9 @@ fun MemosScreen(
                     }
                 }
             }
-        },
-        overlay = { onMemoClick, showSearchBar, searchExpanded, onSearchExpandedChange, isDualPane, isDetailVisible ->
-            AnimatedVisibility(
-                visible = (showSearchBar || searchExpanded) && (!searchExpanded || isDualPane || !isDetailVisible),
-                enter = slideInVertically { -it } + fadeIn(),
-                exit = slideOutVertically { -it } + fadeOut(),
-                modifier = Modifier.align(Alignment.TopCenter),
-            ) {
-                Column {
-                    key(activeFeed) {
-                        MemoSearchBar(
-                            viewModel = viewModel,
-                            isExplore = activeFeed == MemoFeed.EXPLORE,
-                            placeholder =
-                                stringResource(
-                                    if (activeFeed == MemoFeed.EXPLORE) {
-                                        R.string.memo_search_explore_placeholder
-                                    } else {
-                                        R.string.memo_search_placeholder
-                                    },
-                                ),
-                            onMemoClick = onMemoClick,
-                            onExpandedChange = {
-                                isSearchExpanded = it
-                                onSearchExpandedChange(it)
-                            },
-                        )
-                    }
-                    if (!searchExpanded) {
-                        MemoFeedTabs(
-                            pagerState,
-                            Modifier
-                                .testTag("memo_feed_tabs")
-                                .onSizeChanged {
-                                    feedHeaderHeight = with(density) { it.height.toDp() }
-                                }.padding(bottom = 16.dp),
-                        )
-                    }
-                }
-            }
 
             // FAB for creating new memo
-            if (uiState.session.currUser != null && !searchExpanded) {
+            if (uiState.session.currUser != null && !isSearchExpanded) {
                 // Animate FAB position only if nav bar can be toggled (onToggleNavBar provided)
                 val fabBottomPadding by animateDpAsState(
                     targetValue = if (onToggleNavBar != null && isNavBarVisible) 96.dp else 16.dp,
@@ -301,6 +254,41 @@ fun MemosScreen(
                             .align(Alignment.BottomEnd)
                             .padding(end = 16.dp, bottom = fabBottomPadding),
                 )
+            }
+        },
+        header = { onMemoClick, showSearchBar, searchExpanded, onSearchExpandedChange, isDualPane, isDetailVisible ->
+            AnimatedVisibility(
+                visible = (showSearchBar || searchExpanded) && (!searchExpanded || isDualPane || !isDetailVisible),
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column {
+                    key(activeFeed) {
+                        MemoSearchBar(
+                            viewModel = viewModel,
+                            isExplore = activeFeed == MemoFeed.EXPLORE,
+                            placeholder =
+                                stringResource(
+                                    if (activeFeed == MemoFeed.EXPLORE) {
+                                        R.string.memo_search_explore_placeholder
+                                    } else {
+                                        R.string.memo_search_placeholder
+                                    },
+                                ),
+                            onMemoClick = onMemoClick,
+                            onExpandedChange = {
+                                isSearchExpanded = it
+                                onSearchExpandedChange(it)
+                            },
+                        )
+                    }
+                    if (!searchExpanded) {
+                        MemoFeedTabs(
+                            pagerState,
+                            Modifier.testTag("memo_feed_tabs"),
+                        )
+                    }
+                }
             }
         },
     )
