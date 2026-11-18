@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import org.example.memosm.R
 import org.example.memosm.data.sync.PreDownloadState
@@ -174,22 +175,6 @@ fun MemosScreen(
         onToggleNavBar = { onToggleNavBar?.invoke(it) },
         isNavBarVisible = isNavBarVisible,
         navigationKey = activeFeed,
-        listHeader = { showSearchBar, searchExpanded ->
-            AnimatedVisibility(
-                visible = showSearchBar && !searchExpanded,
-                enter = slideInVertically { -it } + expandVertically() + fadeIn(),
-                exit = slideOutVertically { -it } + shrinkVertically() + fadeOut(),
-            ) {
-                MemoFeedTabs(
-                    pagerState,
-                    Modifier
-                        .testTag("memo_feed_tabs")
-                        .onSizeChanged {
-                            feedHeaderHeight = with(density) { it.height.toDp() }
-                        }.padding(bottom = 16.dp),
-                )
-            }
-        },
         listPane = { onMemoClick ->
             HorizontalPager(
                 state = pagerState,
@@ -209,6 +194,7 @@ fun MemosScreen(
                     MemoFeed.MEMOS -> {
                         MemosListPane(
                             viewModel = viewModel,
+                            memos = userPages,
                             listState = memosListState,
                             onMemoClick = onMemoClick,
                             contentPadding = contentPadding,
@@ -223,7 +209,6 @@ fun MemosScreen(
                             viewModel = viewModel,
                             modifier = Modifier.testTag("memo_feed_explore"),
                             memos = explorePages,
-                            onRefresh = { viewModel.fetchExploreMemos(refresh = true) },
                             onMemoClick = onMemoClick,
                             listState = exploreListState,
                             contentPadding = contentPadding,
@@ -242,24 +227,36 @@ fun MemosScreen(
                 exit = slideOutVertically { -it } + fadeOut(),
                 modifier = Modifier.align(Alignment.TopCenter),
             ) {
-                key(activeFeed) {
-                    MemoSearchBar(
-                        viewModel = viewModel,
-                        isExplore = activeFeed == MemoFeed.EXPLORE,
-                        placeholder =
-                            stringResource(
-                                if (activeFeed == MemoFeed.EXPLORE) {
-                                    R.string.memo_search_explore_placeholder
-                                } else {
-                                    R.string.memo_search_placeholder
-                                },
-                            ),
-                        onMemoClick = onMemoClick,
-                        onExpandedChange = {
-                            isSearchExpanded = it
-                            onSearchExpandedChange(it)
-                        },
-                    )
+                Column {
+                    key(activeFeed) {
+                        MemoSearchBar(
+                            viewModel = viewModel,
+                            isExplore = activeFeed == MemoFeed.EXPLORE,
+                            placeholder =
+                                stringResource(
+                                    if (activeFeed == MemoFeed.EXPLORE) {
+                                        R.string.memo_search_explore_placeholder
+                                    } else {
+                                        R.string.memo_search_placeholder
+                                    },
+                                ),
+                            onMemoClick = onMemoClick,
+                            onExpandedChange = {
+                                isSearchExpanded = it
+                                onSearchExpandedChange(it)
+                            },
+                        )
+                    }
+                    if (!searchExpanded) {
+                        MemoFeedTabs(
+                            pagerState,
+                            Modifier
+                                .testTag("memo_feed_tabs")
+                                .onSizeChanged {
+                                    feedHeaderHeight = with(density) { it.height.toDp() }
+                                }.padding(bottom = 16.dp),
+                        )
+                    }
                 }
             }
 
@@ -351,6 +348,7 @@ fun MemosScreen(
 @Composable
 private fun MemosListPane(
     viewModel: MemosViewModel,
+    memos: LazyPagingItems<Memo>,
     listState: LazyListState,
     onMemoClick: (Memo) -> Unit,
     contentPadding: PaddingValues,
@@ -359,7 +357,6 @@ private fun MemosListPane(
     isActive: Boolean,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val userPages = viewModel.userMemos.collectAsLazyPagingItems()
     val hasDrafts = uiState.draft.drafts.isNotEmpty()
     val shortcutListState = rememberLazyListState()
     val draftCount = uiState.draft.drafts.size
@@ -367,8 +364,7 @@ private fun MemosListPane(
     GenericMemosListPane(
         viewModel = viewModel,
         modifier = Modifier.testTag("memo_feed_memos"),
-        memos = userPages,
-        onRefresh = { viewModel.fetchUserMemos(refresh = true) },
+        memos = memos,
         onMemoClick = onMemoClick,
         listState = listState,
         contentPadding = contentPadding,

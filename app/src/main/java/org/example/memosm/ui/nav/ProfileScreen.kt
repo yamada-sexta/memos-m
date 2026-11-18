@@ -218,12 +218,26 @@ private fun ProfileListPane(
         }
     }
 
+    var refreshing by remember(uiState.accountGeneration) { mutableStateOf(false) }
     PullToRefreshBox(
-        isRefreshing = uiState.isRefreshing,
+        isRefreshing = refreshing,
         onRefresh = {
-            viewModel.fetchUserMemos(refresh = true)
-            viewModel.userDelegate.refreshInstanceSettings()
-            viewModel.userDelegate.refreshUserStats()
+            if (!refreshing) {
+                refreshing = true
+                val generation = uiState.accountGeneration
+                val userName = user?.name
+                scope.launch {
+                    try {
+                        viewModel.checkConnection()
+                        viewModel.userDelegate.fetchInstanceSettings()
+                        if (viewModel.uiState.value.accountGeneration == generation) {
+                            userName?.let { viewModel.userDelegate.fetchUserStats(it) }
+                        }
+                    } finally {
+                        refreshing = false
+                    }
+                }
+            }
         },
         modifier = Modifier.fillMaxSize(),
     ) {

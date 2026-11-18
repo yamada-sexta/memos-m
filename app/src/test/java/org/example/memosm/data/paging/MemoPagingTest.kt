@@ -5,6 +5,9 @@ import androidx.paging.testing.asSnapshot
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import org.example.memosm.account.stub
 import org.example.memosm.api.ApiConstants
@@ -121,6 +124,115 @@ class MemoPagingTest {
             assertTrue(recovered.complete)
             assertTrue(recovered.generation > loaded.generation)
             assertEquals(2, calls)
+        }
+
+    @Test fun remoteRefreshKeepsCachedItemsAndPersistsAcrossOfflineRestarts() =
+        runBlocking {
+            val app = ApplicationProvider.getApplicationContext<android.content.Context>()
+            val name = "memo-cache-${java.util.UUID.randomUUID()}.db"
+
+            fun openDisk() = Room.databaseBuilder(app, MemoCacheDatabase::class.java, name).build()
+            var disk = openDisk()
+            var collector: Job? = null
+            try {
+                var cache = MemoCacheRepository(disk.memoDao())
+                var online = true
+                var calls = 0
+                var fetch: suspend () -> org.example.memosm.model.ListMemosResponse = {
+                    org.example.memosm.model
+                        .ListMemosResponse(listOf(Memo(name = "memos/remote", content = "remote v1")), null)
+                }
+                val constants = context { error("Not a comment query") }.api.constants
+                val api =
+                    stub<MemosApi> { method, _ ->
+                        when (method) {
+                            "getConstants" -> {
+                                constants
+                            }
+
+                            "buildMemoCreatorFilter" -> {
+                                "creator == 'users/me'"
+                            }
+
+                            "listMemos" -> {
+                                calls++
+                                fetch()
+                            }
+
+                            else -> {
+                                error("Unexpected API: $method")
+                            }
+                        }
+                    }
+                val account = AccountContext(Account(id = "A"), api, OkHttpClient(), generation = 1)
+                val shown = kotlinx.coroutines.flow.MutableStateFlow(emptyList<Memo>())
+
+                fun presenter() =
+                    object : androidx.paging.PagingDataPresenter<Memo>(Dispatchers.Unconfined) {
+                        override suspend fun presentPagingDataEvent(event: androidx.paging.PagingDataEvent<Memo>) {
+                            shown.value = snapshot().items
+                        }
+                    }
+
+                suspend fun pages() =
+                    memoPages(account, cache, MemoQuery(CacheListType.USER), UserSnapshot(name = "users/me"), 20, { online }, { true })
+                val feed = presenter()
+                collector = launch { pages().collectLatest { feed.collectFrom(it) } }
+                withTimeout(10_000) { shown.first { it.map(Memo::content) == listOf("remote v1") } }
+                assertEquals(1, calls)
+
+                val started = CompletableDeferred<Unit>()
+                val release = CompletableDeferred<Unit>()
+                fetch = {
+                    started.complete(Unit)
+                    release.await()
+                    org.example.memosm.model
+                        .ListMemosResponse(listOf(Memo(name = "memos/remote", content = "remote v2")), null)
+                }
+                feed.refresh() // The same Paging refresh used by the pull gesture.
+                withTimeout(10_000) { started.await() }
+                assertEquals(listOf("remote v1"), feed.snapshot().items.map { it.content })
+                assertEquals("remote v1", cache.getCachedMemo("A", "memos/remote")!!.content)
+                release.complete(Unit)
+                withTimeout(10_000) { shown.first { it.map(Memo::content) == listOf("remote v2") } }
+                assertEquals(2, calls)
+                fetch = { throw java.io.IOException("Server unavailable") }
+                feed.refresh()
+                withTimeout(10_000) { feed.loadStateFlow.filterNotNull().first { it.refresh is androidx.paging.LoadState.Error } }
+                assertEquals(listOf("remote v2"), feed.snapshot().items.map { it.content })
+                assertEquals(3, calls)
+
+                collector.cancelAndJoin()
+                disk.close()
+                disk = openDisk()
+                cache = MemoCacheRepository(disk.memoDao())
+                online = false
+                shown.value = emptyList()
+                val offline = presenter()
+                collector = launch { pages().collectLatest { offline.collectFrom(it) } }
+                withTimeout(10_000) { shown.first { it.map(Memo::content) == listOf("remote v2") } }
+                assertEquals("remote v2", cache.getCachedMemo("A", "memos/remote")!!.content)
+                assertEquals(3, calls)
+            } finally {
+                collector?.cancelAndJoin()
+                disk.close()
+                app.deleteDatabase(name)
+            }
+        }
+
+    @Test fun offlineAttachmentsRemainReadableWhenOnlyPartOfTheRemoteListWasCached() =
+        runBlocking {
+            val cache =
+                org.example.memosm.data.offline
+                    .AttachmentCacheStore(database.cachedAttachmentMetaDao())
+            val attachment =
+                org.example.memosm.model
+                    .Attachment(name = "attachments/cached", filename = "photo", type = "image/jpeg")
+            cache.ingestPage("A", listOf(attachment), "uncached-next-page", true)
+            val offline = context { error("Offline browsing must not request the server") }
+            val items = withTimeout(10_000) { attachmentPages(offline, cache, { false }, { true }).asSnapshot() }
+            assertEquals(listOf(attachment.name), items.map { it.name })
+            assertEquals("uncached-next-page", cache.getQuery("A")!!.nextPageToken)
         }
 
     @Test fun commentsContinuePastOneHundredAndKeepWholeThreadOrdering() =

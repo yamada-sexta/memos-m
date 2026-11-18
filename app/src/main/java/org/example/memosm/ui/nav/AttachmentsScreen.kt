@@ -170,10 +170,6 @@ fun AttachmentsScreen(
         label = "BottomPadding",
     )
 
-    LaunchedEffect(Unit) {
-        viewModel.fetchAttachments(refresh = false)
-    }
-
     // Double tap refresh logic: scroll to top
     // We keep track of the last processed trigger to avoid scrolling to top
     // when just navigating back to this screen.
@@ -188,7 +184,8 @@ fun AttachmentsScreen(
     PullToRefreshBox(
         isRefreshing = attachmentPages.loadState.refresh is LoadState.Loading && attachmentPages.itemCount > 0,
         onRefresh = {
-            viewModel.fetchAttachments(refresh = true)
+            attachmentPages.refresh()
+            viewModel.checkConnection()
         },
         modifier =
             Modifier
@@ -242,7 +239,7 @@ fun AttachmentsScreen(
                     viewportWidth,
                     uiState.attachmentList.cellWidth,
                 )
-            if (attachmentItems.isEmpty() && loading && !uiState.isRefreshing) {
+            if (attachmentItems.isEmpty() && loading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (attachmentItems.isEmpty() && !loading) {
                 if (loadError != null || uiState.error != null) {

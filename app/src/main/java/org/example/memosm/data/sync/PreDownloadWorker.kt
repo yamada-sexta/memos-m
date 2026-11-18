@@ -144,7 +144,7 @@ suspend fun downloadMemoHistory(
     user: User,
     cache: MemoCacheRepository,
     includeExplore: Boolean,
-    keep: Int = Int.MAX_VALUE,
+    maxBytes: Long = Long.MAX_VALUE,
     isCurrent: suspend () -> Boolean = { true },
     onPage: suspend (Int) -> Unit = {},
 ): Int {
@@ -153,6 +153,9 @@ suspend fun downloadMemoHistory(
         listOf(Triple(CacheListType.USER, creator, null), Triple(CacheListType.ARCHIVED, creator, "ARCHIVED")) +
             if (includeExplore) listOf(Triple(CacheListType.EXPLORE, "visibility in ['PUBLIC', 'PROTECTED']", null)) else emptyList()
     var total = 0
+    var fetchedBytes = 0L
+    var truncated = false
+    val fetchedNames = mutableSetOf<String>()
     for ((type, filter, state) in lists) {
         val key = defaultQueryKey(type) + ":history"
         val startedAt = System.currentTimeMillis()
@@ -204,10 +207,22 @@ suspend fun downloadMemoHistory(
                 )
             }
             total += memos.size
+            if (maxBytes != Long.MAX_VALUE) {
+                val newNames = memos.mapNotNull { it.name }.filter { fetchedNames.add(it) }
+                fetchedBytes +=
+                    BackupCoordinator.withStorageLock {
+                        if (!isCurrent()) throw CancellationException("Account storage changed")
+                        cache.trimToBytes(accountId, maxBytes, newNames)
+                    }
+            }
             token = next
             page++
-        } while (token != null)
-        if (keep < Int.MAX_VALUE) cache.trimCachedMemos(accountId, type, keep)
+        } while (token != null && fetchedBytes < maxBytes)
+        if (fetchedBytes >= maxBytes) break
+    }
+    if (truncated || fetchedBytes >= maxBytes) BackupCoordinator.withStorageLock {
+        if (!isCurrent()) throw CancellationException("Account storage changed")
+        cache.invalidateHistory(accountId)
     }
     return total
 }
@@ -301,7 +316,7 @@ class PreDownloadWorker(
                             user,
                             cache,
                             explore,
-                            keep = maxOf(500, settings.textCacheMaxMb.first() * 50),
+                            maxBytes = settings.textCacheMaxMb.first().let { if (it <= 0) Long.MAX_VALUE else it.toLong() * 1024 * 1024 },
                             isCurrent = ::current,
                         ) { page ->
                             setProgress(workDataOf("phase" to "text", "page" to page))

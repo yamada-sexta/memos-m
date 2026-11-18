@@ -503,6 +503,8 @@ class MemosViewModel(
         }
     }
 
+    fun checkConnection() = reachabilityMonitor.checkNow()
+
     fun onForeground() {
         if (BackupCoordinator.startupReady.value && !BackupCoordinator.restoring.value && BackupCoordinator.recoveryError.value == null) {
             invalidateReads()
@@ -523,8 +525,6 @@ class MemosViewModel(
     fun fetchUserMemos(refresh: Boolean = false) = requestRefresh(RefreshSource.USerMemos, refresh)
 
     fun fetchExploreMemos(refresh: Boolean = false) = requestRefresh(RefreshSource.ExploreMemos, refresh)
-
-    fun fetchArchivedMemos(refresh: Boolean = false) = requestRefresh(RefreshSource.ArchivedMemos, refresh)
 
     fun fetchAttachments(refresh: Boolean = false) = requestRefresh(RefreshSource.Attachments, refresh)
 

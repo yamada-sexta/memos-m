@@ -1,16 +1,16 @@
 package org.example.memosm.data.cache
 
-import org.example.memosm.data.media.AttachmentUpload
-
 import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.MapColumn
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import org.example.memosm.api.GsonProvider
+import org.example.memosm.data.media.AttachmentUpload
 import org.example.memosm.data.media.CachedAttachmentMeta
 import org.example.memosm.data.media.toCachedMetadata
 import org.example.memosm.data.sync.EDITABLE_MEMO_FIELDS
@@ -24,9 +24,6 @@ import org.example.memosm.model.hasValidCoordinates
 private const val MEMBER_COLUMNS =
     "e.localId AS name,e.accountId,m.listType,e.visibleJson AS memoJson," +
         "m.position AS displayOrder,e.cachedAt,e.content,e.createTime,e.updateTime,e.visibility,e.state,e.tags,e.pinned,e.parentId AS parentName,e.remoteName"
-private const val ENTITY_COLUMNS =
-    "localId AS name,accountId,'' AS listType,visibleJson AS memoJson,0 AS displayOrder," +
-        "cachedAt,content,createTime,updateTime,visibility,state,tags,pinned,parentId AS parentName,remoteName"
 private const val MEMBER_JOIN = " FROM memo_entities e JOIN memo_memberships m ON e.accountId=m.accountId AND e.localId=m.localId "
 private const val MEMBER_ORDER =
     " ORDER BY CASE WHEN m.listType='USER' THEN e.pinned ELSE 0 END DESC," +
@@ -183,15 +180,6 @@ interface MemoDao {
         accountId: String,
         listType: String,
     ): List<CachedMemo>
-
-    @Query(
-        "SELECT " + ENTITY_COLUMNS +
-            " FROM memo_entities WHERE accountId=:accountId AND (localId=:name OR remoteName=:name) AND deleted=0 LIMIT 1",
-    )
-    suspend fun getMemoByName(
-        accountId: String,
-        name: String,
-    ): CachedMemo?
 
     @Query("SELECT COUNT(*) FROM memo_entities WHERE accountId=:accountId AND deleted=0")
     suspend fun getCountForAccount(accountId: String): Int
@@ -364,14 +352,46 @@ interface MemoDao {
     suspend fun deleteCleanOrphans(accountId: String)
 
     @Query(
-        "DELETE FROM memo_memberships WHERE accountId=:accountId AND listType=:listType AND localId NOT IN (" + PROTECTED +
-            ") AND localId NOT IN (SELECT e.localId FROM memo_entities e JOIN memo_memberships m ON m.accountId=e.accountId AND m.localId=e.localId WHERE e.accountId=:accountId AND m.listType=:listType GROUP BY e.localId ORDER BY e.createTime DESC LIMIT :keep)",
+        "SELECT COALESCE(remoteName,localId) AS name," +
+            "length(CAST(COALESCE(serverJson,'') AS BLOB))+length(CAST(visibleJson AS BLOB))+length(CAST(content AS BLOB))+length(CAST(tags AS BLOB)) AS bytes " +
+            "FROM memo_entities WHERE accountId=:accountId AND localId NOT IN (" + PROTECTED + ") " +
+            "AND localId NOT IN (SELECT parentId FROM memo_entities WHERE accountId=:accountId AND parentId IS NOT NULL) " +
+            "ORDER BY createTime DESC,localId ASC",
     )
-    suspend fun trimListType(
+    suspend fun cacheSizes(
         accountId: String,
-        listType: String,
-        keep: Int,
+    ): Map<
+        @MapColumn("name")
+        String,
+        @MapColumn("bytes")
+        Long,
+    >
+
+    @Query(
+        "UPDATE memo_queries SET complete=0,lastFullSnapshotAt=0,incrementalCursor=0 WHERE accountId=:accountId AND `key` LIKE '%:history'",
     )
+    suspend fun invalidateCacheBaselines(accountId: String)
+
+    @Transaction
+    suspend fun trimToBytes(
+        accountId: String,
+        maxBytes: Long,
+        fetchedNames: List<String>,
+    ): Pair<Long, Boolean> {
+        val sizes = cacheSizes(accountId)
+        val fetchedBytes = fetchedNames.sumOf { sizes[it]?.takeIf { bytes -> bytes <= maxBytes } ?: 0L }
+        var remaining = maxBytes
+        var evicted = false
+        for ((name, bytes) in sizes) {
+            if (bytes <= remaining) {
+                remaining -= bytes
+            } else {
+                deleteMemoByName(accountId, name)
+            }
+        }
+        if (evicted) invalidateCacheBaselines(accountId)
+        return fetchedBytes to evicted
+    }
 
     @Transaction
     suspend fun insertMemos(memos: List<CachedMemo>) {

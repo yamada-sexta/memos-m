@@ -17,8 +17,6 @@ class SyncRepository(
 
     suspend fun clearForAccount(accountId: String) = BackupCoordinator.withStorageLock { dao.deleteOpsForAccount(accountId) }
 
-    suspend fun retry(id: String) = BackupCoordinator.withStorageLock { dao.retry(id) }
-
     suspend fun retryAll(accountId: String) = BackupCoordinator.withStorageLock { dao.retryAll(accountId) }
 
     suspend fun retryAuthentication(accountId: String) = BackupCoordinator.withStorageLock { dao.retryAuthentication(accountId) }

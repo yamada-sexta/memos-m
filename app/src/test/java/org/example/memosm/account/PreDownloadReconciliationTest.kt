@@ -65,6 +65,96 @@ class PreDownloadReconciliationTest {
         override fun close() = database.close()
     }
 
+    @Test fun `prefetch follows pages to measured UTF8 budget and preserves pending edits`() =
+        runBlocking {
+            Fixture().use { fixture ->
+                val requests = mutableListOf<String?>()
+                fixture.fetch = { token, _ ->
+                    requests += token
+                    val index = token?.toInt() ?: 1
+                    ListMemosResponse(
+                        listOf(
+                            Memo(
+                                name = "memos/$index",
+                                content = "字".repeat(1000),
+                                createTime = kotlin.time.Instant.fromEpochMilliseconds(100L - index),
+                            ),
+                        ),
+                        if (index < 3) (index + 1).toString() else null,
+                    )
+                }
+                val pending = Memo(name = "offline-unsent", content = "keep my edit")
+                fixture.cache.commitMutation(
+                    org.example.memosm.data.sync.PendingOp.new(
+                        "A",
+                        org.example.memosm.data.sync.PendingOpType.CREATE,
+                        pending.name,
+                        payloadJson =
+                            org.example.memosm.api.GsonProvider.gson
+                                .toJson(pending),
+                    ),
+                    pending,
+                )
+                downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 14_000)
+                assertEquals(listOf<String?>(null, "2"), requests)
+                assertEquals("keep my edit", fixture.cache.getCachedMemo("A", "offline-unsent")!!.content)
+                assertNotNull(fixture.cache.getCachedMemo("A", "memos/1"))
+                assertNull(fixture.cache.getCachedMemo("A", "memos/2"))
+                assertTrue(
+                    fixture.database
+                        .memoDao()
+                        .cacheSizes("A")
+                        .values
+                        .sum() <= 14_000,
+                )
+                val query = fixture.cache.getQuery("A", "USER:history")!!
+                assertFalse(query.complete)
+                assertEquals(0L, query.lastFullSnapshotAt)
+                assertEquals(0L, query.incrementalCursor)
+                assertEquals("3", query.nextPageToken)
+
+                requests.clear()
+                // Raising/removing the limit must fetch the previously skipped pages, not use an incremental cursor.
+                downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false)
+                assertEquals(listOf<String?>(null, "2", "3"), requests)
+                assertTrue(fixture.cache.getQuery("A", "USER:history")!!.complete)
+                assertTrue((1..3).all { fixture.cache.getCachedMemo("A", "memos/$it") != null })
+            }
+        }
+
+    @Test fun `an oversized memo does not prevent caching a later page that fits`() =
+        runBlocking {
+            Fixture().use { fixture ->
+                val requests = mutableListOf<String?>()
+                fixture.fetch = { token, _ ->
+                    requests += token
+                    if (token == null) {
+                        ListMemosResponse(listOf(Memo(name = "memos/large", content = "x".repeat(20_000))), "next")
+                    } else {
+                        ListMemosResponse(listOf(Memo(name = "memos/small", content = "available offline")), null)
+                    }
+                }
+                downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 4_000)
+                assertEquals(listOf<String?>(null, "next"), requests)
+                assertNull(fixture.cache.getCachedMemo("A", "memos/large"))
+                assertEquals("available offline", fixture.cache.getCachedMemo("A", "memos/small")!!.content)
+                assertFalse(fixture.cache.getQuery("A", "USER:history")!!.complete)
+                assertEquals(0L, fixture.cache.getQuery("A", "USER:history")!!.incrementalCursor)
+            }
+        }
+
+    @Test fun `a complete pull below a finite budget keeps incremental refresh checkpoints`() = runBlocking {
+        Fixture().use { fixture ->
+            fixture.fetch = { _, _ -> ListMemosResponse(listOf(Memo(name = "memos/small", content = "fits")), null) }
+            downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 100_000)
+            assertTrue(fixture.cache.getQuery("A", "USER:history")!!.complete)
+            assertTrue(fixture.cache.getQuery("A", "USER:history")!!.incrementalCursor > 0)
+            fixture.filters.clear()
+            downloadMemoHistory(fixture.api, "A", UserSnapshot(name = "users/A"), fixture.cache, false, maxBytes = 100_000)
+            assertTrue(fixture.filters.all { "update_time >=" in it })
+        }
+    }
+
     @Test fun `partial full pull preserves old history and checkpoint`() =
         runBlocking {
             Fixture().use { fixture ->

@@ -8,7 +8,7 @@ Room is the source of rendered memo data. Network responses update Room; screens
 
 Each refresh reserves a generation before requesting the network. A response must match its generation and page token before ingestion. Partial refreshes retain prior cached memberships. Only an exhausted successful snapshot can prune missing entries, and pending changes remain protected.
 
-`PreDownloadWorker` performs exhaustive history pulls using the same ingestion transactions. History queries have separate pagination tokens from interactive queries. Incremental cursors and full-snapshot timestamps are independent and scoped to each collection. A new Explore selection establishes its own baseline. Download failures never advance the completion cooldown.
+`PreDownloadWorker` performs exhaustive history pulls using the same ingestion transactions. History queries have separate pagination tokens from interactive queries. Incremental cursors and full-snapshot timestamps are independent and scoped to each collection. A new Explore selection establishes its own baseline. Download failures never advance the completion cooldown. History fetching follows pages up to the configured text-cache budget, measured as UTF-8 stored memo JSON and indexed text rather than a memo-count estimate. Zero MB means unlimited. Budget eviction retains pending writes and parent dependencies; a truncated pull never advances a full-snapshot checkpoint.
 
 ## Writes
 

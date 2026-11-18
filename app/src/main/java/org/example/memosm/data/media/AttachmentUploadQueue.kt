@@ -306,9 +306,4 @@ class AttachmentUploadQueue(
             }
             retry
         }
-
-    companion object {
-        // Retained only as the durable work-name identifier used by old cancellation/backup callers.
-        fun workName(accountId: String) = WorkManagerSyncWorkScheduler.workName(accountId)
-    }
 }

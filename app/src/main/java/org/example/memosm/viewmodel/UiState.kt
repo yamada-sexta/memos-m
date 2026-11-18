@@ -104,7 +104,6 @@ data class MemosUiState(
     val accountGeneration: Long = 0L,
     val users: Map<String, User> = emptyMap(),
     val isPosting: Boolean = false,
-    val isRefreshing: Boolean = false,
     val refreshTrigger: Long = 0L,
     val refreshSource: RefreshSource = RefreshSource.Manual,
     val error: UiMessage? = null,

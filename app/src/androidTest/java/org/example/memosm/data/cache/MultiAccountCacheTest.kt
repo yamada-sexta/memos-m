@@ -34,8 +34,8 @@ class MultiAccountCacheTest {
                     ),
                     replace = true,
                 )
-                assertEquals("unsent A", dao.getMemoByName("A", "memos/1")?.toMemo()?.content)
-                assertEquals("server B", dao.getMemoByName("B", "memos/1")?.toMemo()?.content)
+                assertEquals("unsent A", dao.getEntity("A", "memos/1")?.visibleMemo()?.content)
+                assertEquals("server B", dao.getEntity("B", "memos/1")?.visibleMemo()?.content)
                 dao.seedCachedMemos("A", "USER", emptyList(), replace = true)
                 assertEquals(listOf("memos/1"), dao.getMemos("A", "USER").map { it.name })
                 assertEquals(1, db.pendingOpDao().getOps("A").size)

@@ -66,6 +66,15 @@ fun matchesLocalQuery(
     return true
 }
 
+/** Offline append ends remote loading; the Room source can still page through every cached row. */
+@OptIn(ExperimentalPagingApi::class)
+internal fun offlineLoadResult(loadType: LoadType): RemoteMediator.MediatorResult =
+    if (loadType == LoadType.APPEND) {
+        RemoteMediator.MediatorResult.Success(true)
+    } else {
+        RemoteMediator.MediatorResult.Error(IOException("Server is unavailable"))
+    }
+
 @OptIn(ExperimentalPagingApi::class)
 suspend fun memoPages(
     account: AccountContext,
@@ -112,7 +121,7 @@ suspend fun memoPages(
                         if (loadType == LoadType.APPEND && previous?.complete == true && token == null) {
                             return MediatorResult.Success(true)
                         }
-                        if (!canFetch()) return MediatorResult.Error(IOException("Server is unavailable"))
+                        if (!canFetch()) return offlineLoadResult(loadType)
                         if (loadType == LoadType.REFRESH) tokens.clear()
                         val generation =
                             if (loadType == LoadType.REFRESH) {

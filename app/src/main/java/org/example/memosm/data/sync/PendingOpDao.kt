@@ -45,11 +45,6 @@ interface PendingOpDao {
     )
 
     @Query(
-        "UPDATE pending_ops SET status = 'PENDING', permanentlyFailed = 0, lastError = NULL, lastAttemptAt = 0 WHERE id = :id AND status != 'CONFLICT'",
-    )
-    suspend fun retry(id: String)
-
-    @Query(
         "UPDATE pending_ops SET status = 'PENDING', permanentlyFailed = 0, lastError = NULL, lastAttemptAt = 0 WHERE accountId = :accountId AND status != 'CONFLICT'",
     )
     suspend fun retryAll(accountId: String)

@@ -51,7 +51,6 @@ fun ArchivedMemosScreen(
                 GenericMemosListPane(
                     viewModel = viewModel,
                     memos = pages,
-                    onRefresh = { viewModel.fetchArchivedMemos(refresh = true) },
                     onMemoClick = onMemoClick,
                     listState = listState,
                     userProvider = { uiState.session.currUser },

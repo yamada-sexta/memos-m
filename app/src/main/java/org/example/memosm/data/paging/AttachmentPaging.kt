@@ -48,7 +48,7 @@ fun attachmentPages(
                         val previous = cache.getQuery(account.account.id)
                         val token = if (loadType == LoadType.REFRESH) null else previous?.nextPageToken
                         if (loadType == LoadType.APPEND && previous?.complete == true && token == null) return MediatorResult.Success(true)
-                        if (!canFetch()) return MediatorResult.Error(IOException("Server is unavailable"))
+                        if (!canFetch()) return offlineLoadResult(loadType)
                         if (loadType == LoadType.REFRESH) tokens.clear()
                         val generation =
                             if (loadType == LoadType.REFRESH) {

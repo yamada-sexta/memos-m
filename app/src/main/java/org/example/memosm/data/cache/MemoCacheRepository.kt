@@ -1,12 +1,11 @@
 package org.example.memosm.data.cache
 
-import org.example.memosm.data.media.AttachmentUpload
-
 import androidx.paging.PagingSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.example.memosm.api.MemoOrderBy
 import org.example.memosm.data.backup.BackupCoordinator
+import org.example.memosm.data.media.AttachmentUpload
 import org.example.memosm.data.sync.PendingOp
 import org.example.memosm.model.Memo
 
@@ -158,14 +157,10 @@ class MemoCacheRepository(
         localPath: String,
     ): Boolean = memoDao.referencesAttachment(accountId, clientId, localPath)
 
-    suspend fun trimCachedMemos(
+    suspend fun trimToBytes(
         accountId: String,
-        listType: CacheListType,
-        keep: Int,
-    ) = BackupCoordinator.withStorageLock {
-        if (keep > 0) {
-            memoDao.trimListType(accountId, listType.name, keep)
-            memoDao.deleteCleanOrphans(accountId)
-        }
-    }
+        maxBytes: Long,
+        fetchedNames: List<String>,
+    ): Pair<Long, Boolean> = BackupCoordinator.withStorageLock { memoDao.trimToBytes(accountId, maxBytes, fetchedNames) }
+    suspend fun invalidateHistory(accountId: String) = BackupCoordinator.withStorageLock { memoDao.invalidateCacheBaselines(accountId) }
 }

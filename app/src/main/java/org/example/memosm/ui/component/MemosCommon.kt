@@ -103,7 +103,6 @@ fun MemosScaffold(
     onToggleNavBar: (Boolean) -> Unit = {},
     isNavBarVisible: Boolean = true,
     navigationKey: Any? = null,
-    listHeader: @Composable (showSearchBar: Boolean, isSearchExpanded: Boolean) -> Unit = { _, _ -> },
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchPages = viewModel.searchMemos.collectAsLazyPagingItems()
@@ -234,30 +233,23 @@ fun MemosScaffold(
                                     }
                                 }
 
-                                // Keep the header above the list without changing the list's
-                                // constraints as the header hides or search expands.
-                                Column(modifier = Modifier.fillMaxSize()) {
-                                    listHeader(showSearchBar, isSearchExpanded)
-                                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                                        overlay(
-                                            { memo ->
-                                                focusManager.clearFocus()
-                                                scope.launch {
-                                                    val id = memo.name ?: memo.content.hashCode().toString()
-                                                    navigator.navigateTo(
-                                                        ListDetailPaneScaffoldRole.Detail,
-                                                        MemoKey(id, fromSearch = true),
-                                                    )
-                                                }
-                                            },
-                                            showSearchBar,
-                                            isSearchExpanded,
-                                            { isSearchExpanded = it },
-                                            isDualPane,
-                                            isDetailVisible,
-                                        )
-                                    }
-                                }
+                                overlay(
+                                    { memo ->
+                                        focusManager.clearFocus()
+                                        scope.launch {
+                                            val id = memo.name ?: memo.content.hashCode().toString()
+                                            navigator.navigateTo(
+                                                ListDetailPaneScaffoldRole.Detail,
+                                                MemoKey(id, fromSearch = true),
+                                            )
+                                        }
+                                    },
+                                    showSearchBar,
+                                    isSearchExpanded,
+                                    { isSearchExpanded = it },
+                                    isDualPane,
+                                    isDetailVisible,
+                                )
                             }
                         }
                     },
@@ -354,7 +346,6 @@ fun MemosScaffold(
 fun GenericMemosListPane(
     viewModel: MemosViewModel,
     memos: LazyPagingItems<Memo>,
-    onRefresh: () -> Unit,
     onMemoClick: (Memo) -> Unit,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
@@ -371,7 +362,12 @@ fun GenericMemosListPane(
     val error = memos.loadState.refresh as? LoadState.Error
     PullToRefreshBox(
         isRefreshing = refreshing,
-        onRefresh = { if (isActive) onRefresh() },
+        onRefresh = {
+            if (isActive) {
+                memos.refresh()
+                viewModel.checkConnection()
+            }
+        },
         modifier = modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) },
     ) {
         LazyColumn(
