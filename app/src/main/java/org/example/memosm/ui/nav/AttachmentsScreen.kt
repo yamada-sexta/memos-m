@@ -46,7 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
+import kotlinx.coroutines.flow.first
 import org.example.memosm.R
+import org.example.memosm.model.Attachment
 import org.example.memosm.ui.component.ErrorView
 import org.example.memosm.ui.component.item.AttachmentCard
 import org.example.memosm.ui.component.item.AttachmentCompactMode
@@ -61,56 +63,38 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private data class TimelineLayout(
-    val days: List<AttachmentDay>,
-    val ratios: Map<String, Float>,
-    val width: Float,
-    val targetHeight: Float,
-) {
-    fun entries() = attachmentTimelineEntries(days, ratios, width, targetHeight)
-}
-
 @Composable
-private fun rememberTimelineEntries(
+internal fun rememberTimelineEntries(
     listState: LazyListState,
     days: List<AttachmentDay>,
     ratios: Map<String, Float>,
     width: Float,
     targetHeight: Float,
 ): List<AttachmentTimelineEntry> {
-    val requestedLayout by rememberUpdatedState(TimelineLayout(days, ratios, width, targetHeight))
-    val initialLayout = remember(listState) { requestedLayout }
-    var entries by remember(listState) { mutableStateOf(initialLayout.entries()) }
-
-    LaunchedEffect(listState) {
-        var displayedLayout = initialLayout
-        snapshotFlow { requestedLayout to listState.isScrollInProgress }.collect { (requested, scrolling) ->
-            // Thumbnail dimensions arrive independently. Keep the current proportions during
-            // dragging/flinging, while still allowing fetched pages to extend the list.
-            val nextLayout = if (scrolling) requested.copy(ratios = displayedLayout.ratios) else requested
-            if (nextLayout == displayedLayout) return@collect
-            val nextEntries = nextLayout.entries()
-            val visibleKey =
-                listState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { it.index == listState.firstVisibleItemIndex }
-                    ?.key
-            val anchor = entries.firstOrNull { it.key == visibleKey }
-
-            // LazyColumn preserves surviving keys itself. Only restore an attachment anchor
-            // when idle regrouping removes its row key; requestScrollToItem cancels scrolling.
-            if (!scrolling && anchor != null && nextEntries.none { it.key == anchor.key }) {
-                val newIndex =
-                    when (anchor) {
-                        is AttachmentTimelineEntry.Row -> timelineRowIndex(nextEntries, anchor.attachments.first().key)
-                        else -> null
-                    }
-                if (newIndex != null) {
-                    listState.requestScrollToItem(newIndex, listState.firstVisibleItemScrollOffset)
-                }
-            }
-            entries = nextEntries
-            displayedLayout = nextLayout
+    // Only defer dimension updates during a gesture. Rows always belong to the current
+    // Paging snapshot, including when a refresh replaces or removes cached attachments.
+    var displayedRatios by remember(listState) { mutableStateOf(ratios) }
+    LaunchedEffect(listState, ratios) {
+        snapshotFlow { listState.isScrollInProgress }.first { !it }
+        displayedRatios = ratios
+    }
+    val entries =
+        remember(days, displayedRatios, width, targetHeight) {
+            attachmentTimelineEntries(days, displayedRatios, width, targetHeight)
         }
+    var previousEntries by remember(listState) { mutableStateOf(entries) }
+    LaunchedEffect(listState, entries) {
+        val visibleKey =
+            listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == listState.firstVisibleItemIndex }
+                ?.key
+        val anchor = previousEntries.firstOrNull { it.key == visibleKey }
+        if (!listState.isScrollInProgress && anchor is AttachmentTimelineEntry.Row && entries.none { it.key == anchor.key }) {
+            timelineRowIndex(entries, anchor.attachments.first().key)?.let {
+                listState.requestScrollToItem(it, listState.firstVisibleItemScrollOffset)
+            }
+        }
+        previousEntries = entries
     }
     return entries
 }
@@ -156,8 +140,15 @@ fun AttachmentsScreen(
         }
 
     val attachmentOrigins = remember(accountIdentity) { AttachmentOrigins() }
-    var showFullScreenViewer by remember(accountIdentity) { mutableStateOf(false) }
-    var fullScreenInitialIndex by remember(accountIdentity) { mutableStateOf(0) }
+    var fullScreenAttachmentKey by remember(accountIdentity) { mutableStateOf<String?>(null) }
+
+    val pagingIndices by remember(attachmentPages) {
+        derivedStateOf { attachmentPages.itemSnapshotList.items.attachmentIndices() }
+    }
+    fun accessAttachment(attachment: Attachment) {
+        // Resolve against the live source order, not the sorted timeline or an old row index.
+        pagingIndices[attachment.identityKey]?.let { attachmentPages[it] }
+    }
 
     rememberScrollContext(
         listState = listState,
@@ -268,7 +259,7 @@ fun AttachmentsScreen(
                 }
             } else {
                 val attachmentCard: @Composable (TimelineAttachment, Modifier) -> Unit = { item, modifier ->
-                    attachmentPages[item.index]
+                    accessAttachment(item.attachment)
                     val attachment = item.attachment
                     AttachmentCard(
                         attachment = attachment,
@@ -279,8 +270,7 @@ fun AttachmentsScreen(
                         gallery = true,
                         modifier = modifier,
                         onClick = {
-                            fullScreenInitialIndex = item.index
-                            showFullScreenViewer = true
+                            fullScreenAttachmentKey = item.key
                         },
                         onMediaRatioAvailable = { ratio, exact ->
                             if (exact) {
@@ -385,17 +375,24 @@ fun AttachmentsScreen(
         }
     }
 
-    if (showFullScreenViewer) {
+    val fullScreenInitialIndex = orderedItems.indexOfFirst { it.key == fullScreenAttachmentKey }
+    LaunchedEffect(fullScreenAttachmentKey, fullScreenInitialIndex) {
+        if (fullScreenInitialIndex < 0) fullScreenAttachmentKey = null
+    }
+    if (fullScreenInitialIndex >= 0) {
         FullScreenAttachmentViewer(
             attachments = orderedAttachments,
             initialIndex = fullScreenInitialIndex,
             token = uiState.session.token,
             hostUrl = uiState.session.hostUrl,
-            onDismiss = { showFullScreenViewer = false },
+            onDismiss = { fullScreenAttachmentKey = null },
             originBounds = attachmentOrigins::boundsFor,
             attachmentKeys = attachmentKeys,
             onPageChanged = { index ->
-                if (index in 0 until attachmentPages.itemCount) attachmentPages[index]
+                orderedItems.getOrNull(index)?.let {
+                    fullScreenAttachmentKey = it.key
+                    accessAttachment(it.attachment)
+                }
             },
         )
     }

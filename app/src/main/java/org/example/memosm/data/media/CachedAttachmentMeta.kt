@@ -1,9 +1,12 @@
 package org.example.memosm.data.media
 
+import android.util.Log
 import androidx.room.Entity
 import androidx.room.Index
+import com.google.gson.JsonParseException
 import org.example.memosm.api.GsonProvider
 import org.example.memosm.model.Attachment
+import kotlin.time.Instant
 
 /**
  * Room entity caching attachment metadata for offline listing.
@@ -48,3 +51,21 @@ fun Attachment.toCachedMetadata(
         memoName = memoName,
         attachmentJson = GsonProvider.gson.toJson(this),
     )
+
+/** Keep usable offline metadata even if an older cached JSON body is incomplete or damaged. */
+fun CachedAttachmentMeta.toAttachment(): Attachment {
+    val cached =
+        try {
+            GsonProvider.gson.fromJson(attachmentJson, Attachment::class.java)
+        } catch (error: JsonParseException) {
+            Log.w("AttachmentCache", "Could not decode cached attachment metadata", error)
+            null
+        }
+    return (cached ?: Attachment(filename = filename, type = type)).copy(
+        name = attachmentName,
+        filename = cached?.filename ?: filename,
+        type = cached?.type ?: type,
+        createTime = cached?.createTime ?: createTime.takeIf { it != 0L }?.let(Instant::fromEpochMilliseconds),
+        size = cached?.size ?: size.takeIf { it != 0L }?.toString(),
+    )
+}

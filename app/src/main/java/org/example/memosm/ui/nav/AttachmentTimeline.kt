@@ -7,7 +7,7 @@ import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.min
 
-internal data class TimelineAttachment(val attachment: Attachment, val key: String, val index: Int)
+internal data class TimelineAttachment(val attachment: Attachment, val key: String)
 
 internal data class AttachmentDay(val date: LocalDate?, val attachments: List<TimelineAttachment>)
 
@@ -15,11 +15,11 @@ internal fun attachmentDays(attachments: List<Attachment>, zone: ZoneId): List<A
     // Stable sorting preserves the order of attachments with equal or absent timestamps.
     val ordered = attachments.sortedWith(compareByDescending { it.createTime })
     val occurrences = mutableMapOf<String, Int>()
-    return ordered.mapIndexed { index, attachment ->
+    return ordered.map { attachment ->
         val identity = attachment.identityKey
         val occurrence = occurrences.getOrDefault(identity, 0)
         occurrences[identity] = occurrence + 1
-        TimelineAttachment(attachment, "$identity#$occurrence", index)
+        TimelineAttachment(attachment, "$identity#$occurrence")
     }.groupBy {
         it.attachment.createTime?.let { time ->
             java.time.Instant.ofEpochMilli(time.toEpochMilliseconds()).atZone(zone).toLocalDate()
@@ -101,9 +101,9 @@ internal fun attachmentTimelineEntries(
     }
 }
 
-internal fun shouldLoadTimelinePage(lastVisibleAttachment: Int?, attachmentCount: Int, loading: Boolean, token: String?): Boolean =
-    lastVisibleAttachment != null && attachmentCount > 0 && !loading && !token.isNullOrBlank() &&
-        lastVisibleAttachment >= attachmentCount - 5
+/** Paging hints must use source order; gallery dates can reorder equal-millisecond rows. */
+internal fun List<Attachment>.attachmentIndices(): Map<String, Int> =
+    withIndex().associate { it.value.identityKey to it.index }
 
 internal fun timelineRowIndex(entries: List<AttachmentTimelineEntry>, attachmentKey: String): Int? =
     entries.indexOfFirst {
@@ -113,8 +113,3 @@ internal fun timelineRowIndex(entries: List<AttachmentTimelineEntry>, attachment
         }
     }
         .takeIf { it >= 0 }
-
-internal fun AttachmentTimelineEntry.lastAttachmentIndex(): Int? = when (this) {
-    is AttachmentTimelineEntry.Row -> attachments.lastOrNull()?.index
-    else -> null
-}

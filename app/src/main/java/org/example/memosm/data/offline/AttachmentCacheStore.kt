@@ -1,8 +1,8 @@
 package org.example.memosm.data.offline
 
-import org.example.memosm.api.GsonProvider
 import org.example.memosm.data.backup.BackupCoordinator
 import org.example.memosm.data.media.CachedAttachmentMetaDao
+import org.example.memosm.data.media.toAttachment
 import org.example.memosm.data.media.toCachedMetadata
 import org.example.memosm.model.Attachment
 
@@ -42,7 +42,7 @@ class AttachmentCacheStore(
         limit: Int? = null,
     ): List<Attachment> {
         val rows = if (limit == null) dao.getAll(accountId) else dao.getAll(accountId, limit)
-        return rows.map { requireNotNull(GsonProvider.gson.fromJson(it.attachmentJson, Attachment::class.java)) }
+        return rows.map { it.toAttachment() }
     }
 
     suspend fun clearMeta(accountId: String) = BackupCoordinator.withStorageLock { dao.clear(accountId) }

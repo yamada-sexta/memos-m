@@ -22,7 +22,6 @@ class AttachmentTimelineTest {
         assertEquals(listOf(LocalDate.of(2026, 10, 4), LocalDate.of(2025, 12, 31), null), days.map { it.date })
         assertEquals(listOf("newest.jpg", "older.jpg", "unknown.jpg"), days.flatMap { it.attachments }.map { it.attachment.filename })
         assertEquals("unknown.jpg", input.first().filename)
-        assertEquals(listOf(0, 1, 2), days.flatMap { it.attachments }.map { it.index })
     }
 
     @Test
@@ -58,7 +57,6 @@ class AttachmentTimelineTest {
         val entries = attachmentTimelineEntries(merged, emptyMap(), 400f, 120f)
         assertEquals(1, entries.filterIsInstance<AttachmentTimelineEntry.Day>().size)
         val items = entries.filterIsInstance<AttachmentTimelineEntry.Row>().flatMap { it.attachments }
-        assertEquals((0..13).toList(), items.map { it.index })
         assertEquals(merged.flatMap { it.attachments }, items)
         assertEquals(entries.size, entries.map { it.key }.distinct().size)
     }
@@ -165,7 +163,6 @@ class AttachmentTimelineTest {
         val days = attachmentDays(input, utc)
         val entries = attachmentTimelineEntries(days, emptyMap(), 400f, 120f)
         val rows = entries.filterIsInstance<AttachmentTimelineEntry.Row>()
-        assertEquals(listOf(0, 1, 2, 3, 4), rows.flatMap { row -> row.attachments.map { it.index } })
         assertEquals(1, entries.filterIsInstance<AttachmentTimelineEntry.Day>().size)
         val key = days.single().attachments[1].key
         assertTrue((entries[timelineRowIndex(entries, key)!!] as AttachmentTimelineEntry.Row).attachments.size > 1)
@@ -187,21 +184,26 @@ class AttachmentTimelineTest {
         val smallRows = small.filterIsInstance<AttachmentTimelineEntry.Row>()
         assertTrue(smallRows.first().attachments.size > 1)
         assertTrue(smallRows.last().geometry.widths.sum() + 2f * (smallRows.last().attachments.size - 1) < 400f)
-        assertEquals((0..6).toList(), smallRows.flatMap { row -> row.attachments.map { it.index } })
-        assertTrue(shouldLoadTimelinePage(smallRows.last().lastAttachmentIndex(), 7, false, "next"))
     }
 
     @Test
-    fun `pagination uses attachment range and respects loading and exhausted tokens`() {
-        assertFalse(shouldLoadTimelinePage(14, 20, false, "next"))
-        assertTrue(shouldLoadTimelinePage(15, 20, false, "next"))
-        assertTrue(shouldLoadTimelinePage(0, 3, false, "next"))
-        assertFalse(shouldLoadTimelinePage(19, 20, true, "next"))
-        assertFalse(shouldLoadTimelinePage(19, 20, false, null))
-        assertFalse(shouldLoadTimelinePage(19, 20, false, " "))
-        assertFalse(shouldLoadTimelinePage(null, 20, false, "next"))
-        assertFalse(shouldLoadTimelinePage(null, 0, false, "next"))
-        // Appending a page moves the loading threshold past the same visible attachment.
-        assertFalse(shouldLoadTimelinePage(19, 40, false, "next-page"))
+    fun `paging hints follow source identity across refresh removal and reordering`() {
+        val old = (0..59).map { attachment("$it") }
+        val oldTile = attachmentDays(old, utc).single().attachments.last()
+        val refreshed = listOf(old.last().copy(filename = "updated.jpg"), old.first())
+        assertEquals(0, refreshed.attachmentIndices()[oldTile.attachment.identityKey])
+        assertNull(refreshed.attachmentIndices()[old[30].identityKey])
+        assertNull(emptyList<Attachment>().attachmentIndices()[oldTile.attachment.identityKey])
+        assertEquals(1, refreshed.attachmentIndices()[old.first().identityKey])
+    }
+
+    @Test
+    fun `timeline sorting does not change paging source indices`() {
+        val older = attachment("older", "2026-10-04T12:00:00.000000001Z")
+        val newer = attachment("newer", "2026-10-04T12:00:00.000000002Z")
+        val source = listOf(older, newer)
+        val rows = attachmentDays(source, utc).single().attachments
+        assertEquals(listOf(newer, older), rows.map { it.attachment })
+        assertEquals(listOf(1, 0), rows.map { source.attachmentIndices()[it.attachment.identityKey] })
     }
 }

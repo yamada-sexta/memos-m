@@ -18,10 +18,10 @@ interface CachedAttachmentMetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<CachedAttachmentMeta>)
 
-    @Query("SELECT * FROM cached_attachment_meta WHERE accountId = :accountId ORDER BY createTime DESC")
+    @Query("SELECT * FROM cached_attachment_meta WHERE accountId = :accountId ORDER BY createTime DESC, attachmentName ASC")
     suspend fun getAll(accountId: String): List<CachedAttachmentMeta>
 
-    @Query("SELECT * FROM cached_attachment_meta WHERE accountId = :accountId ORDER BY createTime DESC LIMIT :limit")
+    @Query("SELECT * FROM cached_attachment_meta WHERE accountId = :accountId ORDER BY createTime DESC, attachmentName ASC LIMIT :limit")
     suspend fun getAll(
         accountId: String,
         limit: Int,

@@ -11,9 +11,9 @@ import androidx.paging.map
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import org.example.memosm.api.GsonProvider
 import org.example.memosm.data.backup.BackupCoordinator
 import org.example.memosm.data.media.CachedAttachmentMeta
+import org.example.memosm.data.media.toAttachment
 import org.example.memosm.data.offline.AttachmentCacheStore
 import org.example.memosm.model.Attachment
 import org.example.memosm.viewmodel.AccountContext
@@ -84,5 +84,5 @@ fun attachmentPages(
                 }
             },
         pagingSourceFactory = { cache.pagingSource(account.account.id) },
-    ).flow.map { page -> page.map { GsonProvider.gson.fromJson(it.attachmentJson, Attachment::class.java) } }
+    ).flow.map { page -> page.map { it.toAttachment() } }
 }
