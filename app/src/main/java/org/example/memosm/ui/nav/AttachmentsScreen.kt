@@ -145,6 +145,7 @@ fun AttachmentsScreen(
     val pagingIndices by remember(attachmentPages) {
         derivedStateOf { attachmentPages.itemSnapshotList.items.attachmentIndices() }
     }
+
     fun accessAttachment(attachment: Attachment) {
         // Resolve against the live source order, not the sorted timeline or an old row index.
         pagingIndices[attachment.identityKey]?.let { attachmentPages[it] }
