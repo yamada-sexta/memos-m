@@ -52,8 +52,15 @@ object MemosApiFactory {
                 // choosing its schema. Never retry authentication or writes.
                 if (e.code() != 404 && e.code() != 410) throw e
                 val unversioned = retrofit(baseUrl, client, "api").create(MemosApiUnversioned::class.java)
-                unversioned.getInstanceProfile()
-                return MemosApiUnversionedImpl(unversioned)
+                val serverVersion = unversioned.getInstanceProfile().version.orEmpty().removePrefix("v")
+                val version = serverVersion.substringBefore('-').split('.')
+                val year = version.getOrNull(0)?.toIntOrNull() ?: 0
+                val month = version.getOrNull(1)?.toIntOrNull() ?: 0
+                val patch = version.getOrNull(2)?.toIntOrNull() ?: 0
+                // Official canaries use the UTC day, while releases use a patch ordinal.
+                val firstParentMemoPatch = if (serverVersion.contains("-dev")) 22 else 2
+                val commentsAsMemos = year > 26 || (year == 26 && (month > 11 || (month == 11 && patch >= firstParentMemoPatch)))
+                return MemosApiUnversionedImpl(unversioned, commentsAsMemos = commentsAsMemos)
             }
             val version = profile.version ?: "Unknown"
             Log.i("MemosApiFactory", "Detected Memos server version: $version")

@@ -12,6 +12,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import org.example.memosm.model.ListMemosResponse
+import org.example.memosm.model.Memo
 import org.example.memosm.model.PersonalAccessToken
 import org.example.memosm.model.RefreshTokenResponse
 import org.example.memosm.model.SSOCredentials
@@ -161,6 +162,70 @@ class UnversionedApiTest {
                     .single()
                     .tagCount,
             )
+        }
+
+    @Test
+    fun `older unversioned servers keep dedicated comment routes`() = runBlocking {
+        for (version in listOf("26.10.0", "26.11.0", "26.11.1", "26.11.16-dev.old", "26.11.21-dev.f4c95ef")) {
+            var calls = 0
+            val api = unversioned(version) { request ->
+                calls++
+                assertEquals("/notes/api/memos/parent/comments", request.url.encodedPath)
+                if (request.method == "POST") {
+                    assertEquals("retry-id", request.url.queryParameter("commentId"))
+                    """{"name":"memos/comment","content":"Reply","visibility":"PRIVATE"}"""
+                } else {
+                    """{"comments":[{"name":"memos/comment","content":"Reply","visibility":"PRIVATE"}]}"""
+                }
+            }
+            val comment = api.createMemoComment("memos/parent", Memo(content = "Reply"), "retry-id")
+            assertEquals(comment, api.listMemoComments("memos/parent").memos!!.single())
+            assertEquals(2, calls)
+        }
+    }
+
+    @Test
+    fun `new servers use parent memos for comments and exclude them from feeds`() =
+        runBlocking {
+            for (version in listOf("26.11.2", "26.11.22-dev.8b61d2e", "26.12.1-dev.next", "27.1.0")) {
+                val requests = mutableListOf<Request>()
+                val api =
+                    unversioned(version) { request ->
+                        requests += request
+                        assertEquals("/notes/api/memos", request.url.encodedPath)
+                        when (request.method) {
+                            "POST" -> {
+                                val body = JsonParser.parseString(Buffer().apply { request.body!!.writeTo(this) }.readUtf8()).asJsonObject
+                                assertEquals("memos/parent", body["parent"].asString)
+                                assertEquals("Reply", body["content"].asString)
+                                assertEquals("retry-id", request.url.queryParameter("memoId"))
+                                """{"name":"memos/comment","content":"Reply","parent":"memos/parent","visibility":"PRIVATE"}"""
+                            }
+
+                            "GET" -> {
+                                """{"memos":[{"name":"memos/comment","content":"Reply","parent":"memos/parent","visibility":"PRIVATE"}],"nextPageToken":"next"}"""
+                            }
+
+                            else -> {
+                                error("Unexpected method: ${request.method}")
+                            }
+                        }
+                    }
+                val comment = api.createMemoComment("memos/parent", Memo(content = "Reply"), "retry-id")
+                assertEquals("memos/parent", comment.parent)
+                val page = api.listMemoComments("memos/parent", pageSize = 12, pageToken = "cursor", orderBy = "create_time asc")
+                assertEquals(comment, page.memos!!.single())
+                assertEquals("next", page.nextPageToken)
+                assertEquals("""parent == "memos/parent"""", requests.last().url.queryParameter("filter"))
+                assertEquals("12", requests.last().url.queryParameter("pageSize"))
+                assertEquals("cursor", requests.last().url.queryParameter("pageToken"))
+                assertEquals("create_time asc", requests.last().url.queryParameter("orderBy"))
+                api.listMemos(filter = "pinned == true || 'work' in tags")
+                assertEquals("(pinned == true || 'work' in tags) && parent == null", requests.last().url.queryParameter("filter"))
+                api.listMemos()
+                assertEquals("parent == null", requests.last().url.queryParameter("filter"))
+                assertEquals(4, requests.size)
+            }
         }
 
     @Test
@@ -318,13 +383,16 @@ class UnversionedApiTest {
             },
         )
 
-    private suspend fun unversioned(respond: (Request) -> String): MemosApi =
+    private suspend fun unversioned(
+        version: String = "26.10.0",
+        respond: (Request) -> String,
+    ): MemosApi =
         MemosApiFactory.create(
             "https://memos.example/notes/",
             client { request ->
                 when (request.url.encodedPath) {
                     "/notes/api/v1/instance/profile" -> 410 to "{}"
-                    "/notes/api/instance/profile" -> 200 to """{"version":"26.10.0"}"""
+                    "/notes/api/instance/profile" -> 200 to """{"version":"$version"}"""
                     else -> 200 to respond(request)
                 }
             },
